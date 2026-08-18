@@ -1937,42 +1937,50 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
         </div>
 
         {/* Global Bottom Synthesis Bar with Kaizen Justification */}
-        <div className="px-4 sm:px-6 py-3.5 border-t border-slate-800 bg-slate-950/95 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 sm:gap-4">
+        <div className="px-4 sm:px-6 py-4 border-t border-slate-800 bg-slate-950/98 flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-4">
           
-          {/* Left: Kaizen Justification & Analyst Notes */}
-          <div className="flex-1 w-full md:max-w-md lg:max-w-xl">
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-[10px] uppercase font-bold text-amber-300 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span className="truncate">Justificativa Kaizen (Linha do Tempo):</span>
+          {/* Left: Kaizen Justification & Analyst Details */}
+          <div className="flex-1 w-full space-y-1.5">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <label className="text-[10px] uppercase font-bold text-amber-300">
+                Justificativa / Melhoria Kaizen (Grava na Linha do Tempo):
               </label>
-              <div className="text-[10px] text-slate-400 flex items-center gap-1 shrink-0">
-                <span className="hidden sm:inline">Responsável:</span>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+              {/* Justification input (8 cols on sm) */}
+              <div className="sm:col-span-8">
+                <input
+                  type="text"
+                  value={notes}
+                  onChange={e => setNotes(e.target.value)}
+                  placeholder="Ex: Implementado gabarito magnético de alça para reduzir dobras..."
+                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700/80 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 font-medium"
+                />
+              </div>
+
+              {/* Analyst input (4 cols on sm) */}
+              <div className="sm:col-span-4 flex items-center gap-1.5 bg-slate-900 px-2.5 py-1.5 rounded-xl border border-slate-700/80">
+                <span className="text-[10px] text-slate-400 uppercase font-bold shrink-0">Resp:</span>
                 <input
                   type="text"
                   value={analystName}
                   onChange={e => setAnalystName(e.target.value)}
                   placeholder="Eng. Responsável"
-                  className="bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800 text-cyan-300 text-[10px] font-mono focus:outline-none focus:border-cyan-500 w-24 sm:w-32"
+                  className="w-full bg-transparent text-cyan-300 text-xs font-mono font-bold focus:outline-none placeholder-slate-600"
                 />
               </div>
             </div>
-            <input
-              type="text"
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              placeholder="Ex: Implementado gabarito magnético de alça para reduzir dobras manuais..."
-              className="w-full px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700/80 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 font-medium"
-            />
           </div>
 
           {/* Right: Consolidated Total & Action Buttons */}
-          <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-4 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 pt-2 md:pt-0 border-slate-800/80">
-            <div className="text-left md:text-right shrink-0">
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-4 justify-between xl:justify-end border-t xl:border-t-0 pt-3 xl:pt-0 border-slate-800/80 shrink-0">
+            <div className="text-left xl:text-right shrink-0">
               <span className="text-[10px] uppercase font-bold text-slate-400 block">
-                Novo Tempo (∑ TP):
+                Novo Tempo da Operação (∑ TP):
               </span>
-              <div className="text-xl sm:text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-300 to-emerald-400 font-mono">
+              <div className="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-300 to-emerald-400 font-mono">
                 {totalStats.totalStandardTimeMinutes.toFixed(2)} <span className="text-sm font-bold text-teal-400">min</span>
                 <span className="text-xs font-normal text-slate-400 ml-1">({totalStats.totalStandardTimeSeconds.toFixed(0)}s)</span>
               </div>
@@ -1982,7 +1990,7 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
               <button
                 type="button"
                 onClick={() => handleSaveAndApply(false)}
-                className="px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors"
+                className="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors whitespace-nowrap"
                 title="Salvar o estudo de micro-etapas sem alterar o tempo oficial"
               >
                 Salvar Estudo
@@ -1991,11 +1999,11 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
               <button
                 type="button"
                 onClick={() => handleSaveAndApply(true)}
-                className="px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 via-teal-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/25 transition-all flex items-center gap-1.5 sm:gap-2 active:scale-95 whitespace-nowrap"
+                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 via-teal-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/25 transition-all flex items-center gap-2 active:scale-95 whitespace-nowrap"
                 title="Salvar, aplicar novo tempo padrão e registrar marco na Linha do Tempo Kaizen"
               >
                 <Sparkles className="w-4 h-4 stroke-[2.5]" />
-                <span>Aplicar & Kaizen</span>
+                <span>Aplicar Soma & Kaizen</span>
               </button>
             </div>
           </div>
