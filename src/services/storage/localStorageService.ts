@@ -1,0 +1,160 @@
+import { DEFAULT_OPERATIONS, INITIAL_SAMPLE_ORDERS } from '@/data/defaultData';
+import { OperationItem, ProductionOrder } from '@/types/production';
+import { IStorageService, StorageData } from './types';
+
+const STORAGE_KEYS = {
+  OPERATIONS: 'bigbag_production_operations_v1',
+  ORDERS: 'bigbag_production_orders_v1',
+  CALCULATOR_SELECTION: 'bigbag_calculator_selection_v1',
+  DATA_VERSION: '1.0.0'
+};
+
+export class LocalStorageService implements IStorageService {
+  name: 'localStorage' = 'localStorage';
+
+  private isClient(): boolean {
+    return typeof window !== 'undefined';
+  }
+
+  // Operations
+  async getOperations(): Promise<OperationItem[]> {
+    if (!this.isClient()) return DEFAULT_OPERATIONS;
+    try {
+      const stored = localStorage.getItem(STORAGE_KEYS.OPERATIONS);
+      if (!stored) {
+        // Initialize with default operations
+        await this.saveOperations(DEFAULT_OPERATIONS);
+        return DEFAULT_OPERATIONS;
+      }
+      return JSON.parse(stored);
+    } catch (e) {
+      console.error('Error reading operations from localStorage:', e);
+      return DEFAULT_OPERATIONS;
+    }
+  }
+
+  async saveOperations(operations: OperationItem[]): Promise<void> {
+    if (!this.isClient()) return;
+    localStorage.setItem(STORAGE_KEYS.OPERATIONS, JSON.stringify(operations));
+  }
+
+  async updateOperation(operation: OperationItem): Promise<void> {
+    const current = await this.getOperations();
+    const index = current.findIndex(op => op.id === operation.id);
+    if (index >= 0) {
+      current[index] = operation;
+    } else {
+      current.push(operation);
+    }
+    await this.saveOperations(current);
+  }
+
+  async resetOperations(): Promise<OperationItem[]> {
+    if (this.isClient()) {
+      localStorage.setItem(STORAGE_KEYS.OPERATIONS, JSON.stringify(DEFAULT_OPERATIONS));
+    }
+    return DEFAULT_OPERATIONS;
+  }
+
+  // Production Orders (OP)
+  async getOrders(): Promise<ProductionOrder[]> {
+    if (!this.isClient()) return INITIAL_SAMPLE_ORDERS;
+    try {
+      const stored = localStorage.getItem(STORAGE_KEYS.ORDERS);
+      if (!stored) {
+        // Initialize with initial sample orders for rich immediate experience
+        await this.saveInitialOrders(INITIAL_SAMPLE_ORDERS);
+        return INITIAL_SAMPLE_ORDERS;
+      }
+      return JSON.parse(stored);
+    } catch (e) {
+      console.error('Error reading orders from localStorage:', e);
+      return INITIAL_SAMPLE_ORDERS;
+    }
+  }
+
+  private async saveInitialOrders(orders: ProductionOrder[]): Promise<void> {
+    if (!this.isClient()) return;
+    localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
+  }
+
+  async getOrderById(id: string): Promise<ProductionOrder | null> {
+    const orders = await this.getOrders();
+    return orders.find(o => o.id === id) || null;
+  }
+
+  async saveOrder(order: ProductionOrder): Promise<void> {
+    if (!this.isClient()) return;
+    const orders = await this.getOrders();
+    const index = orders.findIndex(o => o.id === order.id);
+    if (index >= 0) {
+      orders[index] = { ...order, updatedAt: new Date().toISOString() };
+    } else {
+      orders.unshift({
+        ...order,
+        createdAt: order.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+    }
+    localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
+  }
+
+  async deleteOrder(id: string): Promise<void> {
+    if (!this.isClient()) return;
+    const orders = await this.getOrders();
+    const filtered = orders.filter(o => o.id !== id);
+    localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(filtered));
+  }
+
+  // Calculator State
+  async getCalculatorSelection(): Promise<string[]> {
+    if (!this.isClient()) return DEFAULT_OPERATIONS.filter(o => o.isDefault).map(o => o.id);
+    try {
+      const stored = localStorage.getItem(STORAGE_KEYS.CALCULATOR_SELECTION);
+      if (!stored) {
+        const defaultIds = DEFAULT_OPERATIONS.map(o => o.id); // default select all as per original app
+        await this.saveCalculatorSelection(defaultIds);
+        return defaultIds;
+      }
+      return JSON.parse(stored);
+    } catch (e) {
+      console.error('Error reading selection from localStorage:', e);
+      return [];
+    }
+  }
+
+  async saveCalculatorSelection(selectedIds: string[]): Promise<void> {
+    if (!this.isClient()) return;
+    localStorage.setItem(STORAGE_KEYS.CALCULATOR_SELECTION, JSON.stringify(selectedIds));
+  }
+
+  // Backup & Restore
+  async exportAllData(): Promise<StorageData> {
+    const operations = await this.getOperations();
+    const orders = await this.getOrders();
+    const selectedCalculatorIds = await this.getCalculatorSelection();
+
+    return {
+      operations,
+      orders,
+      selectedCalculatorIds,
+      lastUpdated: new Date().toISOString(),
+      version: STORAGE_KEYS.DATA_VERSION
+    };
+  }
+
+  async importAllData(data: StorageData): Promise<void> {
+    if (!this.isClient()) return;
+    if (data.operations && Array.isArray(data.operations)) {
+      await this.saveOperations(data.operations);
+    }
+    if (data.orders && Array.isArray(data.orders)) {
+      localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(data.orders));
+    }
+    if (data.selectedCalculatorIds && Array.isArray(data.selectedCalculatorIds)) {
+      await this.saveCalculatorSelection(data.selectedCalculatorIds);
+    }
+  }
+}
+
+export const localStorageService = new LocalStorageService();
