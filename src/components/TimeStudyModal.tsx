@@ -429,7 +429,7 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
   };
 
   // ==============================================================================
-  // ADVANCED INDUSTRIAL STATISTICAL ANALYSIS ENGINE
+  // RIGOROUS INDUSTRIAL STATISTICAL ANALYSIS ENGINE
   // ==============================================================================
   const totalStats: TimeStudyStats = useMemo(() => {
     const totalStandardMinutes = microOperations.reduce((sum, op) => sum + op.standardTimeMinutes, 0);
@@ -448,9 +448,9 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
     const sumMinutes = totalVaMin + totalNnvaMin + totalNvaMin;
     const vaRatio = sumMinutes > 0 ? (totalVaMin / sumMinutes) * 100 : 0;
     const nnvaRatio = sumMinutes > 0 ? (totalNnvaMin / sumMinutes) * 100 : 0;
-    const nvaRatio = sumMinutes > 0 ? (totalNvaMin / sumMinutes) * 100 : 0;
+    const nvaRatio = sumMinutes > 0 ? (totalNnvaMin / sumMinutes) * 100 : 0;
 
-    // Minimum samples across all steps (the limiting factor for cycle confidence)
+    // Minimum samples across all steps (limiting factor)
     const minSamplesInSteps = microOperations.length > 0
       ? Math.min(...microOperations.map(op => op.samples.length))
       : 0;
@@ -462,60 +462,85 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
     const targetError = errorMarginPct; // e.g. 0.05 (5%)
 
     // Standard deviation computation across steps
-    const stdDevSum = Math.sqrt(
-      microOperations.reduce((acc, op) => {
-        if (op.samples.length <= 1) return acc;
-        const mean = op.meanMinutes;
-        const variance = op.samples.reduce((s, x) => s + Math.pow(x.timeInMinutes - mean, 2), 0) / (op.samples.length - 1);
-        return acc + variance;
-      }, 0)
-    );
+    let stdDevSum = 0;
+    if (minSamplesInSteps >= 2) {
+      stdDevSum = Math.sqrt(
+        microOperations.reduce((acc, op) => {
+          if (op.samples.length <= 1) return acc;
+          const mean = op.meanMinutes;
+          const variance = op.samples.reduce((s, x) => s + Math.pow(x.timeInMinutes - mean, 2), 0) / (op.samples.length - 1);
+          return acc + variance;
+        }, 0)
+      );
+    }
 
-    // Coefficient of variation CV = (s / x̄) * 100
-    const cvPct = meanTotalMinutes > 0 ? (stdDevSum / meanTotalMinutes) * 100 : 0;
+    // Effective standard deviation for statistical sizing:
+    // If n < 2, standard deviation is undefined; we use typical industrial benchmark (CV ≈ 10%)
+    // If n >= 2, we use calculated s with a realistic minimum (CV >= 3%) to prevent artificial s=0
+    let effectiveStdDev = stdDevSum;
+    let cvPct = 0;
 
-    // Sizing N' = [ (z * s) / (e * x̄) ]^2
-    let requiredSamples = 1;
-    if (meanTotalMinutes > 0 && stdDevSum > 0) {
-      const exactN = Math.pow((z * stdDevSum) / (targetError * meanTotalMinutes), 2);
-      requiredSamples = Math.max(1, Math.ceil(exactN));
+    if (minSamplesInSteps === 0) {
+      effectiveStdDev = 0;
+      cvPct = 0;
+    } else if (minSamplesInSteps === 1) {
+      effectiveStdDev = meanTotalMinutes * 0.10; // Benchmark 10%
+      cvPct = 10;
+    } else {
+      cvPct = meanTotalMinutes > 0 ? (stdDevSum / meanTotalMinutes) * 100 : 0;
+      effectiveStdDev = Math.max(stdDevSum, meanTotalMinutes * 0.03); // Minimum 3% to avoid collapse
+    }
+
+    // Statistical Sizing N' = [ (z * s) / (e * x̄) ]^2
+    // For n=1, default standard pilot requirement is minimum 16 samples for 95%/5% or at least 5 samples
+    let requiredSamples = 5; // Absolute minimum industrial pilot
+    if (meanTotalMinutes > 0 && effectiveStdDev > 0) {
+      const exactN = Math.pow((z * effectiveStdDev) / (targetError * meanTotalMinutes), 2);
+      requiredSamples = Math.max(5, Math.ceil(exactN));
     }
 
     // Current Achieved Relative Error with current n: e_atual = (z * s) / (sqrt(n) * x̄)
     let currentAchievedErrorPct = 100;
-    if (minSamplesInSteps > 0 && meanTotalMinutes > 0) {
-      if (stdDevSum === 0) {
-        currentAchievedErrorPct = minSamplesInSteps >= 2 ? 0 : 50;
-      } else {
-        const exactE = (z * stdDevSum) / (Math.sqrt(minSamplesInSteps) * meanTotalMinutes);
-        currentAchievedErrorPct = Number((exactE * 100).toFixed(1));
-      }
+    if (minSamplesInSteps === 1) {
+      currentAchievedErrorPct = 39.2; // (1.96 * 0.10 / sqrt(1)) * 100 ≈ 39.2% com estimativa de 10% CV
+    } else if (minSamplesInSteps >= 2 && meanTotalMinutes > 0) {
+      const exactE = (z * effectiveStdDev) / (Math.sqrt(minSamplesInSteps) * meanTotalMinutes);
+      currentAchievedErrorPct = Number((exactE * 100).toFixed(1));
     }
 
-    const isStatisticallyValid = minSamplesInSteps >= requiredSamples;
+    // Statistical Validity: ONLY valid if AT LEAST 3 to 5 samples exist AND n >= N' AND error <= targetError
+    const isStatisticallyValid =
+      minSamplesInSteps >= 5 &&
+      minSamplesInSteps >= requiredSamples &&
+      currentAchievedErrorPct <= (targetError * 100);
+
     const remainingSamplesNeeded = Math.max(0, requiredSamples - minSamplesInSteps);
 
     // Human-readable Reliability Assessment
     let reliabilityLevel: StatisticalReliabilityLevel = 'amostragem_inicial';
-    let reliabilityLabel = 'Amostragem Inicial (Preliminar)';
-    let reliabilityRecommendation = `Foram feitas ${minSamplesInSteps} tomadas. Para atingir o Padrão Industrial (95% de Confiança e erro de ±5%), são necessárias ${requiredSamples} tomadas no total (faltam ${remainingSamplesNeeded}).`;
+    let reliabilityLabel = 'Amostragem Inicial (1 tomada - Insuficiente)';
+    let reliabilityRecommendation = `Com apenas ${minSamplesInSteps} tomada, não há dados suficientes para certificar a repetibilidade. Para atingir o Padrão Industrial (95% Confiança / ±5% Erro), são necessárias ${requiredSamples} tomadas no total (faltam ${remainingSamplesNeeded}).`;
 
     if (minSamplesInSteps === 0) {
       reliabilityLevel = 'amostragem_inicial';
-      reliabilityLabel = 'Sem Amostras';
-      reliabilityRecommendation = 'Inicie cronometrando cada micro-operação com o mini-cronômetro.';
-    } else if (minSamplesInSteps < 3) {
+      reliabilityLabel = 'Sem Amostras Gravadas';
+      reliabilityRecommendation = 'Inicie cronometrando cada micro-operação com o mini-cronômetro para iniciar o estudo estatístico.';
+    } else if (minSamplesInSteps === 1) {
       reliabilityLevel = 'amostragem_inicial';
-      reliabilityLabel = `Amostragem Inicial (${minSamplesInSteps} tomada${minSamplesInSteps > 1 ? 's' : ''})`;
-      reliabilityRecommendation = `Com apenas ${minSamplesInSteps} tomada(s), a margem de erro estimada é de ±${currentAchievedErrorPct}%. Recomendamos ao menos 5 a ${requiredSamples} tomadas para representatividade industrial.`;
-    } else if (isStatisticallyValid && currentAchievedErrorPct <= 5) {
+      reliabilityLabel = 'Amostragem Inicial (1 tomada - Insuficiente)';
+      reliabilityRecommendation = `Com apenas 1 tomada, o desvio padrão é indeterminado (margem de erro estimada em ±${currentAchievedErrorPct}%). Para certificar no Padrão Industrial (95% Confiança / ±5% Erro), realize no mínimo ${requiredSamples} tomadas (faltam ${remainingSamplesNeeded}).`;
+    } else if (minSamplesInSteps < 5) {
+      reliabilityLevel = 'amostragem_inicial';
+      reliabilityLabel = `Amostragem Preliminar (${minSamplesInSteps} tomadas)`;
+      reliabilityRecommendation = `Com ${minSamplesInSteps} tomadas, a margem de erro atual é de ±${currentAchievedErrorPct}%. Para atingir o Padrão Industrial (95% / ±5%), colete mais ${remainingSamplesNeeded} tomada(s) (total recomendado: ${requiredSamples}).`;
+    } else if (isStatisticallyValid) {
       reliabilityLevel = 'padrao_industrial';
       reliabilityLabel = '✅ Padrão Industrial Certificado (95% Confiança, erro ≤ 5%)';
-      reliabilityRecommendation = `Excelente! Com ${minSamplesInSteps} tomadas, o estudo atingiu o padrão de precisão industrial exigido (margem de erro de ±${currentAchievedErrorPct}%).`;
+      reliabilityRecommendation = `Excelente! Com ${minSamplesInSteps} tomadas, o estudo atingiu o rigor estatístico exigido pela engenharia de produção (margem de erro de ±${currentAchievedErrorPct}%).`;
     } else if (currentAchievedErrorPct <= 10) {
       reliabilityLevel = 'confiabilidade_media';
       reliabilityLabel = `Confiabilidade Intermediária (Margem de erro: ±${currentAchievedErrorPct}%)`;
-      reliabilityRecommendation = `A amostragem atual possui boa aproximação, mas faltam ${remainingSamplesNeeded} tomada(s) para atingir a certificação de alta precisão (±5%).`;
+      reliabilityRecommendation = `Boa aproximação inicial (erro de ±${currentAchievedErrorPct}%), mas faltam ${remainingSamplesNeeded} tomada(s) para atingir a certificação de alta precisão (±5%).`;
     } else {
       reliabilityLevel = 'baixa_confiabilidade';
       reliabilityLabel = `Variação Detectada (Margem de erro: ±${currentAchievedErrorPct}%)`;
@@ -527,7 +552,7 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
       meanSeconds: Number((meanTotalMinutes * 60).toFixed(1)),
       stdDevMinutes: Number(stdDevSum.toFixed(4)),
       variance: Number(Math.pow(stdDevSum, 2).toFixed(4)),
-      coefficientOfVariationPct: Number(cvPct.toFixed(1)),
+      coefficientOfVariationPct: minSamplesInSteps >= 2 ? Number(cvPct.toFixed(1)) : 0,
       minMinutes: 0,
       maxMinutes: 0,
       sampleCount: minSamplesInSteps,
@@ -562,6 +587,9 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
     const mean = totalStats.meanMinutes;
     const s = totalStats.stdDevMinutes;
 
+    // Use effective s for sizing (minimum pilot of 10% CV if n=1, or calculated s >= 3% if n>=2)
+    const effectiveS = n >= 2 ? Math.max(s, mean * 0.03) : mean * 0.10;
+
     const levels = [
       {
         key: 'preliminar',
@@ -569,6 +597,7 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
         confidence: 90,
         z: 1.645,
         errorPct: 0.10, // 10%
+        minPilot: 3,
         desc: 'Para estudos rápidos e estimativas preliminares de fábrica',
         badge: 'bg-blue-950/60 text-blue-300 border-blue-800/60'
       },
@@ -578,6 +607,7 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
         confidence: 95,
         z: 1.96,
         errorPct: 0.05, // 5%
+        minPilot: 5,
         desc: 'Padrão ouro exigido pela engenharia de produção e Lean Manufacturing',
         isRecommended: true,
         badge: 'bg-emerald-950 text-emerald-300 border-emerald-500/70 shadow-sm ring-1 ring-emerald-500/30'
@@ -588,6 +618,7 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
         confidence: 99,
         z: 2.576,
         errorPct: 0.05, // 5%
+        minPilot: 8,
         desc: 'Para gargalos críticos de linha e auditorias rigorosas',
         badge: 'bg-purple-950/60 text-purple-300 border-purple-800/60'
       },
@@ -597,18 +628,21 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
         confidence: 99,
         z: 2.576,
         errorPct: 0.02, // 2%
+        minPilot: 15,
         desc: 'Precisão máxima para produção em altíssima escala',
         badge: 'bg-amber-950/60 text-amber-300 border-amber-800/60'
       }
     ];
 
     return levels.map(lvl => {
-      let reqN = 1;
-      if (mean > 0 && s > 0) {
-        const exactN = Math.pow((lvl.z * s) / (lvl.errorPct * mean), 2);
-        reqN = Math.max(1, Math.ceil(exactN));
+      let reqN = lvl.minPilot;
+      if (mean > 0 && effectiveS > 0) {
+        const exactN = Math.pow((lvl.z * effectiveS) / (lvl.errorPct * mean), 2);
+        reqN = Math.max(lvl.minPilot, Math.ceil(exactN));
       }
-      const isAchieved = n >= reqN;
+
+      // Valid ONLY if n >= minPilot AND n >= reqN
+      const isAchieved = n >= lvl.minPilot && n >= reqN;
       const remaining = Math.max(0, reqN - n);
 
       return {
@@ -822,7 +856,11 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
                     Cada micro-operação possui seu <strong>mini-cronômetro individual</strong>. Clique em <strong>▶ Cronometrar</strong> e depois em <strong>✓ Gravar</strong> para registrar tomadas.
                   </span>
                 </div>
-                <span className="text-[11px] font-mono text-cyan-300 bg-cyan-950/50 px-2 py-0.5 rounded border border-cyan-800/50 shrink-0">
+                <span className={`text-[11px] font-mono font-bold px-2.5 py-0.5 rounded border shrink-0 ${
+                  totalStats.isStatisticallyValid
+                    ? 'bg-emerald-950/70 text-emerald-300 border-emerald-700/60'
+                    : 'bg-amber-950/70 text-amber-300 border-amber-700/60'
+                }`}>
                   {totalStats.reliabilityLabel}
                 </span>
               </div>
@@ -1056,7 +1094,7 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
                         : 'bg-amber-950/80 text-amber-300 border-amber-500/50'
                     }`}
                   >
-                    {totalStats.isStatisticallyValid ? '✓ Padrão Industrial Atingido' : `Faltam ${totalStats.remainingSamplesNeeded} tomadas`}
+                    {totalStats.isStatisticallyValid ? '✓ Padrão Industrial Atingido' : `⏳ Amostragem Preliminar (Faltam ${totalStats.remainingSamplesNeeded} tomadas)`}
                   </span>
                 </div>
 
@@ -1089,10 +1127,14 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
                       1. Amostras Realizadas:
                     </span>
                     <div className="text-2xl font-extrabold font-mono text-white">
-                      {totalStats.sampleCount} <span className="text-xs font-normal text-slate-400">tomadas</span>
+                      {totalStats.sampleCount} <span className="text-xs font-normal text-slate-400">tomada{totalStats.sampleCount > 1 ? 's' : ''}</span>
                     </div>
                     <span className="text-[11px] text-slate-500 block">
-                      Margem de erro atual: <strong className="text-cyan-300">&plusmn;{totalStats.currentAchievedErrorPct}%</strong>
+                      {totalStats.sampleCount < 2 ? (
+                        <span className="text-amber-400 font-mono">Margem de erro estimada: &plusmn;{totalStats.currentAchievedErrorPct}%</span>
+                      ) : (
+                        <span>Margem de erro atual: <strong className="text-cyan-300">&plusmn;{totalStats.currentAchievedErrorPct}%</strong></span>
+                      )}
                     </span>
                   </div>
 
@@ -1108,8 +1150,8 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
                       {totalStats.requiredSamples} <span className="text-xs font-normal text-slate-400">tomadas no total</span>
                     </div>
                     <span className="text-[11px] text-slate-400 block">
-                      {totalStats.remainingSamplesNeeded === 0 ? (
-                        <strong className="text-emerald-400">✓ Amostragem suficiente</strong>
+                      {totalStats.isStatisticallyValid ? (
+                        <strong className="text-emerald-400">✓ Amostragem suficiente ({totalStats.sampleCount} &ge; {totalStats.requiredSamples})</strong>
                       ) : (
                         <span>Faltam <strong>{totalStats.remainingSamplesNeeded}</strong> tomadas para certificar</span>
                       )}
@@ -1121,10 +1163,16 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
                       3. Estabilidade do Processo (CV):
                     </span>
                     <div className="text-2xl font-extrabold font-mono text-cyan-300">
-                      {totalStats.coefficientOfVariationPct}%
+                      {totalStats.sampleCount < 2 ? (
+                        <span className="text-base text-slate-400 font-sans font-bold">Indeterminado</span>
+                      ) : (
+                        `${totalStats.coefficientOfVariationPct}%`
+                      )}
                     </div>
                     <span className="text-[11px] text-slate-500 block">
-                      {totalStats.coefficientOfVariationPct <= 10
+                      {totalStats.sampleCount < 2
+                        ? 'Requer ao menos 2 tomadas para calcular dispersão'
+                        : totalStats.coefficientOfVariationPct <= 10
                         ? 'Processo altamente estável e repetível'
                         : 'Oscilação moderada entre tomadas'}
                     </span>
@@ -1146,7 +1194,7 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
                     </h3>
                   </div>
                   <span className="text-xs text-slate-400">
-                    Amostragem atual: <strong className="text-white font-mono">{totalStats.sampleCount} tomadas</strong>
+                    Amostragem atual: <strong className="text-white font-mono">{totalStats.sampleCount} tomada{totalStats.sampleCount > 1 ? 's' : ''}</strong>
                   </span>
                 </div>
 
@@ -1223,7 +1271,7 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
                               </span>
                             ) : (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-950/80 text-amber-300 border border-amber-600/50">
-                                <Clock className="w-3 h-3" /> Em Progresso
+                                <Clock className="w-3 h-3" /> Em Progresso ({totalStats.sampleCount}/{lvl.requiredSamples})
                               </span>
                             )}
                           </td>
@@ -1272,7 +1320,7 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
                           <span>Passo 1:</span> Média dos Tempos Amostrais (&xmacr;)
                         </span>
                         <span className="text-[11px] font-mono text-slate-400">
-                          n = {totalStats.sampleCount} tomadas
+                          n = {totalStats.sampleCount} tomada{totalStats.sampleCount > 1 ? 's' : ''}
                         </span>
                       </div>
                       <div className="p-2.5 rounded-lg bg-slate-950 font-mono text-xs text-slate-200 overflow-x-auto">
@@ -1287,11 +1335,19 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
                           <span>Passo 2:</span> Desvio Padrão Amostral (s) & Variância (s&sup2;)
                         </span>
                         <span className="text-[11px] font-mono text-slate-400">
-                          Graus de liberdade: {Math.max(1, totalStats.sampleCount - 1)}
+                          {totalStats.sampleCount < 2 ? 'Graus de liberdade = 0 (n < 2)' : `Graus de liberdade: ${totalStats.sampleCount - 1}`}
                         </span>
                       </div>
                       <div className="p-2.5 rounded-lg bg-slate-950 font-mono text-xs text-slate-200 overflow-x-auto">
-                        s = &radic;[ &Sigma;(x_i - &xmacr;)&sup2; / (n - 1) ] = &plusmn;{totalStats.stdDevMinutes.toFixed(4)} min &bull; s&sup2; = {totalStats.variance.toFixed(4)}
+                        {totalStats.sampleCount < 2 ? (
+                          <span className="text-amber-300">
+                            s = Indeterminado com 1 tomada (requer n &ge; 2). Adotada estimativa técnica de variabilidade inicial CV &asymp; 10% (s &asymp; &plusmn;{(totalStats.meanMinutes * 0.10).toFixed(4)} min).
+                          </span>
+                        ) : (
+                          <span>
+                            s = &radic;[ &Sigma;(x_i - &xmacr;)&sup2; / (n - 1) ] = &plusmn;{totalStats.stdDevMinutes.toFixed(4)} min &bull; s&sup2; = {totalStats.variance.toFixed(4)}
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -1301,12 +1357,20 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
                         <span className="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
                           <span>Passo 3:</span> Coeficiente de Variação / Estabilidade (CV)
                         </span>
-                        <span className={`text-[11px] font-bold font-mono ${totalStats.coefficientOfVariationPct <= 10 ? 'text-emerald-400' : 'text-amber-400'}`}>
-                          {totalStats.coefficientOfVariationPct <= 10 ? 'Estável (&le; 10%)' : 'Oscilação (> 10%)'}
+                        <span className={`text-[11px] font-bold font-mono ${totalStats.sampleCount >= 2 && totalStats.coefficientOfVariationPct <= 10 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                          {totalStats.sampleCount < 2 ? 'Requer n ≥ 2' : totalStats.coefficientOfVariationPct <= 10 ? 'Estável (≤ 10%)' : 'Oscilação (> 10%)'}
                         </span>
                       </div>
                       <div className="p-2.5 rounded-lg bg-slate-950 font-mono text-xs text-slate-200 overflow-x-auto">
-                        CV = (s / &xmacr;) &times; 100% = ({totalStats.stdDevMinutes.toFixed(4)} / {totalStats.meanMinutes.toFixed(3)}) &times; 100% = {totalStats.coefficientOfVariationPct}%
+                        {totalStats.sampleCount < 2 ? (
+                          <span className="text-slate-400">
+                            CV = Indeterminado para n=1. A dispersão real será calculada a partir da 2ª tomada de tempo.
+                          </span>
+                        ) : (
+                          <span>
+                            CV = (s / &xmacr;) &times; 100% = ({totalStats.stdDevMinutes.toFixed(4)} / {totalStats.meanMinutes.toFixed(3)}) &times; 100% = {totalStats.coefficientOfVariationPct}%
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -1323,10 +1387,14 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
                       <div className="p-3 rounded-lg bg-slate-950 font-mono text-xs text-emerald-300 overflow-x-auto space-y-1">
                         <div>N&apos; = [ (z &middot; s) / (e &middot; &xmacr;) ]&sup2;</div>
                         <div className="text-slate-300">
-                          N&apos; = [ ({totalStats.zValue} &middot; {totalStats.stdDevMinutes.toFixed(4)}) / ({totalStats.errorMarginPct} &middot; {totalStats.meanMinutes.toFixed(3)}) ]&sup2;
+                          {totalStats.sampleCount < 2 ? (
+                            <span>N&apos; = [ (1.96 &middot; {(totalStats.meanMinutes * 0.10).toFixed(4)}) / (0.05 &middot; {totalStats.meanMinutes.toFixed(3)}) ]&sup2; = [ 3.92 ]&sup2; &asymp; 15.36</span>
+                          ) : (
+                            <span>N&apos; = [ ({totalStats.zValue} &middot; {totalStats.stdDevMinutes.toFixed(4)}) / ({totalStats.errorMarginPct} &middot; {totalStats.meanMinutes.toFixed(3)}) ]&sup2;</span>
+                          )}
                         </div>
                         <div className="text-white font-bold pt-1">
-                          N&apos; = [ {(totalStats.zValue * totalStats.stdDevMinutes).toFixed(4)} / {(totalStats.errorMarginPct * totalStats.meanMinutes).toFixed(4)} ]&sup2; = {totalStats.requiredSamples} tomadas
+                          N&apos; = {totalStats.requiredSamples} tomadas recomendadas no total (faltam {totalStats.remainingSamplesNeeded})
                         </div>
                       </div>
                     </div>
@@ -1338,11 +1406,15 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
                           <span>Passo 5:</span> Margem de Erro Atual Atingida (e_atual)
                         </span>
                         <span className="text-[11px] font-mono text-cyan-300">
-                          Com {totalStats.sampleCount} tomadas realizadas
+                          Com {totalStats.sampleCount} tomada realizada
                         </span>
                       </div>
                       <div className="p-2.5 rounded-lg bg-slate-950 font-mono text-xs text-slate-200 overflow-x-auto">
-                        e_atual = (z &middot; s) / (&radic;n &middot; &xmacr;) = ({totalStats.zValue} &middot; {totalStats.stdDevMinutes.toFixed(4)}) / (&radic;{totalStats.sampleCount} &middot; {totalStats.meanMinutes.toFixed(3)}) = &plusmn;{totalStats.currentAchievedErrorPct}%
+                        {totalStats.sampleCount < 2 ? (
+                          <span>e_atual &asymp; &plusmn;{totalStats.currentAchievedErrorPct}% (margem de erro preliminar elevada)</span>
+                        ) : (
+                          <span>e_atual = (z &middot; s) / (&radic;n &middot; &xmacr;) = ({totalStats.zValue} &middot; {totalStats.stdDevMinutes.toFixed(4)}) / (&radic;{totalStats.sampleCount} &middot; {totalStats.meanMinutes.toFixed(3)}) = &plusmn;{totalStats.currentAchievedErrorPct}%</span>
+                        )}
                       </div>
                     </div>
 
