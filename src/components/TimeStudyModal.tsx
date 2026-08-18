@@ -875,23 +875,39 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
                 </select>
               </div>
 
-              {/* Fadiga Geral com Tooltip */}
+              {/* Fadiga Geral com Tooltip Detalhado */}
               <div className="flex items-center gap-2">
                 <div className="relative group/tooltip flex items-center">
                   <span className="text-slate-300 font-semibold cursor-help underline decoration-dotted decoration-amber-500/60 underline-offset-2 flex items-center gap-1">
                     <Coffee className="w-3 h-3 text-amber-400" />
                     Fadiga Geral:
                   </span>
-                  <div className="pointer-events-none absolute bottom-full left-0 mb-2 w-64 p-2.5 rounded-xl bg-slate-950/95 border border-amber-500/50 text-slate-200 text-xs shadow-2xl shadow-amber-950/60 opacity-0 group-hover/tooltip:opacity-100 transition-all duration-200 z-50 leading-relaxed backdrop-blur-md">
-                    <div className="font-bold text-amber-300 mb-1 flex items-center gap-1.5">
-                      <Coffee className="w-3.5 h-3.5" />
+                  <div className="pointer-events-none absolute bottom-full left-0 mb-2 w-80 p-3 rounded-xl bg-slate-950/98 border border-amber-500/60 text-slate-200 text-xs shadow-2xl shadow-amber-950/70 opacity-0 group-hover/tooltip:opacity-100 transition-all duration-200 z-50 leading-relaxed backdrop-blur-md">
+                    <div className="font-bold text-amber-300 mb-1.5 flex items-center gap-1.5 border-b border-slate-800 pb-1">
+                      <Coffee className="w-3.5 h-3.5 text-amber-400" />
                       Fadiga & Tolerâncias (Allowances)
                     </div>
-                    <p className="text-slate-300 text-[10px]">
-                      Acréscimo percentual para necessidades pessoais (5%), cansaço muscular/visual (4-7%) e demoras inevitáveis como troca de linha/bobina (3-5%).
-                    </p>
-                    <div className="mt-1.5 pt-1.5 border-t border-slate-800 text-[10px] text-amber-400 font-mono">
-                      Fórmula: Tempo Padrão (TP) = TN &times; (1 + Fadiga)
+                    
+                    <div className="space-y-1.5 text-[10.5px]">
+                      <div>
+                        <strong className="text-amber-200 font-bold block">1. Necessidades Pessoais (5%):</strong>
+                        <span className="text-slate-300">Ir ao banheiro, beber água, higiene.</span>
+                      </div>
+                      
+                      <div>
+                        <strong className="text-amber-200 font-bold block">2. Fadiga Física e Visual (4% a 6%):</strong>
+                        <span className="text-slate-300">Tensão muscular ao guiar tecidos pesados de ráfia, esforço visual constante na agulha, postura sentada/em pé, vibração e ruído da máquina.</span>
+                      </div>
+                      
+                      <div>
+                        <strong className="text-amber-200 font-bold block">3. Pequenas Esperas Inevitáveis (3% a 4%):</strong>
+                        <span className="text-slate-300">Troca de bobina/carretel de linha, ajuste rápido da tensão da linha, desembaraçar uma alça, pegar novo lote de peças na esteira.</span>
+                      </div>
+                    </div>
+
+                    <div className="mt-2 pt-1.5 border-t border-slate-800 text-[10px] text-amber-400 font-mono flex items-center justify-between">
+                      <span>Fórmula:</span>
+                      <strong>TP = TN &times; (1 + Fadiga)</strong>
                     </div>
                     <div className="absolute top-full left-4 -mt-1 border-4 border-transparent border-t-slate-950" />
                   </div>
@@ -1231,23 +1247,39 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
 
                         <ArrowRight className="w-3.5 h-3.5 text-slate-600 hidden md:block" />
 
-                        {/* 4. Seletor de Fadiga / Tolerância (%) com Tooltip */}
+                        {/* 4. Seletor de Fadiga / Tolerância (%) com Tooltip Detalhado */}
                         <div className="flex items-center gap-2">
                           <div className="relative group/tooltip flex items-center">
                             <span className="text-[10px] uppercase font-bold text-amber-400 flex items-center gap-1 cursor-help underline decoration-dotted decoration-amber-500/60 underline-offset-2">
                               <Coffee className="w-3 h-3 text-amber-400" />
                               4. Fadiga:
                             </span>
-                            <div className="pointer-events-none absolute bottom-full left-0 mb-2 w-64 p-2.5 rounded-xl bg-slate-950/95 border border-amber-500/50 text-slate-200 text-xs shadow-2xl shadow-amber-950/60 opacity-0 group-hover/tooltip:opacity-100 transition-all duration-200 z-50 leading-relaxed backdrop-blur-md">
-                              <div className="font-bold text-amber-300 mb-1 flex items-center gap-1.5">
-                                <Coffee className="w-3.5 h-3.5" />
-                                Fadiga & Tolerância da Etapa
+                            <div className="pointer-events-none absolute bottom-full left-0 mb-2 w-80 p-3 rounded-xl bg-slate-950/98 border border-amber-500/60 text-slate-200 text-xs shadow-2xl shadow-amber-950/70 opacity-0 group-hover/tooltip:opacity-100 transition-all duration-200 z-50 leading-relaxed backdrop-blur-md">
+                              <div className="font-bold text-amber-300 mb-1.5 flex items-center gap-1.5 border-b border-slate-800 pb-1">
+                                <Coffee className="w-3.5 h-3.5 text-amber-400" />
+                                Fadiga & Tolerâncias (Allowances)
                               </div>
-                              <p className="text-slate-300 text-[10px]">
-                                Compensação percentual para postura, tensão muscular no manuseio de ráfia e necessidades fisiológicas.
-                              </p>
-                              <div className="mt-1.5 pt-1.5 border-t border-slate-800 text-[10px] text-amber-400 font-mono">
-                                TP = TN &times; (1 + Fadiga)
+                              
+                              <div className="space-y-1.5 text-[10.5px]">
+                                <div>
+                                  <strong className="text-amber-200 font-bold block">1. Necessidades Pessoais (5%):</strong>
+                                  <span className="text-slate-300">Ir ao banheiro, beber água, higiene.</span>
+                                </div>
+                                
+                                <div>
+                                  <strong className="text-amber-200 font-bold block">2. Fadiga Física e Visual (4% a 6%):</strong>
+                                  <span className="text-slate-300">Tensão muscular ao guiar tecidos pesados de ráfia, esforço visual constante na agulha, postura sentada/em pé, vibração e ruído da máquina.</span>
+                                </div>
+                                
+                                <div>
+                                  <strong className="text-amber-200 font-bold block">3. Pequenas Esperas Inevitáveis (3% a 4%):</strong>
+                                  <span className="text-slate-300">Troca de bobina/carretel de linha, ajuste rápido da tensão da linha, desembaraçar uma alça, pegar novo lote de peças na esteira.</span>
+                                </div>
+                              </div>
+
+                              <div className="mt-2 pt-1.5 border-t border-slate-800 text-[10px] text-amber-400 font-mono flex items-center justify-between">
+                                <span>Fórmula:</span>
+                                <strong>TP = TN &times; (1 + Fadiga)</strong>
                               </div>
                               <div className="absolute top-full left-4 -mt-1 border-4 border-transparent border-t-slate-950" />
                             </div>
