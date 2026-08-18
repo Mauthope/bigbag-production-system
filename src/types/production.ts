@@ -83,7 +83,7 @@ export interface ComponentEfficiencyStat {
 }
 
 // ==============================================================================
-// LEAN TIME STUDY & CRONOANÁLISE TYPES
+// LEAN MICRO-OPERATIONS & TIME STUDY TYPES
 // ==============================================================================
 
 export type LeanActionType = 'valor_agregado' | 'necessario' | 'desperdicio';
@@ -94,19 +94,38 @@ export interface TimeStudySample {
   timeInSeconds: number;
   timeInMinutes: number;
   type: LeanActionType;
+  stepId?: string;
   stepName?: string;
+  cycleIndex?: number;
   notes?: string;
   timestamp: string;
 }
 
+export interface MicroOperation {
+  id: string;
+  orderIndex: number;
+  name: string;
+  type: LeanActionType; // 'valor_agregado' | 'necessario' | 'desperdicio'
+  description?: string;
+  samples: TimeStudySample[];
+  meanSeconds: number;
+  meanMinutes: number;
+  paceRating: number;          // Fator de Ritmo (ex: 1.0 = 100%)
+  allowancePercentage: number; // Tolerâncias / Suplementos (ex: 0.12 = 12%)
+  normalTimeMinutes: number;   // TN = TC * FR
+  standardTimeMinutes: number; // TP = TN * (1 + FT)
+  standardTimeSeconds: number;
+  sharePercentage?: number;    // % deste passo no tempo total da operação
+}
+
 export interface TimeStudyStats {
-  meanMinutes: number;         // Média amostral (x̄)
+  meanMinutes: number;         // Média total amostral do ciclo (x̄)
   meanSeconds: number;
   stdDevMinutes: number;       // Desvio padrão amostral (s)
   variance: number;
   minMinutes: number;
   maxMinutes: number;
-  sampleCount: number;         // Número de tomadas (n)
+  sampleCount: number;         // Número de ciclos completos
   zValue: number;              // Valor crítico de z (1.645 p/ 90%, 1.96 p/ 95%, 2.576 p/ 99%)
   confidenceLevel: number;     // Nível de confiança (90, 95, 99)
   errorMarginPct: number;      // Margem de erro relativo (ex: 0.05 para 5%)
@@ -115,15 +134,18 @@ export interface TimeStudyStats {
   remainingSamplesNeeded: number; // Max(0, N' - n)
 
   // Lean Breakdown
+  vaMinutes: number;           // Minutos em Valor Agregado
+  nnvaMinutes: number;         // Minutos em Necessário
+  nvaMinutes: number;          // Minutos em Desperdício
   vaRatio: number;             // % Valor Agregado
   nnvaRatio: number;           // % Necessário
   nvaRatio: number;            // % Desperdício
 
   // Standard Time Calculations
-  paceRating: number;          // Fator de Ritmo / Velocidade (ex: 1.0 = 100%, 1.05 = 105%)
-  normalTimeMinutes: number;   // TN = TC * FR
-  allowancePercentage: number; // Tolerâncias / Concessões / Fadiga (ex: 0.12 = 12%)
-  standardTimeMinutes: number; // TP = TN * (1 + FT)
+  paceRating: number;          // Fator de Ritmo
+  allowancePercentage: number; // Tolerâncias
+  totalStandardTimeMinutes: number; // Soma de todas as micro-operações
+  totalStandardTimeSeconds: number;
 }
 
 export interface TimeStudy {
@@ -134,7 +156,7 @@ export interface TimeStudy {
   operatorName?: string;
   analystName?: string;
   date: string;
-  samples: TimeStudySample[];
+  microOperations: MicroOperation[];
   stats: TimeStudyStats;
   notes?: string;
   createdAt: string;

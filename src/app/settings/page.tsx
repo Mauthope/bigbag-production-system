@@ -332,7 +332,11 @@ export default function SettingsPage() {
                         title="Abrir Cronômetro e Estudo de Tempos Lean"
                       >
                         <Activity className={`w-3.5 h-3.5 ${study ? 'text-emerald-400 animate-pulse' : 'text-cyan-400'}`} />
-                        <span>{study ? `Estudo (${study.samples.length} tomadas)` : 'Fazer Cronoanálise'}</span>
+                        <span>
+                          {study && study.microOperations
+                            ? `Estudo (${study.microOperations.length} micro-etapas)`
+                            : 'Mapear / Cronometrar'}
+                        </span>
                       </button>
                     </td>
 

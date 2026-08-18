@@ -189,11 +189,12 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return [study, ...prev];
     });
 
-    if (applyToCatalog && study.stats?.standardTimeMinutes) {
-      await updateOperationTime(study.operationId, study.stats.standardTimeMinutes);
+    const newStdTime = study.stats?.totalStandardTimeMinutes ?? (study.stats as any)?.standardTimeMinutes;
+    if (applyToCatalog && newStdTime && newStdTime > 0) {
+      await updateOperationTime(study.operationId, newStdTime);
     }
 
-    showToast(`Estudo de tempos da operação "${study.operationName}" salvo com sucesso!`, 'success');
+    showToast(`Estudo de tempos e percurso da operação "${study.operationName}" salvo com sucesso!`, 'success');
   }, [updateOperationTime, showToast]);
 
   const deleteTimeStudy = useCallback(async (id: string) => {
