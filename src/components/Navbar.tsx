@@ -32,22 +32,26 @@ export const Navbar: React.FC = () => {
   const navItems = [
     {
       label: 'Calculadora',
+      shortLabel: 'Calculadora',
       href: '/',
       icon: <Calculator className="w-4 h-4" />
     },
     {
       label: 'Ordens de Produção (OP)',
+      shortLabel: 'Ordens (OP)',
       href: '/orders',
       icon: <ClipboardList className="w-4 h-4" />,
-      badge: inProgressCount > 0 ? `${inProgressCount} ativas` : undefined
+      badge: inProgressCount > 0 ? `${inProgressCount}` : undefined
     },
     {
       label: 'Dashboard de Eficiência',
+      shortLabel: 'Dashboard',
       href: '/dashboard',
       icon: <BarChart3 className="w-4 h-4" />
     },
     {
       label: 'Tempos & Parâmetros',
+      shortLabel: 'Parâmetros',
       href: '/settings',
       icon: <Sliders className="w-4 h-4" />
     }
@@ -56,32 +60,32 @@ export const Navbar: React.FC = () => {
   return (
     <>
       <header className="sticky top-0 z-40 w-full border-b border-slate-800/80 bg-slate-950/85 backdrop-blur-xl shadow-lg shadow-black/20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 gap-4">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16 gap-2 sm:gap-4">
             
             {/* Brand Logo & Author Credit */}
-            <div className="flex items-center gap-3.5">
-              <Link href="/" className="flex items-center gap-3 group">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 via-teal-500 to-emerald-500 p-0.5 shadow-lg shadow-cyan-500/20 group-hover:scale-105 transition-transform">
+            <div className="flex items-center gap-2 sm:gap-3.5 shrink-0">
+              <Link href="/" className="flex items-center gap-2.5 sm:gap-3 group">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-cyan-500 via-teal-500 to-emerald-500 p-0.5 shadow-lg shadow-cyan-500/20 group-hover:scale-105 transition-transform shrink-0">
                   <div className="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center">
-                    <Timer className="w-5 h-5 text-cyan-400 group-hover:text-emerald-300 transition-colors" />
+                    <Timer className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400 group-hover:text-emerald-300 transition-colors" />
                   </div>
                 </div>
 
                 <div className="flex flex-col">
                   <div className="flex items-center gap-1.5">
-                    <span className="font-extrabold tracking-tight text-xl text-white">
+                    <span className="font-extrabold tracking-tight text-lg sm:text-xl text-white">
                       Bag<span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-300 to-emerald-400">Time</span>
                     </span>
                   </div>
-                  <span className="text-[11px] text-slate-400 hidden sm:inline leading-none font-medium">
+                  <span className="text-[10px] sm:text-[11px] text-slate-400 hidden 2xl:inline leading-none font-medium">
                     Sistema de Tempos & Eficiência
                   </span>
                 </div>
               </Link>
 
               {/* Author Credit Badge */}
-              <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-900/90 border border-slate-800 text-[11px] text-slate-300 shadow-inner">
+              <div className="hidden 2xl:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-900/90 border border-slate-800 text-[11px] text-slate-300 shadow-inner">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 <span className="text-slate-400">Criado por</span>
                 <strong className="text-cyan-300 font-semibold tracking-wide">Mauricio Grigol</strong>
@@ -89,7 +93,7 @@ export const Navbar: React.FC = () => {
             </div>
 
             {/* Desktop / Tablet Navigation Links */}
-            <nav className="hidden md:flex items-center gap-1 lg:gap-1.5">
+            <nav className="hidden md:flex items-center gap-1 lg:gap-1.5 shrink-0">
               {navItems.map(item => {
                 const isActive = pathname === item.href;
                 return (
@@ -103,7 +107,8 @@ export const Navbar: React.FC = () => {
                     }`}
                   >
                     {item.icon}
-                    <span className="whitespace-nowrap">{item.label}</span>
+                    <span className="hidden xl:inline whitespace-nowrap">{item.label}</span>
+                    <span className="xl:hidden whitespace-nowrap">{item.shortLabel}</span>
                     {item.badge && (
                       <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
                         {item.badge}
@@ -115,10 +120,10 @@ export const Navbar: React.FC = () => {
             </nav>
 
             {/* Storage & Backup Actions */}
-            <div className="hidden lg:flex items-center gap-2.5">
+            <div className="hidden xl:flex items-center gap-2 shrink-0">
               <button
                 onClick={() => setIsExportModalOpen(true)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white bg-slate-900 border border-slate-700/60 hover:border-slate-600 transition-colors"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white bg-slate-900 border border-slate-700/60 hover:border-slate-600 transition-colors"
                 title="Backup e Migração de Dados"
               >
                 <Download className="w-3.5 h-3.5 text-cyan-400" />
@@ -126,7 +131,7 @@ export const Navbar: React.FC = () => {
               </button>
 
               <div
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-950/40 text-emerald-300 border border-emerald-800/40 cursor-pointer hover:bg-emerald-950/60 transition-colors"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-950/40 text-emerald-300 border border-emerald-800/40 cursor-pointer hover:bg-emerald-950/60 transition-colors"
                 title="Armazenado no LocalStorage com suporte a Supabase."
                 onClick={() => setIsExportModalOpen(true)}
               >
