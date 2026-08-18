@@ -860,10 +860,10 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
       <div className="relative w-full max-w-6xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
         
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/80">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between px-4 sm:px-6 py-4 border-b border-slate-800 bg-slate-950/80 gap-3">
           <div className="flex items-center gap-3">
             <div
-              className="p-2.5 rounded-xl border flex items-center justify-center"
+              className="p-2.5 rounded-xl border flex items-center justify-center shrink-0"
               style={{
                 backgroundColor: `${config.colorHex}20`,
                 borderColor: `${config.colorHex}40`,
@@ -872,13 +872,13 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
             >
               <Workflow className="w-5 h-5 animate-pulse" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-white">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-base sm:text-lg font-bold text-white truncate">
                   Mapeamento de Micro-operações & Cronoanálise
                 </h2>
                 <span
-                  className="px-2 py-0.5 rounded text-[11px] font-bold border"
+                  className="px-2 py-0.5 rounded text-[11px] font-bold border shrink-0"
                   style={{
                     backgroundColor: `${config.colorHex}20`,
                     borderColor: `${config.colorHex}40`,
@@ -888,26 +888,26 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
                   {config.title}
                 </span>
               </div>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-400 truncate">
                 Operação: <strong className="text-slate-200">{operation.name}</strong> &bull; Tempo Atual: {operation.time.toFixed(2)} min
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2 flex-wrap justify-end">
             {/* Button: Start New Kaizen Cycle */}
             <button
               onClick={() => setIsKaizenModalOpen(true)}
-              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-emerald-500/20 hover:from-amber-500/30 hover:to-emerald-500/30 text-amber-300 hover:text-amber-200 border border-amber-500/40 text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
+              className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-emerald-500/20 hover:from-amber-500/30 hover:to-emerald-500/30 text-amber-300 hover:text-amber-200 border border-amber-500/40 text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 whitespace-nowrap"
               title="Arquivar o método anterior e iniciar a cronometragem do novo método Kaizen a partir da Tomada #1"
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>✨ Iniciar Ciclo Kaizen (Novo Método)</span>
+              <span>✨ Novo Ciclo Kaizen</span>
             </button>
 
             <button
               onClick={() => setShowBulkAdjust(!showBulkAdjust)}
-              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 text-xs font-semibold border border-slate-700 transition-colors flex items-center gap-1.5"
+              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 text-xs font-semibold border border-slate-700 transition-colors flex items-center gap-1.5 whitespace-nowrap"
               title="Ajustar Ritmo e Fadiga de todas as micro-operações de uma só vez"
             >
               <Sliders className="w-3.5 h-3.5" />
@@ -916,7 +916,7 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
 
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors shrink-0"
             >
               <X className="w-5 h-5" />
             </button>
@@ -925,22 +925,22 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
 
         {/* Bulk Adjust Popover Banner */}
         {showBulkAdjust && (
-          <div className="px-6 py-3 bg-slate-950 border-b border-cyan-900/60 flex flex-wrap items-center justify-between gap-4 text-xs animate-in fade-in">
+          <div className="px-4 sm:px-6 py-3 bg-slate-950 border-b border-cyan-900/60 flex flex-wrap items-center justify-between gap-3 text-xs animate-in fade-in">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-cyan-400" />
+              <Sparkles className="w-4 h-4 text-cyan-400 shrink-0" />
               <span className="font-bold text-white">Padronizar Ritmo & Fadiga para todas as micro-etapas:</span>
             </div>
             
-            <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-3 flex-wrap">
               
               {/* Ritmo Geral com Tooltip */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 shrink-0">
                 <div className="relative group/tooltip flex items-center">
                   <span className="text-slate-300 font-semibold cursor-help underline decoration-dotted decoration-cyan-500/60 underline-offset-2 flex items-center gap-1">
                     <Zap className="w-3 h-3 text-cyan-400" />
                     Ritmo Geral:
                   </span>
-                  <div className="pointer-events-none absolute bottom-full left-0 mb-2 w-64 p-2.5 rounded-xl bg-slate-950/95 border border-cyan-500/50 text-slate-200 text-xs shadow-2xl shadow-cyan-950/60 opacity-0 group-hover/tooltip:opacity-100 transition-all duration-200 z-50 leading-relaxed backdrop-blur-md">
+                  <div className="pointer-events-none absolute bottom-full left-0 sm:left-auto sm:right-0 md:left-0 mb-2 w-72 sm:w-80 max-w-[calc(100vw-3rem)] p-2.5 rounded-xl bg-slate-950/95 border border-cyan-500/50 text-slate-200 text-xs shadow-2xl shadow-cyan-950/60 opacity-0 group-hover/tooltip:opacity-100 transition-all duration-200 z-50 leading-relaxed backdrop-blur-md">
                     <div className="font-bold text-cyan-300 mb-1 flex items-center gap-1.5">
                       <Zap className="w-3.5 h-3.5" />
                       Ritmo do Operador (Pace Rating)
@@ -972,13 +972,13 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
               </div>
 
               {/* Fadiga Geral com Tooltip Detalhado */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 shrink-0">
                 <div className="relative group/tooltip flex items-center">
                   <span className="text-slate-300 font-semibold cursor-help underline decoration-dotted decoration-amber-500/60 underline-offset-2 flex items-center gap-1">
                     <Coffee className="w-3 h-3 text-amber-400" />
                     Fadiga Geral:
                   </span>
-                  <div className="pointer-events-none absolute bottom-full left-0 mb-2 w-80 p-3 rounded-xl bg-slate-950/98 border border-amber-500/60 text-slate-200 text-xs shadow-2xl shadow-amber-950/70 opacity-0 group-hover/tooltip:opacity-100 transition-all duration-200 z-50 leading-relaxed backdrop-blur-md">
+                  <div className="pointer-events-none absolute bottom-full left-0 sm:left-auto sm:right-0 md:left-0 mb-2 w-72 sm:w-80 max-w-[calc(100vw-3rem)] p-3 rounded-xl bg-slate-950/98 border border-amber-500/60 text-slate-200 text-xs shadow-2xl shadow-amber-950/70 opacity-0 group-hover/tooltip:opacity-100 transition-all duration-200 z-50 leading-relaxed backdrop-blur-md">
                     <div className="font-bold text-amber-300 mb-1.5 flex items-center gap-1.5 border-b border-slate-800 pb-1">
                       <Coffee className="w-3.5 h-3.5 text-amber-400" />
                       Fadiga & Tolerâncias (Allowances)
@@ -992,12 +992,12 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
                       
                       <div>
                         <strong className="text-amber-200 font-bold block">2. Fadiga Física e Visual (4% a 6%):</strong>
-                        <span className="text-slate-300">Tensão muscular ao guiar tecidos pesados de ráfia, esforço visual constante na agulha, postura sentada/em pé, vibração e ruído da máquina.</span>
+                        <span className="text-slate-300">Tensão muscular na ráfia, esforço visual na agulha, postura e ruído.</span>
                       </div>
                       
                       <div>
                         <strong className="text-amber-200 font-bold block">3. Pequenas Esperas Inevitáveis (3% a 4%):</strong>
-                        <span className="text-slate-300">Troca de bobina/carretel de linha, ajuste rápido da tensão da linha, desembaraçar uma alça, pegar novo lote de peças na esteira.</span>
+                        <span className="text-slate-300">Troca de bobina/linha, ajuste de tensão, desembaraçar alça.</span>
                       </div>
                     </div>
 
@@ -1026,7 +1026,7 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
               <button
                 type="button"
                 onClick={handleBulkApplyPaceAndAllowance}
-                className="px-3.5 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold text-xs shadow-md transition-colors"
+                className="px-3.5 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold text-xs shadow-md transition-colors whitespace-nowrap"
               >
                 Aplicar a Todas
               </button>
@@ -1035,46 +1035,46 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
         )}
 
         {/* Tab Navigation */}
-        <div className="flex items-center justify-between px-6 pt-2 border-b border-slate-800 bg-slate-950/40">
-          <div className="flex gap-2">
+        <div className="flex items-center justify-between px-4 sm:px-6 pt-2 border-b border-slate-800 bg-slate-950/40 overflow-x-auto custom-scrollbar gap-4">
+          <div className="flex gap-2 shrink-0">
             <button
               onClick={() => setActiveTab('flow')}
-              className={`pb-3 px-3 text-xs font-bold border-b-2 transition-colors flex items-center gap-2 ${
+              className={`pb-3 px-3 text-xs font-bold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${
                 activeTab === 'flow'
                   ? 'border-cyan-400 text-cyan-300'
                   : 'border-transparent text-slate-400 hover:text-slate-200'
               }`}
             >
               <ListOrdered className="w-4 h-4" />
-              Micro-etapas, Cronômetros & Ritmo ({microOperations.length})
+              Micro-etapas & Cronômetros ({microOperations.length})
             </button>
             <button
               onClick={() => setActiveTab('stats')}
-              className={`pb-3 px-3 text-xs font-bold border-b-2 transition-colors flex items-center gap-2 ${
+              className={`pb-3 px-3 text-xs font-bold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${
                 activeTab === 'stats'
                   ? 'border-amber-400 text-amber-300'
                   : 'border-transparent text-slate-400 hover:text-slate-200'
               }`}
             >
               <Gauge className="w-4 h-4" />
-              Diagnóstico & Memorial de Cálculo (N&apos;)
+              Diagnóstico & Memorial (N&apos;)
             </button>
             <button
               onClick={() => setActiveTab('charts')}
-              className={`pb-3 px-3 text-xs font-bold border-b-2 transition-colors flex items-center gap-2 ${
+              className={`pb-3 px-3 text-xs font-bold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${
                 activeTab === 'charts'
                   ? 'border-emerald-400 text-emerald-300'
                   : 'border-transparent text-slate-400 hover:text-slate-200'
               }`}
             >
               <BarChart3 className="w-4 h-4" />
-              Gráfico de Gargalos & Kaizen
+              Gargalos & Kaizen
             </button>
           </div>
 
           {/* Top Time Sum Pill */}
-          <div className="hidden sm:flex items-center gap-2 pb-2">
-            <span className="text-[10px] text-slate-400 uppercase font-bold">Tempo Padrão Consolidado (∑):</span>
+          <div className="hidden lg:flex items-center gap-2 pb-2 shrink-0">
+            <span className="text-[10px] text-slate-400 uppercase font-bold">Tempo Padrão (∑):</span>
             <span className="px-2.5 py-0.5 rounded-lg bg-emerald-950/60 text-emerald-300 border border-emerald-500/40 text-xs font-mono font-bold">
               {totalStats.totalStandardTimeMinutes.toFixed(2)} min ({totalStats.totalStandardTimeSeconds.toFixed(0)}s)
             </span>
@@ -1290,26 +1290,26 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
                       {/* ============================================================================== */}
                       {/* DEDICATED INDUSTRIAL CALCULATION STRIP (TO -> RITMO -> TN -> FADIGA -> TP) */}
                       {/* ============================================================================== */}
-                      <div className="p-3 rounded-xl bg-slate-900/90 border border-slate-800/80 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs">
+                      <div className="p-3 sm:p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/80 flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 text-xs">
                         
                         {/* 1. Tempo Observado (TO) */}
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                           <span className="text-[10px] uppercase font-bold text-slate-400">1. Observado (TO):</span>
                           <span className="font-mono font-bold text-white bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
                             {step.meanSeconds.toFixed(1)}s <span className="text-[10px] text-slate-400">({step.meanMinutes.toFixed(3)}m)</span>
                           </span>
                         </div>
 
-                        <ArrowRight className="w-3.5 h-3.5 text-slate-600 hidden md:block" />
+                        <ArrowRight className="w-3.5 h-3.5 text-slate-600 hidden xl:block shrink-0" />
 
                         {/* 2. Seletor de Ritmo (%) com Tooltip */}
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                           <div className="relative group/tooltip flex items-center">
                             <span className="text-[10px] uppercase font-bold text-cyan-400 flex items-center gap-1 cursor-help underline decoration-dotted decoration-cyan-500/60 underline-offset-2">
                               <Zap className="w-3 h-3 text-cyan-400" />
                               2. Ritmo:
                             </span>
-                            <div className="pointer-events-none absolute bottom-full left-0 mb-2 w-64 p-2.5 rounded-xl bg-slate-950/95 border border-cyan-500/50 text-slate-200 text-xs shadow-2xl shadow-cyan-950/60 opacity-0 group-hover/tooltip:opacity-100 transition-all duration-200 z-50 leading-relaxed backdrop-blur-md">
+                            <div className="pointer-events-none absolute bottom-full left-0 sm:left-auto sm:right-0 md:left-0 mb-2 w-72 sm:w-80 max-w-[calc(100vw-3rem)] p-3 rounded-xl bg-slate-950/98 border border-cyan-500/50 text-slate-200 text-xs shadow-2xl shadow-cyan-950/60 opacity-0 group-hover/tooltip:opacity-100 transition-all duration-200 z-50 leading-relaxed backdrop-blur-md">
                               <div className="font-bold text-cyan-300 mb-1 flex items-center gap-1.5">
                                 <Zap className="w-3.5 h-3.5" />
                                 Ritmo desta Micro-etapa
@@ -1342,26 +1342,26 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
                           </select>
                         </div>
 
-                        <ArrowRight className="w-3.5 h-3.5 text-slate-600 hidden md:block" />
+                        <ArrowRight className="w-3.5 h-3.5 text-slate-600 hidden xl:block shrink-0" />
 
                         {/* 3. Tempo Normal (TN) */}
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                           <span className="text-[10px] uppercase font-bold text-slate-400">3. Normal (TN):</span>
                           <span className="font-mono font-bold text-cyan-200 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
                             {(step.meanSeconds * pace).toFixed(1)}s
                           </span>
                         </div>
 
-                        <ArrowRight className="w-3.5 h-3.5 text-slate-600 hidden md:block" />
+                        <ArrowRight className="w-3.5 h-3.5 text-slate-600 hidden xl:block shrink-0" />
 
                         {/* 4. Seletor de Fadiga / Tolerância (%) com Tooltip Detalhado */}
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                           <div className="relative group/tooltip flex items-center">
                             <span className="text-[10px] uppercase font-bold text-amber-400 flex items-center gap-1 cursor-help underline decoration-dotted decoration-amber-500/60 underline-offset-2">
                               <Coffee className="w-3 h-3 text-amber-400" />
                               4. Fadiga:
                             </span>
-                            <div className="pointer-events-none absolute bottom-full left-0 mb-2 w-80 p-3 rounded-xl bg-slate-950/98 border border-amber-500/60 text-slate-200 text-xs shadow-2xl shadow-amber-950/70 opacity-0 group-hover/tooltip:opacity-100 transition-all duration-200 z-50 leading-relaxed backdrop-blur-md">
+                            <div className="pointer-events-none absolute bottom-full left-0 sm:left-auto sm:right-0 md:left-0 mb-2 w-72 sm:w-80 max-w-[calc(100vw-3rem)] p-3 rounded-xl bg-slate-950/98 border border-amber-500/60 text-slate-200 text-xs shadow-2xl shadow-amber-950/70 opacity-0 group-hover/tooltip:opacity-100 transition-all duration-200 z-50 leading-relaxed backdrop-blur-md">
                               <div className="font-bold text-amber-300 mb-1.5 flex items-center gap-1.5 border-b border-slate-800 pb-1">
                                 <Coffee className="w-3.5 h-3.5 text-amber-400" />
                                 Fadiga & Tolerâncias (Allowances)
@@ -1375,12 +1375,12 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
                                 
                                 <div>
                                   <strong className="text-amber-200 font-bold block">2. Fadiga Física e Visual (4% a 6%):</strong>
-                                  <span className="text-slate-300">Tensão muscular ao guiar tecidos pesados de ráfia, esforço visual constante na agulha, postura sentada/em pé, vibração e ruído da máquina.</span>
+                                  <span className="text-slate-300">Tensão muscular na ráfia, esforço visual na agulha, postura e ruído.</span>
                                 </div>
                                 
                                 <div>
                                   <strong className="text-amber-200 font-bold block">3. Pequenas Esperas Inevitáveis (3% a 4%):</strong>
-                                  <span className="text-slate-300">Troca de bobina/carretel de linha, ajuste rápido da tensão da linha, desembaraçar uma alça, pegar novo lote de peças na esteira.</span>
+                                  <span className="text-slate-300">Troca de bobina/linha, ajuste de tensão, desembaraçar alça.</span>
                                 </div>
                               </div>
 
@@ -1407,10 +1407,10 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
                           </select>
                         </div>
 
-                        <ArrowRight className="w-3.5 h-3.5 text-slate-600 hidden md:block" />
+                        <ArrowRight className="w-3.5 h-3.5 text-slate-600 hidden xl:block shrink-0" />
 
                         {/* 5. Tempo Padrão Final da Etapa (TP) */}
-                        <div className="flex items-center gap-2 bg-emerald-950/60 px-3 py-1 rounded-lg border border-emerald-500/40">
+                        <div className="flex items-center gap-1.5 sm:gap-2 bg-emerald-950/60 px-3 py-1 rounded-lg border border-emerald-500/40 shrink-0">
                           <span className="text-[10px] uppercase font-bold text-emerald-400">5. TP Final:</span>
                           <span className="font-mono font-extrabold text-emerald-300">
                             {step.standardTimeMinutes.toFixed(2)}m <span className="text-[10px] text-emerald-400">({step.standardTimeSeconds.toFixed(1)}s)</span>
@@ -1937,23 +1937,23 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
         </div>
 
         {/* Global Bottom Synthesis Bar with Kaizen Justification */}
-        <div className="px-6 py-3.5 border-t border-slate-800 bg-slate-950/95 flex flex-col lg:flex-row items-center justify-between gap-4">
+        <div className="px-4 sm:px-6 py-3.5 border-t border-slate-800 bg-slate-950/95 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 sm:gap-4">
           
           {/* Left: Kaizen Justification & Analyst Notes */}
-          <div className="flex-1 w-full lg:max-w-xl">
+          <div className="flex-1 w-full md:max-w-md lg:max-w-xl">
             <div className="flex items-center justify-between mb-1">
               <label className="text-[10px] uppercase font-bold text-amber-300 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                Justificativa / Melhoria Kaizen (Grava na Linha do Tempo):
+                <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span className="truncate">Justificativa Kaizen (Linha do Tempo):</span>
               </label>
-              <div className="text-[10px] text-slate-400 flex items-center gap-1">
-                <span>Responsável:</span>
+              <div className="text-[10px] text-slate-400 flex items-center gap-1 shrink-0">
+                <span className="hidden sm:inline">Responsável:</span>
                 <input
                   type="text"
                   value={analystName}
                   onChange={e => setAnalystName(e.target.value)}
                   placeholder="Eng. Responsável"
-                  className="bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800 text-cyan-300 text-[10px] font-mono focus:outline-none focus:border-cyan-500 w-32"
+                  className="bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800 text-cyan-300 text-[10px] font-mono focus:outline-none focus:border-cyan-500 w-24 sm:w-32"
                 />
               </div>
             </div>
@@ -1967,22 +1967,22 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
           </div>
 
           {/* Right: Consolidated Total & Action Buttons */}
-          <div className="flex items-center gap-4 w-full lg:w-auto justify-between lg:justify-end border-t lg:border-t-0 pt-2 lg:pt-0 border-slate-800/80">
-            <div className="text-left lg:text-right">
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-4 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 pt-2 md:pt-0 border-slate-800/80">
+            <div className="text-left md:text-right shrink-0">
               <span className="text-[10px] uppercase font-bold text-slate-400 block">
-                Novo Tempo da Operação (∑ TP):
+                Novo Tempo (∑ TP):
               </span>
-              <div className="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-300 to-emerald-400 font-mono">
+              <div className="text-xl sm:text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-300 to-emerald-400 font-mono">
                 {totalStats.totalStandardTimeMinutes.toFixed(2)} <span className="text-sm font-bold text-teal-400">min</span>
                 <span className="text-xs font-normal text-slate-400 ml-1">({totalStats.totalStandardTimeSeconds.toFixed(0)}s)</span>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
                 onClick={() => handleSaveAndApply(false)}
-                className="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors"
+                className="px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors"
                 title="Salvar o estudo de micro-etapas sem alterar o tempo oficial"
               >
                 Salvar Estudo
@@ -1991,11 +1991,11 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
               <button
                 type="button"
                 onClick={() => handleSaveAndApply(true)}
-                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 via-teal-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/25 transition-all flex items-center gap-2 active:scale-95"
+                className="px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 via-teal-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/25 transition-all flex items-center gap-1.5 sm:gap-2 active:scale-95 whitespace-nowrap"
                 title="Salvar, aplicar novo tempo padrão e registrar marco na Linha do Tempo Kaizen"
               >
                 <Sparkles className="w-4 h-4 stroke-[2.5]" />
-                <span>Aplicar Soma & Kaizen</span>
+                <span>Aplicar & Kaizen</span>
               </button>
             </div>
           </div>

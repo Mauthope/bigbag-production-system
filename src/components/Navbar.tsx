@@ -81,29 +81,29 @@ export const Navbar: React.FC = () => {
               </Link>
 
               {/* Author Credit Badge */}
-              <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-900/90 border border-slate-800 text-[11px] text-slate-300 shadow-inner">
+              <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-900/90 border border-slate-800 text-[11px] text-slate-300 shadow-inner">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 <span className="text-slate-400">Criado por</span>
                 <strong className="text-cyan-300 font-semibold tracking-wide">Mauricio Grigol</strong>
               </div>
             </div>
 
-            {/* Desktop Navigation Links */}
-            <nav className="hidden md:flex items-center gap-1.5">
+            {/* Desktop / Tablet Navigation Links */}
+            <nav className="hidden md:flex items-center gap-1 lg:gap-1.5">
               {navItems.map(item => {
                 const isActive = pathname === item.href;
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                    className={`flex items-center gap-1.5 lg:gap-2 px-2.5 lg:px-3.5 py-1.5 lg:py-2 rounded-xl text-xs font-semibold transition-all ${
                       isActive
                         ? 'bg-slate-900 text-cyan-300 shadow-md border border-cyan-500/30'
                         : 'text-slate-300 hover:text-white hover:bg-slate-900/60'
                     }`}
                   >
                     {item.icon}
-                    <span>{item.label}</span>
+                    <span className="whitespace-nowrap">{item.label}</span>
                     {item.badge && (
                       <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
                         {item.badge}
