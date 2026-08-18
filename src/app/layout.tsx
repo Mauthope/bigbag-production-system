@@ -17,8 +17,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'BigBag Pro - Sistema de Tempos de Produção & Eficiência',
-  description: 'Calculadora Kanban, Gestão de OPs e Dashboard de Eficiência por Componente e por OP'
+  title: 'BagTime - Sistema de Tempos de Produção & Cronoanálise Lean',
+  description: 'Sistema industrial de cálculo de tempos de produção, cronoanálise por micro-operações e acompanhamento de eficiência de Big Bags. Desenvolvido por Mauricio Grigol.',
+  authors: [{ name: 'Mauricio Grigol' }]
 };
 
 export default function RootLayout({
