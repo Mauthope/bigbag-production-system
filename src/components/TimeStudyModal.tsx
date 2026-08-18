@@ -36,7 +36,12 @@ import {
   HelpCircle,
   ShieldCheck,
   ShieldAlert,
-  Target
+  Target,
+  FileCode2,
+  Calculator,
+  ChevronDown,
+  ChevronUp,
+  BookOpen
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -95,7 +100,10 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
   const { categoriesConfig, getTimeStudy, saveTimeStudyAndApply, showToast } = useProduction();
 
   // Active Tab
-  const [activeTab, setActiveTab] = useState<'flow' | 'charts' | 'stats'>('flow');
+  const [activeTab, setActiveTab] = useState<'flow' | 'stats' | 'charts'>('flow');
+
+  // Show / Hide Memorial de Cálculo
+  const [showMemorial, setShowMemorial] = useState<boolean>(true);
 
   // Metadata & Parameters
   const [operatorName, setOperatorName] = useState<string>('');
@@ -109,7 +117,7 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
   // Micro-operations list
   const [microOperations, setMicroOperations] = useState<MicroOperation[]>([]);
 
-  // Per-Micro-operation Mini-stopwatch timers state: { [stepId]: { isRunning: boolean, elapsedMs: number, startTime: number } }
+  // Per-Micro-operation Mini-stopwatch timers state: { [stepId]: { isRunning: boolean, elapsedMs: number } }
   const [timers, setTimers] = useState<Record<string, { isRunning: boolean; elapsedMs: number }>>({});
   const timerRefs = useRef<Record<string, { interval: NodeJS.Timeout | null; startTime: number }>>({});
 
@@ -546,6 +554,72 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
     };
   }, [microOperations, confidenceLevel, errorMarginPct, globalPaceRating, globalAllowancePct]);
 
+  // ==============================================================================
+  // COMPARATIVE MATRIX OF CONFIDENCE LEVELS (Quantas amostras para cada nível)
+  // ==============================================================================
+  const confidenceMatrix = useMemo(() => {
+    const n = totalStats.sampleCount;
+    const mean = totalStats.meanMinutes;
+    const s = totalStats.stdDevMinutes;
+
+    const levels = [
+      {
+        key: 'preliminar',
+        name: 'Nível Preliminar / Rápido',
+        confidence: 90,
+        z: 1.645,
+        errorPct: 0.10, // 10%
+        desc: 'Para estudos rápidos e estimativas preliminares de fábrica',
+        badge: 'bg-blue-950/60 text-blue-300 border-blue-800/60'
+      },
+      {
+        key: 'industrial',
+        name: 'Padrão Industrial (Recomendado)',
+        confidence: 95,
+        z: 1.96,
+        errorPct: 0.05, // 5%
+        desc: 'Padrão ouro exigido pela engenharia de produção e Lean Manufacturing',
+        isRecommended: true,
+        badge: 'bg-emerald-950 text-emerald-300 border-emerald-500/70 shadow-sm ring-1 ring-emerald-500/30'
+      },
+      {
+        key: 'alta_precisao',
+        name: 'Alta Precisão / Processo Crítico',
+        confidence: 99,
+        z: 2.576,
+        errorPct: 0.05, // 5%
+        desc: 'Para gargalos críticos de linha e auditorias rigorosas',
+        badge: 'bg-purple-950/60 text-purple-300 border-purple-800/60'
+      },
+      {
+        key: 'classe_mundial',
+        name: 'Classe Mundial / Seis Sigma',
+        confidence: 99,
+        z: 2.576,
+        errorPct: 0.02, // 2%
+        desc: 'Precisão máxima para produção em altíssima escala',
+        badge: 'bg-amber-950/60 text-amber-300 border-amber-800/60'
+      }
+    ];
+
+    return levels.map(lvl => {
+      let reqN = 1;
+      if (mean > 0 && s > 0) {
+        const exactN = Math.pow((lvl.z * s) / (lvl.errorPct * mean), 2);
+        reqN = Math.max(1, Math.ceil(exactN));
+      }
+      const isAchieved = n >= reqN;
+      const remaining = Math.max(0, reqN - n);
+
+      return {
+        ...lvl,
+        requiredSamples: reqN,
+        isAchieved,
+        remainingNeeded: remaining
+      };
+    });
+  }, [totalStats.sampleCount, totalStats.meanMinutes, totalStats.stdDevMinutes]);
+
   // Update pace and allowance across all micro-operations
   const handleUpdateGlobalPaceAndAllowance = (pace: number, allowance: number) => {
     setGlobalPaceRating(pace);
@@ -709,7 +783,7 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
               }`}
             >
               <Gauge className="w-4 h-4" />
-              Confiabilidade Estatística (N&apos;)
+              Diagnóstico & Memorial de Cálculo (N&apos;)
             </button>
             <button
               onClick={() => setActiveTab('charts')}
@@ -745,7 +819,7 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
                 <div className="flex items-center gap-2.5">
                   <Clock className="w-4 h-4 text-cyan-400 shrink-0" />
                   <span>
-                    Cada micro-operação possui seu <strong>mini-cronômetro individual</strong>. Clique em <strong>▶ Iniciar</strong> e depois em <strong>✓ Gravar</strong> para registrar tomadas.
+                    Cada micro-operação possui seu <strong>mini-cronômetro individual</strong>. Clique em <strong>▶ Cronometrar</strong> e depois em <strong>✓ Gravar</strong> para registrar tomadas.
                   </span>
                 </div>
                 <span className="text-[11px] font-mono text-cyan-300 bg-cyan-950/50 px-2 py-0.5 rounded border border-cyan-800/50 shrink-0">
@@ -955,7 +1029,7 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
             </div>
           )}
 
-          {/* TAB 2: CLEAR INDUSTRIAL STATISTICAL GUIDANCE */}
+          {/* TAB 2: CLEAR INDUSTRIAL STATISTICAL GUIDANCE, COMPARATIVE MATRIX & MEMORIAL DE CÁLCULO */}
           {activeTab === 'stats' && (
             <div className="space-y-6">
               
@@ -970,7 +1044,7 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
                         Diagnóstico de Confiabilidade & Precisão Amostral
                       </h3>
                       <p className="text-xs text-slate-400">
-                        Avaliação estatística para validação de tempos no padrão industrial
+                        Validação estatística rigorosa para certificação de tempos industriais
                       </p>
                     </div>
                   </div>
@@ -1022,15 +1096,23 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
                     </span>
                   </div>
 
-                  <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-1.5">
-                    <span className="text-slate-400 block font-semibold">
-                      2. Meta Padrão Industrial (N&apos;):
+                  <div className="p-4 rounded-xl bg-slate-900 border border-emerald-500/30 space-y-1.5 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-500/5 rounded-full blur-xl pointer-events-none" />
+                    <span className="text-emerald-400 block font-semibold flex items-center justify-between">
+                      <span>2. Meta Padrão Industrial (N&apos;):</span>
+                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-800/60">
+                        95% / &plusmn;5%
+                      </span>
                     </span>
-                    <div className="text-2xl font-extrabold font-mono text-cyan-300">
-                      {totalStats.requiredSamples} <span className="text-xs font-normal text-slate-400">tomadas</span>
+                    <div className="text-2xl font-extrabold font-mono text-emerald-300">
+                      {totalStats.requiredSamples} <span className="text-xs font-normal text-slate-400">tomadas no total</span>
                     </div>
-                    <span className="text-[11px] text-slate-500 block">
-                      Para 95% de confiança com erro de &plusmn;5%
+                    <span className="text-[11px] text-slate-400 block">
+                      {totalStats.remainingSamplesNeeded === 0 ? (
+                        <strong className="text-emerald-400">✓ Amostragem suficiente</strong>
+                      ) : (
+                        <span>Faltam <strong>{totalStats.remainingSamplesNeeded}</strong> tomadas para certificar</span>
+                      )}
                     </span>
                   </div>
 
@@ -1038,7 +1120,7 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
                     <span className="text-slate-400 block font-semibold">
                       3. Estabilidade do Processo (CV):
                     </span>
-                    <div className="text-2xl font-extrabold font-mono text-emerald-400">
+                    <div className="text-2xl font-extrabold font-mono text-cyan-300">
                       {totalStats.coefficientOfVariationPct}%
                     </div>
                     <span className="text-[11px] text-slate-500 block">
@@ -1050,19 +1132,240 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
 
                 </div>
 
-                {/* Formula Transparency Card */}
-                <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Fórmula de Amostragem Utilizada:</span>
-                    <div className="font-mono text-base text-cyan-300 font-bold tracking-wider">
-                      N&apos; = [ (z &middot; s) / (e &middot; x̄) ]&sup2;
-                    </div>
+              </div>
+
+              {/* ============================================================================== */}
+              {/* TABELA DE METAS POR NÍVEL DE CONFIABILIDADE (Quantas amostras para cada nível) */}
+              {/* ============================================================================== */}
+              <div className="p-5 rounded-2xl bg-slate-950/80 border border-slate-800 shadow-xl space-y-4">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <Target className="w-4 h-4 text-cyan-400" />
+                    <h3 className="text-sm font-bold text-white">
+                      Dimensionamento Amostral por Nível de Confiabilidade
+                    </h3>
                   </div>
-                  <div className="text-right text-xs text-slate-400 font-mono">
-                    z = {totalStats.zValue} ({totalStats.confidenceLevel}%) &bull; e = &plusmn;{(totalStats.errorMarginPct * 100).toFixed(0)}% &bull; s = {totalStats.stdDevMinutes.toFixed(3)}m
-                  </div>
+                  <span className="text-xs text-slate-400">
+                    Amostragem atual: <strong className="text-white font-mono">{totalStats.sampleCount} tomadas</strong>
+                  </span>
                 </div>
 
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-800 bg-slate-900/60 text-[10px] uppercase font-bold text-slate-400">
+                        <th className="py-2.5 px-3">Nível & Aplicação</th>
+                        <th className="py-2.5 px-3 text-center">Confiança</th>
+                        <th className="py-2.5 px-3 text-center">Margem de Erro</th>
+                        <th className="py-2.5 px-3 text-center">Total Necessário (N&apos;)</th>
+                        <th className="py-2.5 px-3 text-center">Faltam</th>
+                        <th className="py-2.5 px-3 text-right">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/40">
+                      {confidenceMatrix.map(lvl => (
+                        <tr
+                          key={lvl.key}
+                          className={`hover:bg-slate-800/30 transition-colors ${
+                            lvl.isRecommended ? 'bg-emerald-950/20' : ''
+                          }`}
+                        >
+                          {/* Name & Desc */}
+                          <td className="py-3 px-3">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-white block">
+                                {lvl.name}
+                              </span>
+                              {lvl.isRecommended && (
+                                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                                  Padrão Fábrica
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-slate-400 block mt-0.5">
+                              {lvl.desc}
+                            </span>
+                          </td>
+
+                          {/* Confidence */}
+                          <td className="py-3 px-3 text-center font-mono font-bold text-slate-200">
+                            {lvl.confidence}%
+                          </td>
+
+                          {/* Error margin */}
+                          <td className="py-3 px-3 text-center font-mono text-cyan-300">
+                            &plusmn;{(lvl.errorPct * 100).toFixed(0)}%
+                          </td>
+
+                          {/* Required N' */}
+                          <td className="py-3 px-3 text-center font-mono font-bold text-white">
+                            <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-sm">
+                              {lvl.requiredSamples}
+                            </span>
+                          </td>
+
+                          {/* Remaining */}
+                          <td className="py-3 px-3 text-center font-mono">
+                            {lvl.remainingNeeded === 0 ? (
+                              <span className="text-emerald-400 font-bold">0</span>
+                            ) : (
+                              <span className="text-amber-400 font-bold">
+                                {lvl.remainingNeeded} tomadas
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Status */}
+                          <td className="py-3 px-3 text-right">
+                            {lvl.isAchieved ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-600/50">
+                                <CheckCircle2 className="w-3 h-3" /> Atingido
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-950/80 text-amber-300 border border-amber-600/50">
+                                <Clock className="w-3 h-3" /> Em Progresso
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* ============================================================================== */}
+              {/* MEMORIAL DE CÁLCULO PASSO A PASSO (Walkthrough Matemático com Valores Reais) */}
+              {/* ============================================================================== */}
+              <div className="p-5 rounded-2xl bg-slate-950/80 border border-slate-800 shadow-xl space-y-4">
+                <div
+                  onClick={() => setShowMemorial(!showMemorial)}
+                  className="flex items-center justify-between pb-2 border-b border-slate-800 cursor-pointer group"
+                >
+                  <div className="flex items-center gap-2">
+                    <Calculator className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
+                    <div>
+                      <h3 className="text-sm font-bold text-white group-hover:text-cyan-300 transition-colors">
+                        Memorial de Cálculo Matemático Passo a Passo
+                      </h3>
+                      <p className="text-[11px] text-slate-400">
+                        Demonstração de todas as fórmulas estatísticas aplicadas com os valores reais das medições
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="p-1 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 group-hover:text-white transition-colors"
+                  >
+                    {showMemorial ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </button>
+                </div>
+
+                {showMemorial && (
+                  <div className="space-y-4 pt-1 animate-in fade-in">
+                    
+                    {/* Passo 1: Média Aritmética */}
+                    <div className="p-4 rounded-xl bg-slate-900 border border-slate-800/80 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
+                          <span>Passo 1:</span> Média dos Tempos Amostrais (&xmacr;)
+                        </span>
+                        <span className="text-[11px] font-mono text-slate-400">
+                          n = {totalStats.sampleCount} tomadas
+                        </span>
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-slate-950 font-mono text-xs text-slate-200 overflow-x-auto">
+                        &xmacr; = (&Sigma; x_i) / n = {totalStats.meanMinutes.toFixed(3)} min ({totalStats.meanSeconds.toFixed(1)} segundos)
+                      </div>
+                    </div>
+
+                    {/* Passo 2: Desvio Padrão */}
+                    <div className="p-4 rounded-xl bg-slate-900 border border-slate-800/80 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
+                          <span>Passo 2:</span> Desvio Padrão Amostral (s) & Variância (s&sup2;)
+                        </span>
+                        <span className="text-[11px] font-mono text-slate-400">
+                          Graus de liberdade: {Math.max(1, totalStats.sampleCount - 1)}
+                        </span>
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-slate-950 font-mono text-xs text-slate-200 overflow-x-auto">
+                        s = &radic;[ &Sigma;(x_i - &xmacr;)&sup2; / (n - 1) ] = &plusmn;{totalStats.stdDevMinutes.toFixed(4)} min &bull; s&sup2; = {totalStats.variance.toFixed(4)}
+                      </div>
+                    </div>
+
+                    {/* Passo 3: Coeficiente de Variação (CV) */}
+                    <div className="p-4 rounded-xl bg-slate-900 border border-slate-800/80 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
+                          <span>Passo 3:</span> Coeficiente de Variação / Estabilidade (CV)
+                        </span>
+                        <span className={`text-[11px] font-bold font-mono ${totalStats.coefficientOfVariationPct <= 10 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                          {totalStats.coefficientOfVariationPct <= 10 ? 'Estável (&le; 10%)' : 'Oscilação (> 10%)'}
+                        </span>
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-slate-950 font-mono text-xs text-slate-200 overflow-x-auto">
+                        CV = (s / &xmacr;) &times; 100% = ({totalStats.stdDevMinutes.toFixed(4)} / {totalStats.meanMinutes.toFixed(3)}) &times; 100% = {totalStats.coefficientOfVariationPct}%
+                      </div>
+                    </div>
+
+                    {/* Passo 4: Dimensionamento Amostral Exato N' */}
+                    <div className="p-4 rounded-xl bg-slate-900 border border-emerald-500/30 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
+                          <span>Passo 4:</span> Fórmula de Dimensionamento Amostral (N&apos;)
+                        </span>
+                        <span className="text-[11px] font-mono text-emerald-400">
+                          Padrão Industrial (95% / &plusmn;5%)
+                        </span>
+                      </div>
+                      <div className="p-3 rounded-lg bg-slate-950 font-mono text-xs text-emerald-300 overflow-x-auto space-y-1">
+                        <div>N&apos; = [ (z &middot; s) / (e &middot; &xmacr;) ]&sup2;</div>
+                        <div className="text-slate-300">
+                          N&apos; = [ ({totalStats.zValue} &middot; {totalStats.stdDevMinutes.toFixed(4)}) / ({totalStats.errorMarginPct} &middot; {totalStats.meanMinutes.toFixed(3)}) ]&sup2;
+                        </div>
+                        <div className="text-white font-bold pt-1">
+                          N&apos; = [ {(totalStats.zValue * totalStats.stdDevMinutes).toFixed(4)} / {(totalStats.errorMarginPct * totalStats.meanMinutes).toFixed(4)} ]&sup2; = {totalStats.requiredSamples} tomadas
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Passo 5: Erro Relativo Real Atingido */}
+                    <div className="p-4 rounded-xl bg-slate-900 border border-slate-800/80 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
+                          <span>Passo 5:</span> Margem de Erro Atual Atingida (e_atual)
+                        </span>
+                        <span className="text-[11px] font-mono text-cyan-300">
+                          Com {totalStats.sampleCount} tomadas realizadas
+                        </span>
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-slate-950 font-mono text-xs text-slate-200 overflow-x-auto">
+                        e_atual = (z &middot; s) / (&radic;n &middot; &xmacr;) = ({totalStats.zValue} &middot; {totalStats.stdDevMinutes.toFixed(4)}) / (&radic;{totalStats.sampleCount} &middot; {totalStats.meanMinutes.toFixed(3)}) = &plusmn;{totalStats.currentAchievedErrorPct}%
+                      </div>
+                    </div>
+
+                    {/* Passo 6: Síntese de Tempo Padrão TP */}
+                    <div className="p-4 rounded-xl bg-slate-900 border border-slate-800/80 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
+                          <span>Passo 6:</span> Tempo Normal (TN) & Tempo Padrão Final (TP)
+                        </span>
+                        <span className="text-[11px] font-mono text-slate-400">
+                          FR = {(totalStats.paceRating * 100).toFixed(0)}% &bull; FT = {(totalStats.allowancePercentage * 100).toFixed(0)}%
+                        </span>
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-slate-950 font-mono text-xs text-slate-200 overflow-x-auto space-y-1">
+                        <div>TN = &xmacr; &times; FR = {totalStats.meanMinutes.toFixed(3)} &times; {totalStats.paceRating} = {(totalStats.meanMinutes * totalStats.paceRating).toFixed(3)} min</div>
+                        <div className="text-emerald-400 font-bold">
+                          TP = &Sigma; Micro-etapas = {totalStats.totalStandardTimeMinutes.toFixed(2)} min ({totalStats.totalStandardTimeSeconds.toFixed(0)} segundos)
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+                )}
               </div>
 
             </div>
