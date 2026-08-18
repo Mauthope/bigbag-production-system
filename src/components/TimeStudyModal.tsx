@@ -1829,18 +1829,41 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
 
         </div>
 
-        {/* Global Bottom Synthesis Bar */}
-        <div className="px-6 py-4 border-t border-slate-800 bg-slate-950/95 flex flex-col md:flex-row items-center justify-between gap-4">
+        {/* Global Bottom Synthesis Bar with Kaizen Justification */}
+        <div className="px-6 py-3.5 border-t border-slate-800 bg-slate-950/95 flex flex-col lg:flex-row items-center justify-between gap-4">
           
-          <div className="text-xs text-slate-400">
-            <span>Operador: <strong className="text-slate-200">{operatorName || 'Geral'}</strong> &bull; Engenheiro: <strong className="text-cyan-300">{analystName}</strong> &bull; {microOperations.length} micro-etapas</span>
+          {/* Left: Kaizen Justification & Analyst Notes */}
+          <div className="flex-1 w-full lg:max-w-xl">
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[10px] uppercase font-bold text-amber-300 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                Justificativa / Melhoria Kaizen (Grava na Linha do Tempo):
+              </label>
+              <div className="text-[10px] text-slate-400 flex items-center gap-1">
+                <span>Responsável:</span>
+                <input
+                  type="text"
+                  value={analystName}
+                  onChange={e => setAnalystName(e.target.value)}
+                  placeholder="Eng. Responsável"
+                  className="bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800 text-cyan-300 text-[10px] font-mono focus:outline-none focus:border-cyan-500 w-32"
+                />
+              </div>
+            </div>
+            <input
+              type="text"
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="Ex: Implementado gabarito magnético de alça para reduzir dobras manuais..."
+              className="w-full px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700/80 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 font-medium"
+            />
           </div>
 
-          {/* Consolidated Total & Action Buttons */}
-          <div className="flex items-center gap-4 w-full md:w-auto justify-end">
-            <div className="text-right">
+          {/* Right: Consolidated Total & Action Buttons */}
+          <div className="flex items-center gap-4 w-full lg:w-auto justify-between lg:justify-end border-t lg:border-t-0 pt-2 lg:pt-0 border-slate-800/80">
+            <div className="text-left lg:text-right">
               <span className="text-[10px] uppercase font-bold text-slate-400 block">
-                Novo Tempo da Operação (∑ TP Micro-etapas):
+                Novo Tempo da Operação (∑ TP):
               </span>
               <div className="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-300 to-emerald-400 font-mono">
                 {totalStats.totalStandardTimeMinutes.toFixed(2)} <span className="text-sm font-bold text-teal-400">min</span>
@@ -1853,6 +1876,7 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
                 type="button"
                 onClick={() => handleSaveAndApply(false)}
                 className="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors"
+                title="Salvar o estudo de micro-etapas sem alterar o tempo oficial"
               >
                 Salvar Estudo
               </button>
@@ -1861,9 +1885,10 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
                 type="button"
                 onClick={() => handleSaveAndApply(true)}
                 className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 via-teal-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/25 transition-all flex items-center gap-2 active:scale-95"
+                title="Salvar, aplicar novo tempo padrão e registrar marco na Linha do Tempo Kaizen"
               >
                 <Sparkles className="w-4 h-4 stroke-[2.5]" />
-                <span>Aplicar Soma à Operação</span>
+                <span>Aplicar Soma & Kaizen</span>
               </button>
             </div>
           </div>

@@ -267,10 +267,13 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     const newStdTime = study.stats?.totalStandardTimeMinutes ?? (study.stats as any)?.standardTimeMinutes;
     if (applyToCatalog && newStdTime && newStdTime > 0) {
+      const justification =
+        study.notes?.trim() ||
+        `Cronoanálise Lean (${study.microOperations.length} micro-etapas)`;
       await updateOperationTime(
         study.operationId,
         newStdTime,
-        `Cronoanálise Lean (${study.microOperations.length} micro-etapas)`,
+        justification,
         'cronoanalise'
       );
     }
