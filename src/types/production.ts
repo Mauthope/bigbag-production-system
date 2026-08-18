@@ -118,20 +118,32 @@ export interface MicroOperation {
   sharePercentage?: number;    // % deste passo no tempo total da operação
 }
 
+export type StatisticalReliabilityLevel =
+  | 'amostragem_inicial'     // < 3 amostras
+  | 'baixa_confiabilidade'   // erro > 10%
+  | 'confiabilidade_media'   // erro 5% a 10%
+  | 'padrao_industrial'      // erro <= 5% com 95% de confiança
+  | 'alta_precisao';         // erro <= 2% com 99% de confiança
+
 export interface TimeStudyStats {
   meanMinutes: number;         // Média total amostral do ciclo (x̄)
   meanSeconds: number;
   stdDevMinutes: number;       // Desvio padrão amostral (s)
   variance: number;
+  coefficientOfVariationPct: number; // CV = (s / x̄) * 100
   minMinutes: number;
   maxMinutes: number;
   sampleCount: number;         // Número de ciclos completos
   zValue: number;              // Valor crítico de z (1.645 p/ 90%, 1.96 p/ 95%, 2.576 p/ 99%)
   confidenceLevel: number;     // Nível de confiança (90, 95, 99)
-  errorMarginPct: number;      // Margem de erro relativo (ex: 0.05 para 5%)
+  errorMarginPct: number;      // Margem de erro relativo meta (ex: 0.05 para 5%)
+  currentAchievedErrorPct: number; // Margem de erro real atingida com as n amostras atuais
   requiredSamples: number;     // N' = [ (z · s) / (e · x̄) ]²
   isStatisticallyValid: boolean; // n >= N'
   remainingSamplesNeeded: number; // Max(0, N' - n)
+  reliabilityLevel: StatisticalReliabilityLevel;
+  reliabilityLabel: string;
+  reliabilityRecommendation: string;
 
   // Lean Breakdown
   vaMinutes: number;           // Minutos em Valor Agregado
