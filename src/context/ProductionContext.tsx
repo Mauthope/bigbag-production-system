@@ -8,7 +8,8 @@ import {
   ProductionOrder,
   DashboardMetrics,
   ComponentEfficiencyStat,
-  TimeStudy
+  TimeStudy,
+  OperationTimeHistoryEntry
 } from '@/types/production';
 import { CATEGORIES_CONFIG, DEFAULT_OPERATIONS } from '@/data/defaultData';
 import { localStorageService } from '@/services/storage/localStorageService';
@@ -25,7 +26,13 @@ interface ProductionContextType {
   categoriesConfig: Record<ComponentCategoryKey, ComponentCategoryConfig>;
   operations: OperationItem[];
   isLoading: boolean;
-  updateOperationTime: (id: string, newTime: number) => Promise<void>;
+  updateOperationTime: (
+    id: string,
+    newTime: number,
+    notes?: string,
+    source?: 'cronoanalise' | 'manual'
+  ) => Promise<void>;
+  updateOperationHistory: (id: string, history: OperationTimeHistoryEntry[]) => Promise<void>;
   addCustomOperation: (item: Omit<OperationItem, 'id'>) => Promise<void>;
   deleteOperation: (id: string) => Promise<void>;
   resetOperationsToDefault: () => Promise<void>;
@@ -142,16 +149,85 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, [operations, showToast]);
 
   // Operations Operations (Settings)
-  const updateOperationTime = useCallback(async (id: string, newTime: number) => {
-    const updated = operations.map(op => (op.id === id ? { ...op, time: Number(newTime) } : op));
+  const updateOperationTime = useCallback(async (
+    id: string,
+    newTime: number,
+    notes?: string,
+    source: 'cronoanalise' | 'manual' = 'manual'
+  ) => {
+    const updated = operations.map(op => {
+      if (op.id === id) {
+        const existingHistory = op.history || [
+          {
+            id: `hist-${op.id}-base`,
+            operationId: op.id,
+            time: op.time,
+            date: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            notes: 'Tempo padrão de fábrica (Baseline inicial)',
+            source: 'inicial' as const
+          }
+        ];
+
+        const newEntry: OperationTimeHistoryEntry = {
+          id: `hist-${Date.now()}`,
+          operationId: op.id,
+          time: Number(newTime),
+          date: new Date().toISOString().split('T')[0],
+          notes: notes || (source === 'cronoanalise' ? 'Cronoanálise Lean & Mapeamento de Micro-operações' : 'Ajuste manual de tempo'),
+          source
+        };
+
+        return {
+          ...op,
+          time: Number(newTime),
+          history: [...existingHistory, newEntry],
+          updatedAt: new Date().toISOString()
+        };
+      }
+      return op;
+    });
+
     setOperations(updated);
     await localStorageService.saveOperations(updated);
-    showToast('Tempo padrão atualizado com sucesso!', 'success');
+    showToast('Tempo padrão atualizado e marco histórico registrado!', 'success');
   }, [operations, showToast]);
+
+  const updateOperationHistory = useCallback(async (id: string, history: OperationTimeHistoryEntry[]) => {
+    const latestTime = history.length > 0 ? history[history.length - 1].time : undefined;
+
+    const updated = operations.map(op => {
+      if (op.id === id) {
+        return {
+          ...op,
+          time: latestTime !== undefined ? latestTime : op.time,
+          history,
+          updatedAt: new Date().toISOString()
+        };
+      }
+      return op;
+    });
+
+    setOperations(updated);
+    await localStorageService.saveOperations(updated);
+  }, [operations]);
 
   const addCustomOperation = useCallback(async (item: Omit<OperationItem, 'id'>) => {
     const newId = `${item.category}-custom-${Date.now()}`;
-    const newOp: OperationItem = { ...item, id: newId };
+    const newOp: OperationItem = {
+      ...item,
+      id: newId,
+      history: [
+        {
+          id: `hist-${newId}-1`,
+          operationId: newId,
+          time: item.time,
+          date: new Date().toISOString().split('T')[0],
+          notes: 'Cadastro inicial da operação customizada',
+          source: 'inicial'
+        }
+      ],
+      updatedAt: new Date().toISOString()
+    };
     const updated = [...operations, newOp];
     setOperations(updated);
     await localStorageService.saveOperations(updated);
@@ -191,7 +267,12 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     const newStdTime = study.stats?.totalStandardTimeMinutes ?? (study.stats as any)?.standardTimeMinutes;
     if (applyToCatalog && newStdTime && newStdTime > 0) {
-      await updateOperationTime(study.operationId, newStdTime);
+      await updateOperationTime(
+        study.operationId,
+        newStdTime,
+        `Cronoanálise Lean (${study.microOperations.length} micro-etapas)`,
+        'cronoanalise'
+      );
     }
 
     showToast(`Estudo de tempos e percurso da operação "${study.operationName}" salvo com sucesso!`, 'success');
@@ -414,6 +495,7 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         operations,
         isLoading,
         updateOperationTime,
+        updateOperationHistory,
         addCustomOperation,
         deleteOperation,
         resetOperationsToDefault,

@@ -93,7 +93,18 @@ export const CATEGORIES_CONFIG: Record<ComponentCategoryKey, ComponentCategoryCo
 
 export const DEFAULT_OPERATIONS: OperationItem[] = [
   // ALÇA
-  { id: 'alca-op-padrao', name: 'Alça (Operação Padrão)', time: 2.50, isDefault: true, category: 'alca' },
+  {
+    id: 'alca-op-padrao',
+    name: 'Alça (Operação Padrão)',
+    time: 2.50,
+    isDefault: true,
+    category: 'alca',
+    history: [
+      { id: 'h-alca-1', operationId: 'alca-op-padrao', time: 2.85, date: '2026-03-15', notes: 'Tempo de fábrica inicial (Baseline)', source: 'inicial' },
+      { id: 'h-alca-2', operationId: 'alca-op-padrao', time: 2.65, date: '2026-06-10', notes: 'Kaizen 1: Novo gabarito de alinhamento', source: 'cronoanalise' },
+      { id: 'h-alca-3', operationId: 'alca-op-padrao', time: 2.50, date: '2026-08-18', notes: 'Kaizen 2: Padronização do método de costura contínua', source: 'cronoanalise' }
+    ]
+  },
   { id: 'alca-sem-pers', name: 'Sem personalização', time: 0.00, isDefault: false, category: 'alca' },
   { id: 'alca-laminado', name: 'Laminado', time: 0.50, isDefault: false, category: 'alca' },
   { id: 'alca-patch-lam', name: 'Patch+ Lam', time: 0.50, isDefault: false, category: 'alca' },
@@ -111,7 +122,18 @@ export const DEFAULT_OPERATIONS: OperationItem[] = [
   { id: 'alca-altura-07', name: 'Altura menor que 0,7m', time: 0.50, isDefault: false, category: 'alca' },
 
   // FUNDO
-  { id: 'fundo-op-padrao', name: 'Fundo (Operação padrão)', time: 1.75, isDefault: true, category: 'fundo' },
+  {
+    id: 'fundo-op-padrao',
+    name: 'Fundo (Operação padrão)',
+    time: 1.75,
+    isDefault: true,
+    category: 'fundo',
+    history: [
+      { id: 'h-fundo-1', operationId: 'fundo-op-padrao', time: 2.10, date: '2026-04-01', notes: 'Tempo de fábrica inicial (Baseline)', source: 'inicial' },
+      { id: 'h-fundo-2', operationId: 'fundo-op-padrao', time: 1.90, date: '2026-06-20', notes: 'Kaizen: Melhoria no dispositivo de dobra', source: 'cronoanalise' },
+      { id: 'h-fundo-3', operationId: 'fundo-op-padrao', time: 1.75, date: '2026-08-18', notes: 'Kaizen: Eliminação de aparas no processo', source: 'cronoanalise' }
+    ]
+  },
   { id: 'fundo-sem-pers', name: 'Sem personalização', time: 0.00, isDefault: false, category: 'fundo' },
   { id: 'fundo-laminado', name: 'Laminado', time: 0.35, isDefault: false, category: 'fundo' },
   { id: 'fundo-dobra-dupla', name: 'Dobra dupla', time: 0.00, isDefault: false, category: 'fundo' },

@@ -4,7 +4,9 @@ import React, { useState, useMemo } from 'react';
 import { useProduction } from '@/context/ProductionContext';
 import { ComponentCategoryKey, OperationItem } from '@/types/production';
 import { TimeStudyModal } from '@/components/TimeStudyModal';
+import { TimeEvolutionModal } from '@/components/TimeEvolutionModal';
 import { ExportImportModal } from '@/components/ExportImportModal';
+import { Sparkline } from '@/components/Sparkline';
 import {
   Sliders,
   Search,
@@ -18,7 +20,9 @@ import {
   Sparkles,
   Layers,
   Clock,
-  CheckCircle2
+  CheckCircle2,
+  TrendingDown,
+  LineChart as LineChartIcon
 } from 'lucide-react';
 
 export default function SettingsPage() {
@@ -38,6 +42,7 @@ export default function SettingsPage() {
   const [editingTimes, setEditingTimes] = useState<Record<string, number>>({});
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [selectedOpForTimeStudy, setSelectedOpForTimeStudy] = useState<OperationItem | null>(null);
+  const [selectedOpForHistory, setSelectedOpForHistory] = useState<OperationItem | null>(null);
 
   // Add Operation Form State
   const [isAddingOp, setIsAddingOp] = useState(false);
@@ -61,7 +66,7 @@ export default function SettingsPage() {
 
   const handleSaveTime = async (id: string) => {
     if (editingTimes[id] !== undefined) {
-      await updateOperationTime(id, editingTimes[id]);
+      await updateOperationTime(id, editingTimes[id], 'Ajuste manual direto na tabela', 'manual');
       setEditingTimes(prev => {
         const next = { ...prev };
         delete next[id];
@@ -100,11 +105,11 @@ export default function SettingsPage() {
               Tempos, Parâmetros & Cronoanálise
             </h1>
             <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-cyan-950/70 text-cyan-300 border border-cyan-800/40">
-              Estudo de Tempos Lean
+              Cronoanálise & Curva Kaizen
             </span>
           </div>
           <p className="text-sm text-slate-400 mt-1">
-            Edite tempos diretamente ou realize um <strong>Estudo de Tempos e Cronoanálise</strong> detalhada com precisão estatística (N&apos; = [(z&middot;s)/(e&middot;x̄)]&sup2;).
+            Mapeie micro-etapas, realize cronoanálises com precisão estatística e acompanhe a <strong>evolução histórica do tempo (estilo mercado financeiro)</strong> para comprovar melhorias e ganhos de eficiência.
           </p>
         </div>
 
@@ -265,7 +270,7 @@ export default function SettingsPage() {
 
       </div>
 
-      {/* Operations Table with Time Study Button */}
+      {/* Operations Table with Time Study and Sparkline Evolution Columns */}
       <div className="rounded-2xl bg-slate-900/60 border border-slate-800 overflow-hidden shadow-xl">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -275,6 +280,7 @@ export default function SettingsPage() {
                 <th className="py-3.5 px-4">Nome da Operação</th>
                 <th className="py-3.5 px-4 text-center">Tipo</th>
                 <th className="py-3.5 px-4 text-center">Cronoanálise Lean</th>
+                <th className="py-3.5 px-4 text-center">Evolução do Tempo (Kaizen)</th>
                 <th className="py-3.5 px-4 text-right">Tempo Padrão (Minutos)</th>
                 <th className="py-3.5 px-4 text-right">Ações</th>
               </tr>
@@ -329,7 +335,7 @@ export default function SettingsPage() {
                             ? 'bg-emerald-950/50 hover:bg-emerald-900/60 text-emerald-300 border-emerald-800/60 shadow-sm'
                             : 'bg-slate-950/70 hover:bg-slate-800 text-cyan-300 border-cyan-500/30'
                         }`}
-                        title="Abrir Cronômetro e Estudo de Tempos Lean"
+                        title="Abrir Cronômetro e Mapeamento de Micro-etapas Lean"
                       >
                         <Activity className={`w-3.5 h-3.5 ${study ? 'text-emerald-400 animate-pulse' : 'text-cyan-400'}`} />
                         <span>
@@ -338,6 +344,15 @@ export default function SettingsPage() {
                             : 'Mapear / Cronometrar'}
                         </span>
                       </button>
+                    </td>
+
+                    {/* Sparkline Stock-Market Trend Mini-Chart Column */}
+                    <td className="py-3 px-4 text-center">
+                      <Sparkline
+                        history={op.history}
+                        currentTime={op.time}
+                        onClick={() => setSelectedOpForHistory(op)}
+                      />
                     </td>
 
                     {/* Standard Time Input */}
@@ -395,6 +410,13 @@ export default function SettingsPage() {
         operation={selectedOpForTimeStudy}
         isOpen={Boolean(selectedOpForTimeStudy)}
         onClose={() => setSelectedOpForTimeStudy(null)}
+      />
+
+      {/* Historical Time Evolution Modal (Curva Kaizen) */}
+      <TimeEvolutionModal
+        operation={selectedOpForHistory}
+        isOpen={Boolean(selectedOpForHistory)}
+        onClose={() => setSelectedOpForHistory(null)}
       />
 
       {/* Export / Import Modal */}

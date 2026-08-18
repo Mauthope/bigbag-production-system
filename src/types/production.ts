@@ -11,6 +11,15 @@ export type ComponentCategoryKey =
   | 'outras'
   | 'preparacao';
 
+export interface OperationTimeHistoryEntry {
+  id: string;
+  operationId: string;
+  time: number; // in minutes (e.g. 2.50)
+  date: string; // ISO date string or YYYY-MM-DD
+  notes?: string; // e.g. "Kaizen: eliminação de desperdício no posicionamento", "Baseline inicial"
+  source?: 'cronoanalise' | 'manual' | 'inicial';
+}
+
 export interface OperationItem {
   id: string;
   name: string;
@@ -18,6 +27,8 @@ export interface OperationItem {
   isDefault: boolean;
   category: ComponentCategoryKey;
   description?: string;
+  history?: OperationTimeHistoryEntry[];
+  updatedAt?: string;
 }
 
 export interface ComponentCategoryConfig {
