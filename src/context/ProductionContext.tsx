@@ -7,7 +7,8 @@ import {
   OperationItem,
   ProductionOrder,
   DashboardMetrics,
-  ComponentEfficiencyStat
+  ComponentEfficiencyStat,
+  TimeStudy
 } from '@/types/production';
 import { CATEGORIES_CONFIG, DEFAULT_OPERATIONS } from '@/data/defaultData';
 import { localStorageService } from '@/services/storage/localStorageService';
@@ -52,6 +53,12 @@ interface ProductionContextType {
     notes?: string
   ) => Promise<void>;
 
+  // Time Studies (Cronoanálise Lean)
+  timeStudies: TimeStudy[];
+  getTimeStudy: (operationId: string) => TimeStudy | undefined;
+  saveTimeStudyAndApply: (study: TimeStudy, applyToCatalog?: boolean) => Promise<void>;
+  deleteTimeStudy: (id: string) => Promise<void>;
+
   // Metrics & Efficiency
   metrics: DashboardMetrics;
   componentStats: ComponentEfficiencyStat[];
@@ -70,6 +77,7 @@ const ProductionContext = createContext<ProductionContextType | undefined>(undef
 export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [operations, setOperations] = useState<OperationItem[]>(DEFAULT_OPERATIONS);
   const [orders, setOrders] = useState<ProductionOrder[]>([]);
+  const [timeStudies, setTimeStudies] = useState<TimeStudy[]>([]);
   const [selectedOperationIds, setSelectedOperationIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [toast, setToast] = useState<ToastState>({ show: false, message: '', type: 'info' });
@@ -85,13 +93,15 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   useEffect(() => {
     async function init() {
       try {
-        const [loadedOps, loadedOrders, loadedSelection] = await Promise.all([
+        const [loadedOps, loadedOrders, loadedStudies, loadedSelection] = await Promise.all([
           localStorageService.getOperations(),
           localStorageService.getOrders(),
+          localStorageService.getTimeStudies(),
           localStorageService.getCalculatorSelection()
         ]);
         setOperations(loadedOps);
         setOrders(loadedOrders);
+        setTimeStudies(loadedStudies);
         setSelectedOperationIds(loadedSelection);
       } catch (err) {
         console.error('Error loading initial state:', err);
@@ -162,6 +172,36 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     showToast('Catálogo de tempos restaurado para os padrões de fábrica!', 'success');
   }, [showToast]);
 
+  // Time Studies (Cronoanálise Lean)
+  const getTimeStudy = useCallback((operationId: string) => {
+    return timeStudies.find(s => s.operationId === operationId);
+  }, [timeStudies]);
+
+  const saveTimeStudyAndApply = useCallback(async (study: TimeStudy, applyToCatalog: boolean = true) => {
+    await localStorageService.saveTimeStudy(study);
+    setTimeStudies(prev => {
+      const index = prev.findIndex(s => s.id === study.id || s.operationId === study.operationId);
+      if (index >= 0) {
+        const next = [...prev];
+        next[index] = study;
+        return next;
+      }
+      return [study, ...prev];
+    });
+
+    if (applyToCatalog && study.stats?.standardTimeMinutes) {
+      await updateOperationTime(study.operationId, study.stats.standardTimeMinutes);
+    }
+
+    showToast(`Estudo de tempos da operação "${study.operationName}" salvo com sucesso!`, 'success');
+  }, [updateOperationTime, showToast]);
+
+  const deleteTimeStudy = useCallback(async (id: string) => {
+    await localStorageService.deleteTimeStudy(id);
+    setTimeStudies(prev => prev.filter(s => s.id !== id && s.operationId !== id));
+    showToast('Estudo de tempos removido!', 'info');
+  }, [showToast]);
+
   // Orders Management (OP)
   const addOrder = useCallback(async (orderData: Omit<ProductionOrder, 'id' | 'createdAt' | 'updatedAt'>) => {
     const now = new Date().toISOString();
@@ -223,13 +263,15 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const importData = useCallback(async (data: StorageData) => {
     await localStorageService.importAllData(data);
-    const [loadedOps, loadedOrders, loadedSelection] = await Promise.all([
+    const [loadedOps, loadedOrders, loadedStudies, loadedSelection] = await Promise.all([
       localStorageService.getOperations(),
       localStorageService.getOrders(),
+      localStorageService.getTimeStudies(),
       localStorageService.getCalculatorSelection()
     ]);
     setOperations(loadedOps);
     setOrders(loadedOrders);
+    setTimeStudies(loadedStudies);
     setSelectedOperationIds(loadedSelection);
     showToast('Dados importados com sucesso!', 'success');
   }, [showToast]);
@@ -297,7 +339,6 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       totalPlannedUnits += order.targetQuantity;
       totalProducedUnits += order.producedQuantity;
 
-      // Planned standard minutes for produced quantity
       const stdForProduced = (order.standardTimePerBag || 0) * (order.producedQuantity || 0);
       globalStandardMinutes += stdForProduced;
 
@@ -333,7 +374,6 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       let countUsage = 0;
 
       orders.forEach(order => {
-        // Calculate standard time for this category in this order
         const catOps = operations.filter(
           op => op.category === catKey && order.selectedOperationIds.includes(op.id)
         );
@@ -350,7 +390,6 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
       });
 
-      // If no granular component times were registered, estimate proportionally or use standard
       const effectiveActual = actualMinutes > 0 ? actualMinutes : standardMinutes;
       const efficiency =
         effectiveActual > 0 ? (standardMinutes / effectiveActual) * 100 : 100;
@@ -390,6 +429,10 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         updateOrder,
         deleteOrder,
         recordOrderTime,
+        timeStudies,
+        getTimeStudy,
+        saveTimeStudyAndApply,
+        deleteTimeStudy,
         metrics,
         componentStats,
         exportData,

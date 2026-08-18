@@ -3,6 +3,8 @@
 import React, { useState, useMemo } from 'react';
 import { useProduction } from '@/context/ProductionContext';
 import { ComponentCategoryKey, OperationItem } from '@/types/production';
+import { TimeStudyModal } from '@/components/TimeStudyModal';
+import { ExportImportModal } from '@/components/ExportImportModal';
 import {
   Sliders,
   Search,
@@ -10,19 +12,20 @@ import {
   RotateCcw,
   Trash2,
   Save,
-  CheckCircle2,
   Download,
-  Upload,
-  Layers,
+  Activity,
+  Gauge,
   Sparkles,
-  Edit2
+  Layers,
+  Clock,
+  CheckCircle2
 } from 'lucide-react';
-import { ExportImportModal } from '@/components/ExportImportModal';
 
 export default function SettingsPage() {
   const {
     operations,
     categoriesConfig,
+    timeStudies,
     updateOperationTime,
     addCustomOperation,
     deleteOperation,
@@ -34,6 +37,7 @@ export default function SettingsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [editingTimes, setEditingTimes] = useState<Record<string, number>>({});
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [selectedOpForTimeStudy, setSelectedOpForTimeStudy] = useState<OperationItem | null>(null);
 
   // Add Operation Form State
   const [isAddingOp, setIsAddingOp] = useState(false);
@@ -93,14 +97,14 @@ export default function SettingsPage() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-300 to-emerald-400">
-              Atualização de Tempos & Parâmetros
+              Tempos, Parâmetros & Cronoanálise
             </h1>
-            <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-950/70 text-amber-300 border border-amber-800/40">
-              Inputs Editáveis
+            <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-cyan-950/70 text-cyan-300 border border-cyan-800/40">
+              Estudo de Tempos Lean
             </span>
           </div>
           <p className="text-sm text-slate-400 mt-1">
-            Ajuste os tempos padrão (em minutos) das operações. As alterações refletem imediatamente na calculadora e nas novas OPs.
+            Edite tempos diretamente ou realize um <strong>Estudo de Tempos e Cronoanálise</strong> detalhada com precisão estatística (N&apos; = [(z&middot;s)/(e&middot;x̄)]&sup2;).
           </p>
         </div>
 
@@ -132,7 +136,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Add New Operation Drawer/Card */}
+      {/* Add New Operation Drawer */}
       {isAddingOp && (
         <div className="p-5 rounded-2xl bg-slate-900/90 border border-cyan-500/40 shadow-xl animate-in fade-in slide-in-from-top-4">
           <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-800">
@@ -261,7 +265,7 @@ export default function SettingsPage() {
 
       </div>
 
-      {/* Operations Table */}
+      {/* Operations Table with Time Study Button */}
       <div className="rounded-2xl bg-slate-900/60 border border-slate-800 overflow-hidden shadow-xl">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -270,6 +274,7 @@ export default function SettingsPage() {
                 <th className="py-3.5 px-4">Componente</th>
                 <th className="py-3.5 px-4">Nome da Operação</th>
                 <th className="py-3.5 px-4 text-center">Tipo</th>
+                <th className="py-3.5 px-4 text-center">Cronoanálise Lean</th>
                 <th className="py-3.5 px-4 text-right">Tempo Padrão (Minutos)</th>
                 <th className="py-3.5 px-4 text-right">Ações</th>
               </tr>
@@ -279,9 +284,10 @@ export default function SettingsPage() {
                 const config = categoriesConfig[op.category];
                 const isModified = editingTimes[op.id] !== undefined && editingTimes[op.id] !== op.time;
                 const currentTimeVal = editingTimes[op.id] !== undefined ? editingTimes[op.id] : op.time;
+                const study = timeStudies.find(s => s.operationId === op.id);
 
                 return (
-                  <tr key={op.id} className="hover:bg-slate-800/30 transition-colors">
+                  <tr key={op.id} className="hover:bg-slate-800/30 transition-colors group">
                     {/* Component */}
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2">
@@ -314,6 +320,22 @@ export default function SettingsPage() {
                       )}
                     </td>
 
+                    {/* Time Study Status & Trigger */}
+                    <td className="py-3 px-4 text-center">
+                      <button
+                        onClick={() => setSelectedOpForTimeStudy(op)}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-semibold border transition-all ${
+                          study
+                            ? 'bg-emerald-950/50 hover:bg-emerald-900/60 text-emerald-300 border-emerald-800/60 shadow-sm'
+                            : 'bg-slate-950/70 hover:bg-slate-800 text-cyan-300 border-cyan-500/30'
+                        }`}
+                        title="Abrir Cronômetro e Estudo de Tempos Lean"
+                      >
+                        <Activity className={`w-3.5 h-3.5 ${study ? 'text-emerald-400 animate-pulse' : 'text-cyan-400'}`} />
+                        <span>{study ? `Estudo (${study.samples.length} tomadas)` : 'Fazer Cronoanálise'}</span>
+                      </button>
+                    </td>
+
                     {/* Standard Time Input */}
                     <td className="py-3 px-4 text-right font-mono">
                       <div className="flex items-center justify-end gap-2">
@@ -334,7 +356,7 @@ export default function SettingsPage() {
                           <button
                             onClick={() => handleSaveTime(op.id)}
                             className="p-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors"
-                            title="Salvar alteração"
+                            title="Salvar alteração manual"
                           >
                             <Save className="w-3.5 h-3.5" />
                           </button>
@@ -363,6 +385,13 @@ export default function SettingsPage() {
           </table>
         </div>
       </div>
+
+      {/* Time Study Modal */}
+      <TimeStudyModal
+        operation={selectedOpForTimeStudy}
+        isOpen={Boolean(selectedOpForTimeStudy)}
+        onClose={() => setSelectedOpForTimeStudy(null)}
+      />
 
       {/* Export / Import Modal */}
       <ExportImportModal

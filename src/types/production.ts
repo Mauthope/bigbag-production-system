@@ -81,3 +81,62 @@ export interface ComponentEfficiencyStat {
   efficiency: number; // %
   countUsage: number;
 }
+
+// ==============================================================================
+// LEAN TIME STUDY & CRONOANÁLISE TYPES
+// ==============================================================================
+
+export type LeanActionType = 'valor_agregado' | 'necessario' | 'desperdicio';
+
+export interface TimeStudySample {
+  id: string;
+  sampleIndex: number;
+  timeInSeconds: number;
+  timeInMinutes: number;
+  type: LeanActionType;
+  stepName?: string;
+  notes?: string;
+  timestamp: string;
+}
+
+export interface TimeStudyStats {
+  meanMinutes: number;         // Média amostral (x̄)
+  meanSeconds: number;
+  stdDevMinutes: number;       // Desvio padrão amostral (s)
+  variance: number;
+  minMinutes: number;
+  maxMinutes: number;
+  sampleCount: number;         // Número de tomadas (n)
+  zValue: number;              // Valor crítico de z (1.645 p/ 90%, 1.96 p/ 95%, 2.576 p/ 99%)
+  confidenceLevel: number;     // Nível de confiança (90, 95, 99)
+  errorMarginPct: number;      // Margem de erro relativo (ex: 0.05 para 5%)
+  requiredSamples: number;     // N' = [ (z · s) / (e · x̄) ]²
+  isStatisticallyValid: boolean; // n >= N'
+  remainingSamplesNeeded: number; // Max(0, N' - n)
+
+  // Lean Breakdown
+  vaRatio: number;             // % Valor Agregado
+  nnvaRatio: number;           // % Necessário
+  nvaRatio: number;            // % Desperdício
+
+  // Standard Time Calculations
+  paceRating: number;          // Fator de Ritmo / Velocidade (ex: 1.0 = 100%, 1.05 = 105%)
+  normalTimeMinutes: number;   // TN = TC * FR
+  allowancePercentage: number; // Tolerâncias / Concessões / Fadiga (ex: 0.12 = 12%)
+  standardTimeMinutes: number; // TP = TN * (1 + FT)
+}
+
+export interface TimeStudy {
+  id: string;
+  operationId: string;
+  operationName: string;
+  category: ComponentCategoryKey;
+  operatorName?: string;
+  analystName?: string;
+  date: string;
+  samples: TimeStudySample[];
+  stats: TimeStudyStats;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}

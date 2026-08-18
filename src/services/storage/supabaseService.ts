@@ -1,4 +1,4 @@
-import { OperationItem, ProductionOrder } from '@/types/production';
+import { OperationItem, ProductionOrder, TimeStudy } from '@/types/production';
 import { IStorageService, StorageData } from './types';
 
 /**
@@ -23,73 +23,83 @@ export class SupabaseStorageService implements IStorageService {
     );
   }
 
+  // Operations
   async getOperations(): Promise<OperationItem[]> {
-    if (!this.isConfigured()) {
-      console.warn('Supabase não configurado. Defina NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY.');
-      return [];
-    }
-    // Implementação direta via Supabase:
-    // const { data, error } = await supabase.from('operations').select('*');
-    // if (error) throw error;
-    // return data;
+    if (!this.isConfigured()) return [];
     return [];
   }
 
   async saveOperations(operations: OperationItem[]): Promise<void> {
     if (!this.isConfigured()) return;
-    // await supabase.from('operations').upsert(operations);
   }
 
   async updateOperation(operation: OperationItem): Promise<void> {
     if (!this.isConfigured()) return;
-    // await supabase.from('operations').upsert(operation);
   }
 
   async resetOperations(): Promise<OperationItem[]> {
     return [];
   }
 
+  // Production Orders (OP)
   async getOrders(): Promise<ProductionOrder[]> {
     if (!this.isConfigured()) return [];
-    // const { data, error } = await supabase.from('production_orders').select('*').order('created_at', { ascending: false });
-    // return data || [];
     return [];
   }
 
   async getOrderById(id: string): Promise<ProductionOrder | null> {
     if (!this.isConfigured()) return null;
-    // const { data } = await supabase.from('production_orders').select('*').eq('id', id).single();
-    // return data || null;
     return null;
   }
 
   async saveOrder(order: ProductionOrder): Promise<void> {
     if (!this.isConfigured()) return;
-    // await supabase.from('production_orders').upsert(order);
   }
 
   async deleteOrder(id: string): Promise<void> {
     if (!this.isConfigured()) return;
-    // await supabase.from('production_orders').delete().eq('id', id);
   }
 
+  // Time Studies (Cronoanálise Lean)
+  async getTimeStudies(): Promise<TimeStudy[]> {
+    if (!this.isConfigured()) return [];
+    return [];
+  }
+
+  async getTimeStudyByOperationId(operationId: string): Promise<TimeStudy | null> {
+    if (!this.isConfigured()) return null;
+    return null;
+  }
+
+  async saveTimeStudy(study: TimeStudy): Promise<void> {
+    if (!this.isConfigured()) return;
+  }
+
+  async deleteTimeStudy(id: string): Promise<void> {
+    if (!this.isConfigured()) return;
+  }
+
+  // Calculator State
   async getCalculatorSelection(): Promise<string[]> {
     return [];
   }
 
   async saveCalculatorSelection(selectedIds: string[]): Promise<void> {
-    // Pode salvar em user_preferences ou localStorage
+    // Local preferences
   }
 
+  // Backup & Restore
   async exportAllData(): Promise<StorageData> {
     const operations = await this.getOperations();
     const orders = await this.getOrders();
+    const timeStudies = await this.getTimeStudies();
     return {
       operations,
       orders,
+      timeStudies,
       selectedCalculatorIds: [],
       lastUpdated: new Date().toISOString(),
-      version: '1.0.0-supabase'
+      version: '1.1.0-supabase'
     };
   }
 
@@ -98,6 +108,11 @@ export class SupabaseStorageService implements IStorageService {
     if (data.orders) {
       for (const order of data.orders) {
         await this.saveOrder(order);
+      }
+    }
+    if (data.timeStudies) {
+      for (const study of data.timeStudies) {
+        await this.saveTimeStudy(study);
       }
     }
   }

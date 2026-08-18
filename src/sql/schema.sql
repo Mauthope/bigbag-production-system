@@ -37,15 +37,33 @@ CREATE TABLE IF NOT EXISTS production_orders (
     completed_at TIMESTAMP WITH TIME ZONE
 );
 
--- 3. Índices para Alto Desempenho e Consultas no Dashboard
+-- 3. Tabela de Estudos de Tempos & Cronoanálise Lean
+CREATE TABLE IF NOT EXISTS time_studies (
+    id TEXT PRIMARY KEY,
+    operation_id TEXT NOT NULL REFERENCES operations(id) ON DELETE CASCADE,
+    operation_name TEXT NOT NULL,
+    category TEXT NOT NULL,
+    operator_name TEXT,
+    analyst_name TEXT,
+    date TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    samples JSONB NOT NULL DEFAULT '[]'::jsonb,
+    stats JSONB NOT NULL DEFAULT '{}'::jsonb,
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 4. Índices para Alto Desempenho e Consultas no Dashboard
 CREATE INDEX IF NOT EXISTS idx_production_orders_status ON production_orders(status);
 CREATE INDEX IF NOT EXISTS idx_production_orders_client ON production_orders(client);
 CREATE INDEX IF NOT EXISTS idx_production_orders_created_at ON production_orders(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_operations_category ON operations(category);
+CREATE INDEX IF NOT EXISTS idx_time_studies_operation ON time_studies(operation_id);
 
--- 4. Habilitar Row Level Security (RLS)
+-- 5. Habilitar Row Level Security (RLS)
 ALTER TABLE operations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE production_orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE time_studies ENABLE ROW LEVEL SECURITY;
 
 -- Políticas de acesso público/autenticado (Ajuste conforme necessidade)
 CREATE POLICY "Permitir leitura para todos" ON operations FOR SELECT USING (true);
@@ -53,3 +71,6 @@ CREATE POLICY "Permitir modificação para todos" ON operations FOR ALL USING (t
 
 CREATE POLICY "Permitir leitura para todos" ON production_orders FOR SELECT USING (true);
 CREATE POLICY "Permitir modificação para todos" ON production_orders FOR ALL USING (true);
+
+CREATE POLICY "Permitir leitura para todos" ON time_studies FOR SELECT USING (true);
+CREATE POLICY "Permitir modificação para todos" ON time_studies FOR ALL USING (true);

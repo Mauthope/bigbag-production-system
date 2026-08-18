@@ -1,12 +1,13 @@
 import { DEFAULT_OPERATIONS, INITIAL_SAMPLE_ORDERS } from '@/data/defaultData';
-import { OperationItem, ProductionOrder } from '@/types/production';
+import { OperationItem, ProductionOrder, TimeStudy } from '@/types/production';
 import { IStorageService, StorageData } from './types';
 
 const STORAGE_KEYS = {
   OPERATIONS: 'bigbag_production_operations_v1',
   ORDERS: 'bigbag_production_orders_v1',
+  TIME_STUDIES: 'bigbag_production_time_studies_v1',
   CALCULATOR_SELECTION: 'bigbag_calculator_selection_v1',
-  DATA_VERSION: '1.0.0'
+  DATA_VERSION: '1.1.0'
 };
 
 export class LocalStorageService implements IStorageService {
@@ -106,13 +107,54 @@ export class LocalStorageService implements IStorageService {
     localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(filtered));
   }
 
+  // Time Studies (Cronoanálise Lean)
+  async getTimeStudies(): Promise<TimeStudy[]> {
+    if (!this.isClient()) return [];
+    try {
+      const stored = localStorage.getItem(STORAGE_KEYS.TIME_STUDIES);
+      if (!stored) return [];
+      return JSON.parse(stored);
+    } catch (e) {
+      console.error('Error reading time studies from localStorage:', e);
+      return [];
+    }
+  }
+
+  async getTimeStudyByOperationId(operationId: string): Promise<TimeStudy | null> {
+    const studies = await this.getTimeStudies();
+    return studies.find(s => s.operationId === operationId) || null;
+  }
+
+  async saveTimeStudy(study: TimeStudy): Promise<void> {
+    if (!this.isClient()) return;
+    const studies = await this.getTimeStudies();
+    const index = studies.findIndex(s => s.id === study.id || s.operationId === study.operationId);
+    if (index >= 0) {
+      studies[index] = { ...study, updatedAt: new Date().toISOString() };
+    } else {
+      studies.unshift({
+        ...study,
+        createdAt: study.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+    }
+    localStorage.setItem(STORAGE_KEYS.TIME_STUDIES, JSON.stringify(studies));
+  }
+
+  async deleteTimeStudy(id: string): Promise<void> {
+    if (!this.isClient()) return;
+    const studies = await this.getTimeStudies();
+    const filtered = studies.filter(s => s.id !== id && s.operationId !== id);
+    localStorage.setItem(STORAGE_KEYS.TIME_STUDIES, JSON.stringify(filtered));
+  }
+
   // Calculator State
   async getCalculatorSelection(): Promise<string[]> {
     if (!this.isClient()) return DEFAULT_OPERATIONS.filter(o => o.isDefault).map(o => o.id);
     try {
       const stored = localStorage.getItem(STORAGE_KEYS.CALCULATOR_SELECTION);
       if (!stored) {
-        const defaultIds = DEFAULT_OPERATIONS.map(o => o.id); // default select all as per original app
+        const defaultIds = DEFAULT_OPERATIONS.map(o => o.id);
         await this.saveCalculatorSelection(defaultIds);
         return defaultIds;
       }
@@ -132,11 +174,13 @@ export class LocalStorageService implements IStorageService {
   async exportAllData(): Promise<StorageData> {
     const operations = await this.getOperations();
     const orders = await this.getOrders();
+    const timeStudies = await this.getTimeStudies();
     const selectedCalculatorIds = await this.getCalculatorSelection();
 
     return {
       operations,
       orders,
+      timeStudies,
       selectedCalculatorIds,
       lastUpdated: new Date().toISOString(),
       version: STORAGE_KEYS.DATA_VERSION
@@ -150,6 +194,9 @@ export class LocalStorageService implements IStorageService {
     }
     if (data.orders && Array.isArray(data.orders)) {
       localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(data.orders));
+    }
+    if (data.timeStudies && Array.isArray(data.timeStudies)) {
+      localStorage.setItem(STORAGE_KEYS.TIME_STUDIES, JSON.stringify(data.timeStudies));
     }
     if (data.selectedCalculatorIds && Array.isArray(data.selectedCalculatorIds)) {
       await this.saveCalculatorSelection(data.selectedCalculatorIds);
