@@ -9,7 +9,8 @@ import {
   TimeStudySample,
   TimeStudyStats,
   TimeStudy,
-  StatisticalReliabilityLevel
+  StatisticalReliabilityLevel,
+  OperationTimeHistoryEntry
 } from '@/types/production';
 import {
   X,
@@ -43,7 +44,9 @@ import {
   ChevronUp,
   BookOpen,
   Coffee,
-  ArrowRight
+  ArrowRight,
+  RefreshCw,
+  Award
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -99,7 +102,7 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
   isOpen,
   onClose
 }) => {
-  const { categoriesConfig, getTimeStudy, saveTimeStudyAndApply, showToast } = useProduction();
+  const { categoriesConfig, getTimeStudy, saveTimeStudyAndApply, updateOperationHistory, showToast } = useProduction();
 
   // Active Tab
   const [activeTab, setActiveTab] = useState<'flow' | 'stats' | 'charts'>('flow');
@@ -113,6 +116,10 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
   const [confidenceLevel, setConfidenceLevel] = useState<number>(95);
   const [errorMarginPct, setErrorMarginPct] = useState<number>(0.05); // 5%
   const [notes, setNotes] = useState<string>('');
+
+  // Kaizen Cycle Reset Modal State
+  const [isKaizenModalOpen, setIsKaizenModalOpen] = useState<boolean>(false);
+  const [kaizenActionDescription, setKaizenActionDescription] = useState<string>('');
 
   // Bulk Apply Modal/Popover state
   const [showBulkAdjust, setShowBulkAdjust] = useState<boolean>(false);
@@ -349,6 +356,85 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
     showToast(`Ritmo (${(bulkPace * 100).toFixed(0)}%) e Fadiga (${(bulkAllowance * 100).toFixed(0)}%) aplicados a todas as etapas!`, 'success');
   };
 
+  // ==============================================================================
+  // KAIZEN IMPROVEMENT CYCLE RESET (START NEW METHOD FROM SAMPLE #1)
+  // ==============================================================================
+  const handleStartKaizenCycle = async () => {
+    if (!operation) return;
+
+    const actionText = kaizenActionDescription.trim() || 'Nova Melhoria Kaizen de Processo';
+
+    // 1. If operation has historical entries, archive the current baseline point
+    if (operation.history && operation.history.length > 0) {
+      const today = new Date().toISOString().split('T')[0];
+      const hasTodayBaseline = operation.history.some(h => h.date === today);
+      if (!hasTodayBaseline) {
+        const baselinePoint: OperationTimeHistoryEntry = {
+          id: `hist-pre-kaizen-${Date.now()}`,
+          operationId: operation.id,
+          time: operation.time,
+          date: today,
+          notes: `Método anterior ao Kaizen (${operation.time.toFixed(2)} min)`,
+          source: 'cronoanalise'
+        };
+        await updateOperationHistory(operation.id, [...operation.history, baselinePoint]);
+      }
+    }
+
+    // 2. Clear samples across all micro-operations to start clean at Sample #1
+    setMicroOperations(prev =>
+      prev.map(op => ({
+        ...op,
+        samples: [],
+        meanSeconds: 0,
+        meanMinutes: 0,
+        normalTimeMinutes: 0,
+        standardTimeMinutes: 0,
+        standardTimeSeconds: 0
+      }))
+    );
+
+    // 3. Set the Kaizen notes and reset stopwatches
+    setNotes(actionText);
+    setTimers({});
+
+    // 4. Close Kaizen modal and celebrate
+    setIsKaizenModalOpen(false);
+    setKaizenActionDescription('');
+
+    try {
+      confetti({
+        particleCount: 50,
+        spread: 60,
+        origin: { y: 0.6 }
+      });
+    } catch {}
+
+    showToast('✨ Novo Ciclo Kaizen iniciado! As medições anteriores foram arquivadas. A próxima medição será a Tomada #1.', 'success');
+  };
+
+  // Reset samples for a single micro-operation (partial Kaizen)
+  const handleResetSingleStepSamples = (stepId: string) => {
+    handleResetTimer(stepId);
+    setMicroOperations(prev =>
+      prev.map(op => {
+        if (op.id === stepId) {
+          return {
+            ...op,
+            samples: [],
+            meanSeconds: 0,
+            meanMinutes: 0,
+            normalTimeMinutes: 0,
+            standardTimeMinutes: 0,
+            standardTimeSeconds: 0
+          };
+        }
+        return op;
+      })
+    );
+    showToast('Amostras da micro-etapa resetadas para iniciar novo método.', 'info');
+  };
+
   // Add a new Micro-operation
   const handleAddMicroOp = (e: React.FormEvent) => {
     e.preventDefault();
@@ -476,7 +562,7 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
     const sumMinutes = totalVaMin + totalNnvaMin + totalNvaMin;
     const vaRatio = sumMinutes > 0 ? (totalVaMin / sumMinutes) * 100 : 0;
     const nnvaRatio = sumMinutes > 0 ? (totalNnvaMin / sumMinutes) * 100 : 0;
-    const nvaRatio = sumMinutes > 0 ? (totalNvaMin / sumMinutes) * 100 : 0;
+    const nvaRatio = sumMinutes > 0 ? (totalNnvaMin / sumMinutes) * 100 : 0;
 
     // Minimum samples across all steps (limiting factor)
     const minSamplesInSteps = microOperations.length > 0
@@ -548,20 +634,20 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
 
     if (minSamplesInSteps === 0) {
       reliabilityLevel = 'amostragem_inicial';
-      reliabilityLabel = 'Sem Amostras Gravadas';
-      reliabilityRecommendation = 'Inicie cronometrando cada micro-operação com o mini-cronômetro para iniciar o estudo estatístico.';
+      reliabilityLabel = 'Sem Amostras Gravadas (Novo Método)';
+      reliabilityRecommendation = 'Inicie cronometrando cada micro-operação com o mini-cronômetro para iniciar o estudo do novo método Kaizen.';
     } else if (minSamplesInSteps === 1) {
       reliabilityLevel = 'amostragem_inicial';
-      reliabilityLabel = 'Amostragem Inicial (1 tomada - Insuficiente)';
-      reliabilityRecommendation = `Com apenas 1 tomada, o desvio padrão é preliminar (margem de erro estimada em ±${currentAchievedErrorPct}%). Para certificar no Padrão Industrial (95% Confiança / ±5% Erro), realize no mínimo ${requiredSamples} tomadas (faltam ${remainingSamplesNeeded}).`;
+      reliabilityLabel = 'Amostragem Inicial (1 tomada do Novo Método)';
+      reliabilityRecommendation = `Primeira medição registrada! O desvio padrão é preliminar (margem de erro estimada em ±${currentAchievedErrorPct}%). Colete ao menos ${requiredSamples} tomadas para certificar o Padrão Industrial (faltam ${remainingSamplesNeeded}).`;
     } else if (minSamplesInSteps < 5) {
       reliabilityLevel = 'amostragem_inicial';
       reliabilityLabel = `Amostragem Preliminar (${minSamplesInSteps} tomadas)`;
-      reliabilityRecommendation = `Com ${minSamplesInSteps} tomadas, a margem de erro atual é de ±${currentAchievedErrorPct}%. Para atingir o Padrão Industrial (95% / ±5%), colete mais ${remainingSamplesNeeded} tomada(s) (total recomendado: ${requiredSamples}).`;
+      reliabilityRecommendation = `Com ${minSamplesInSteps} tomadas do novo método, a margem de erro atual é de ±${currentAchievedErrorPct}%. Colete mais ${remainingSamplesNeeded} tomada(s) para atingir o Padrão Industrial (total recomendado: ${requiredSamples}).`;
     } else if (isStatisticallyValid) {
       reliabilityLevel = 'padrao_industrial';
       reliabilityLabel = '✅ Padrão Industrial Certificado (95% Confiança, erro ≤ 5%)';
-      reliabilityRecommendation = `Excelente! Com ${minSamplesInSteps} tomadas, o estudo atingiu o rigor estatístico exigido pela engenharia de produção (margem de erro de ±${currentAchievedErrorPct}%).`;
+      reliabilityRecommendation = `Excelente! Com ${minSamplesInSteps} tomadas, o novo método atingiu o rigor estatístico exigido pela engenharia de produção (margem de erro de ±${currentAchievedErrorPct}%).`;
     } else if (currentAchievedErrorPct <= 10) {
       reliabilityLevel = 'confiabilidade_media';
       reliabilityLabel = `Confiabilidade Intermediária (Margem de erro: ±${currentAchievedErrorPct}%)`;
@@ -569,7 +655,7 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
     } else {
       reliabilityLevel = 'baixa_confiabilidade';
       reliabilityLabel = `Variação Detectada (Margem de erro: ±${currentAchievedErrorPct}%)`;
-      reliabilityRecommendation = `Há oscilação entre as tomadas (CV = ${cvPct.toFixed(1)}%). São necessárias mais ${remainingSamplesNeeded} tomadas para estabilizar a média.`;
+      reliabilityRecommendation = `Há oscilação entre as tomadas (CV = ${cvPct.toFixed(1)}%). São necessárias mais ${remainingSamplesNeeded} tomadas para estabilizar a média do novo ciclo.`;
     }
 
     // Average Pace and Allowance across micro-operations
@@ -808,7 +894,17 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
+            {/* Button: Start New Kaizen Cycle */}
+            <button
+              onClick={() => setIsKaizenModalOpen(true)}
+              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-emerald-500/20 hover:from-amber-500/30 hover:to-emerald-500/30 text-amber-300 hover:text-amber-200 border border-amber-500/40 text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
+              title="Arquivar o método anterior e iniciar a cronometragem do novo método Kaizen a partir da Tomada #1"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              <span>✨ Iniciar Ciclo Kaizen (Novo Método)</span>
+            </button>
+
             <button
               onClick={() => setShowBulkAdjust(!showBulkAdjust)}
               className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 text-xs font-semibold border border-slate-700 transition-colors flex items-center gap-1.5"
@@ -1165,6 +1261,17 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
                               +
                             </button>
                           </div>
+
+                          {/* Reset Samples for this single step */}
+                          <button
+                            type="button"
+                            onClick={() => handleResetSingleStepSamples(step.id)}
+                            disabled={step.samples.length === 0}
+                            className="p-1.5 text-slate-500 hover:text-amber-300 hover:bg-amber-950/30 disabled:opacity-20 rounded-lg transition-colors"
+                            title="Resetar amostras apenas desta micro-etapa para iniciar novo método Kaizen"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5" />
+                          </button>
 
                           {/* Delete Micro-op */}
                           <button
@@ -1896,6 +2003,88 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
         </div>
 
       </div>
+
+      {/* ============================================================================== */}
+      {/* POP-UP MODAL: INICIAR NOVO CICLO KAIZEN */}
+      {/* ============================================================================== */}
+      {isKaizenModalOpen && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
+          <div className="w-full max-w-lg bg-slate-900 border border-amber-500/50 rounded-2xl shadow-2xl overflow-hidden p-6 space-y-4">
+            
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-amber-950/60 border border-amber-500/40 text-amber-300">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">
+                    Iniciar Novo Ciclo Kaizen
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Arquivar método anterior e cronometrar a partir da Tomada #1
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsKaizenModalOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-amber-950/20 border border-amber-500/30 text-xs text-amber-200 leading-relaxed space-y-1.5">
+              <div className="font-bold flex items-center gap-1 text-amber-300">
+                <Target className="w-3.5 h-3.5" />
+                O que acontecerá ao confirmar:
+              </div>
+              <ul className="list-disc list-inside space-y-1 text-[11px] text-slate-300">
+                <li>O tempo atual (<strong>{operation.time.toFixed(2)} min</strong>) será arquivado no <strong>Histórico de Revisões</strong> como marco anterior.</li>
+                <li>As tomadas antigas de todas as micro-etapas serão <strong>resetadas</strong>.</li>
+                <li>A próxima medição no cronômetro será tratada como a <strong>Tomada #1 do Novo Método</strong>.</li>
+                <li>O motor estatístico ($N'$) recalculará o número de amostras necessárias para certificar a melhoria.</li>
+              </ul>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-300">
+                Descrição da Melhoria / Ação Kaizen Realizada:
+              </label>
+              <textarea
+                rows={3}
+                required
+                value={kaizenActionDescription}
+                onChange={e => setKaizenActionDescription(e.target.value)}
+                placeholder="Ex: Instalado novo gabarito magnético e trocado calcador para eliminar 2 dobras manuais da alça..."
+                className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIsKaizenModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors"
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                onClick={handleStartKaizenCycle}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 via-teal-500 to-emerald-500 hover:from-amber-400 hover:to-emerald-400 text-slate-950 font-bold text-xs shadow-lg shadow-amber-500/20 transition-all flex items-center gap-1.5 active:scale-95"
+              >
+                <Sparkles className="w-4 h-4 stroke-[2.5]" />
+                <span>Iniciar Medição do Novo Ciclo</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
