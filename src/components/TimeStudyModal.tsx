@@ -836,12 +836,33 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
             </div>
             
             <div className="flex items-center gap-4 flex-wrap">
+              
+              {/* Ritmo Geral com Tooltip */}
               <div className="flex items-center gap-2">
-                <span className="text-slate-400">Ritmo Geral:</span>
+                <div className="relative group/tooltip flex items-center">
+                  <span className="text-slate-300 font-semibold cursor-help underline decoration-dotted decoration-cyan-500/60 underline-offset-2 flex items-center gap-1">
+                    <Zap className="w-3 h-3 text-cyan-400" />
+                    Ritmo Geral:
+                  </span>
+                  <div className="pointer-events-none absolute bottom-full left-0 mb-2 w-64 p-2.5 rounded-xl bg-slate-950/95 border border-cyan-500/50 text-slate-200 text-xs shadow-2xl shadow-cyan-950/60 opacity-0 group-hover/tooltip:opacity-100 transition-all duration-200 z-50 leading-relaxed backdrop-blur-md">
+                    <div className="font-bold text-cyan-300 mb-1 flex items-center gap-1.5">
+                      <Zap className="w-3.5 h-3.5" />
+                      Ritmo do Operador (Pace Rating)
+                    </div>
+                    <p className="text-slate-300 text-[10px]">
+                      Avaliação da velocidade e destreza do operador durante a cronometragem comparado a um operador padrão trabalhando a 100%.
+                    </p>
+                    <div className="mt-1.5 pt-1.5 border-t border-slate-800 text-[10px] text-cyan-400 font-mono">
+                      Fórmula: Tempo Normal (TN) = TO &times; Ritmo
+                    </div>
+                    <div className="absolute top-full left-4 -mt-1 border-4 border-transparent border-t-slate-950" />
+                  </div>
+                </div>
+
                 <select
                   value={bulkPace}
                   onChange={e => setBulkPace(parseFloat(e.target.value))}
-                  className="px-2 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs text-cyan-300 font-bold"
+                  className="px-2 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs text-cyan-300 font-bold cursor-pointer"
                 >
                   <option value={0.80}>80% (Lento)</option>
                   <option value={0.90}>90% (Hesitante)</option>
@@ -854,12 +875,32 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
                 </select>
               </div>
 
+              {/* Fadiga Geral com Tooltip */}
               <div className="flex items-center gap-2">
-                <span className="text-slate-400">Fadiga/Tolerância Geral:</span>
+                <div className="relative group/tooltip flex items-center">
+                  <span className="text-slate-300 font-semibold cursor-help underline decoration-dotted decoration-amber-500/60 underline-offset-2 flex items-center gap-1">
+                    <Coffee className="w-3 h-3 text-amber-400" />
+                    Fadiga Geral:
+                  </span>
+                  <div className="pointer-events-none absolute bottom-full left-0 mb-2 w-64 p-2.5 rounded-xl bg-slate-950/95 border border-amber-500/50 text-slate-200 text-xs shadow-2xl shadow-amber-950/60 opacity-0 group-hover/tooltip:opacity-100 transition-all duration-200 z-50 leading-relaxed backdrop-blur-md">
+                    <div className="font-bold text-amber-300 mb-1 flex items-center gap-1.5">
+                      <Coffee className="w-3.5 h-3.5" />
+                      Fadiga & Tolerâncias (Allowances)
+                    </div>
+                    <p className="text-slate-300 text-[10px]">
+                      Acréscimo percentual para necessidades pessoais (5%), cansaço muscular/visual (4-7%) e demoras inevitáveis como troca de linha/bobina (3-5%).
+                    </p>
+                    <div className="mt-1.5 pt-1.5 border-t border-slate-800 text-[10px] text-amber-400 font-mono">
+                      Fórmula: Tempo Padrão (TP) = TN &times; (1 + Fadiga)
+                    </div>
+                    <div className="absolute top-full left-4 -mt-1 border-4 border-transparent border-t-slate-950" />
+                  </div>
+                </div>
+
                 <select
                   value={bulkAllowance}
                   onChange={e => setBulkAllowance(parseFloat(e.target.value))}
-                  className="px-2 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs text-amber-300 font-bold"
+                  className="px-2 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs text-amber-300 font-bold cursor-pointer"
                 >
                   <option value={0.08}>+8% (Leve)</option>
                   <option value={0.10}>+10% (Costura Básica)</option>
@@ -1138,12 +1179,28 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
 
                         <ArrowRight className="w-3.5 h-3.5 text-slate-600 hidden md:block" />
 
-                        {/* 2. Seletor de Ritmo (%) */}
+                        {/* 2. Seletor de Ritmo (%) com Tooltip */}
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] uppercase font-bold text-cyan-400 flex items-center gap-1">
-                            <Zap className="w-3 h-3 text-cyan-400" />
-                            2. Ritmo:
-                          </span>
+                          <div className="relative group/tooltip flex items-center">
+                            <span className="text-[10px] uppercase font-bold text-cyan-400 flex items-center gap-1 cursor-help underline decoration-dotted decoration-cyan-500/60 underline-offset-2">
+                              <Zap className="w-3 h-3 text-cyan-400" />
+                              2. Ritmo:
+                            </span>
+                            <div className="pointer-events-none absolute bottom-full left-0 mb-2 w-64 p-2.5 rounded-xl bg-slate-950/95 border border-cyan-500/50 text-slate-200 text-xs shadow-2xl shadow-cyan-950/60 opacity-0 group-hover/tooltip:opacity-100 transition-all duration-200 z-50 leading-relaxed backdrop-blur-md">
+                              <div className="font-bold text-cyan-300 mb-1 flex items-center gap-1.5">
+                                <Zap className="w-3.5 h-3.5" />
+                                Ritmo desta Micro-etapa
+                              </div>
+                              <p className="text-slate-300 text-[10px]">
+                                Avalie a velocidade e destreza do operador nesta ação (ex: 115% = costura ágil; 90% = movimento hesitante).
+                              </p>
+                              <div className="mt-1.5 pt-1.5 border-t border-slate-800 text-[10px] text-cyan-400 font-mono">
+                                TN = TO &times; Ritmo
+                              </div>
+                              <div className="absolute top-full left-4 -mt-1 border-4 border-transparent border-t-slate-950" />
+                            </div>
+                          </div>
+
                           <select
                             value={pace}
                             onChange={e => handleUpdateStepPaceAndAllowance(step.id, parseFloat(e.target.value), undefined)}
@@ -1174,12 +1231,28 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
 
                         <ArrowRight className="w-3.5 h-3.5 text-slate-600 hidden md:block" />
 
-                        {/* 4. Seletor de Fadiga / Tolerância (%) */}
+                        {/* 4. Seletor de Fadiga / Tolerância (%) com Tooltip */}
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] uppercase font-bold text-amber-400 flex items-center gap-1">
-                            <Coffee className="w-3 h-3 text-amber-400" />
-                            4. Fadiga:
-                          </span>
+                          <div className="relative group/tooltip flex items-center">
+                            <span className="text-[10px] uppercase font-bold text-amber-400 flex items-center gap-1 cursor-help underline decoration-dotted decoration-amber-500/60 underline-offset-2">
+                              <Coffee className="w-3 h-3 text-amber-400" />
+                              4. Fadiga:
+                            </span>
+                            <div className="pointer-events-none absolute bottom-full left-0 mb-2 w-64 p-2.5 rounded-xl bg-slate-950/95 border border-amber-500/50 text-slate-200 text-xs shadow-2xl shadow-amber-950/60 opacity-0 group-hover/tooltip:opacity-100 transition-all duration-200 z-50 leading-relaxed backdrop-blur-md">
+                              <div className="font-bold text-amber-300 mb-1 flex items-center gap-1.5">
+                                <Coffee className="w-3.5 h-3.5" />
+                                Fadiga & Tolerância da Etapa
+                              </div>
+                              <p className="text-slate-300 text-[10px]">
+                                Compensação percentual para postura, tensão muscular no manuseio de ráfia e necessidades fisiológicas.
+                              </p>
+                              <div className="mt-1.5 pt-1.5 border-t border-slate-800 text-[10px] text-amber-400 font-mono">
+                                TP = TN &times; (1 + Fadiga)
+                              </div>
+                              <div className="absolute top-full left-4 -mt-1 border-4 border-transparent border-t-slate-950" />
+                            </div>
+                          </div>
+
                           <select
                             value={allowance}
                             onChange={e => handleUpdateStepPaceAndAllowance(step.id, undefined, parseFloat(e.target.value))}
