@@ -41,7 +41,9 @@ import {
   Calculator,
   ChevronDown,
   ChevronUp,
-  BookOpen
+  BookOpen,
+  Coffee,
+  ArrowRight
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -110,9 +112,12 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
   const [analystName, setAnalystName] = useState<string>('Eng. de Processos');
   const [confidenceLevel, setConfidenceLevel] = useState<number>(95);
   const [errorMarginPct, setErrorMarginPct] = useState<number>(0.05); // 5%
-  const [globalPaceRating, setGlobalPaceRating] = useState<number>(1.0); // 100%
-  const [globalAllowancePct, setGlobalAllowancePct] = useState<number>(0.12); // 12% fadiga
   const [notes, setNotes] = useState<string>('');
+
+  // Bulk Apply Modal/Popover state
+  const [showBulkAdjust, setShowBulkAdjust] = useState<boolean>(false);
+  const [bulkPace, setBulkPace] = useState<number>(1.0);
+  const [bulkAllowance, setBulkAllowance] = useState<number>(0.12);
 
   // Micro-operations list
   const [microOperations, setMicroOperations] = useState<MicroOperation[]>([]);
@@ -136,8 +141,6 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
         setAnalystName(existing.analystName || 'Eng. de Processos');
         setConfidenceLevel(existing.stats?.confidenceLevel || 95);
         setErrorMarginPct(existing.stats?.errorMarginPct || 0.05);
-        setGlobalPaceRating(existing.stats?.paceRating || 1.0);
-        setGlobalAllowancePct(existing.stats?.allowancePercentage || 0.12);
         setNotes(existing.notes || '');
       } else {
         // Seed default micro-operations
@@ -174,8 +177,6 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
 
         setMicroOperations(seeded);
         setOperatorName('');
-        setGlobalPaceRating(1.0);
-        setGlobalAllowancePct(0.12);
       }
 
       // Reset all mini-stopwatches
@@ -288,8 +289,8 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
   // Recompute MicroOperation Statistics
   const computeMicroOpStats = (
     step: MicroOperation,
-    pace: number = globalPaceRating,
-    allowance: number = globalAllowancePct
+    pace: number = step.paceRating || 1.0,
+    allowance: number = step.allowancePercentage || 0.12
   ): MicroOperation => {
     const samples = step.samples || [];
     if (samples.length === 0) {
@@ -321,6 +322,33 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
     };
   };
 
+  // Update Pace or Allowance for a specific Micro-Operation
+  const handleUpdateStepPaceAndAllowance = (
+    stepId: string,
+    newPace?: number,
+    newAllowance?: number
+  ) => {
+    setMicroOperations(prev =>
+      prev.map(op => {
+        if (op.id === stepId) {
+          const pace = newPace !== undefined ? newPace : op.paceRating || 1.0;
+          const allowance = newAllowance !== undefined ? newAllowance : op.allowancePercentage || 0.12;
+          return computeMicroOpStats(op, pace, allowance);
+        }
+        return op;
+      })
+    );
+  };
+
+  // Bulk Apply Pace & Allowance to all micro-operations
+  const handleBulkApplyPaceAndAllowance = () => {
+    setMicroOperations(prev =>
+      prev.map(op => computeMicroOpStats(op, bulkPace, bulkAllowance))
+    );
+    setShowBulkAdjust(false);
+    showToast(`Ritmo (${(bulkPace * 100).toFixed(0)}%) e Fadiga (${(bulkAllowance * 100).toFixed(0)}%) aplicados a todas as etapas!`, 'success');
+  };
+
   // Add a new Micro-operation
   const handleAddMicroOp = (e: React.FormEvent) => {
     e.preventDefault();
@@ -337,8 +365,8 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
       samples: [],
       meanSeconds: 0,
       meanMinutes: 0,
-      paceRating: globalPaceRating,
-      allowancePercentage: globalAllowancePct,
+      paceRating: 1.0,
+      allowancePercentage: 0.12,
       normalTimeMinutes: 0,
       standardTimeMinutes: 0,
       standardTimeSeconds: 0
@@ -448,7 +476,7 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
     const sumMinutes = totalVaMin + totalNnvaMin + totalNvaMin;
     const vaRatio = sumMinutes > 0 ? (totalVaMin / sumMinutes) * 100 : 0;
     const nnvaRatio = sumMinutes > 0 ? (totalNnvaMin / sumMinutes) * 100 : 0;
-    const nvaRatio = sumMinutes > 0 ? (totalNnvaMin / sumMinutes) * 100 : 0;
+    const nvaRatio = sumMinutes > 0 ? (totalNvaMin / sumMinutes) * 100 : 0;
 
     // Minimum samples across all steps (limiting factor)
     const minSamplesInSteps = microOperations.length > 0
@@ -475,8 +503,6 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
     }
 
     // Effective standard deviation for statistical sizing:
-    // If n < 2, standard deviation is undefined; we use typical industrial benchmark (CV ≈ 10%)
-    // If n >= 2, we use calculated s with a realistic minimum (CV >= 3%) to prevent artificial s=0
     let effectiveStdDev = stdDevSum;
     let cvPct = 0;
 
@@ -492,23 +518,22 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
     }
 
     // Statistical Sizing N' = [ (z * s) / (e * x̄) ]^2
-    // For n=1, default standard pilot requirement is minimum 16 samples for 95%/5% or at least 5 samples
     let requiredSamples = 5; // Absolute minimum industrial pilot
     if (meanTotalMinutes > 0 && effectiveStdDev > 0) {
       const exactN = Math.pow((z * effectiveStdDev) / (targetError * meanTotalMinutes), 2);
       requiredSamples = Math.max(5, Math.ceil(exactN));
     }
 
-    // Current Achieved Relative Error with current n: e_atual = (z * s) / (sqrt(n) * x̄)
+    // Current Achieved Relative Error with current n
     let currentAchievedErrorPct = 100;
     if (minSamplesInSteps === 1) {
-      currentAchievedErrorPct = 39.2; // (1.96 * 0.10 / sqrt(1)) * 100 ≈ 39.2% com estimativa de 10% CV
+      currentAchievedErrorPct = 39.2;
     } else if (minSamplesInSteps >= 2 && meanTotalMinutes > 0) {
       const exactE = (z * effectiveStdDev) / (Math.sqrt(minSamplesInSteps) * meanTotalMinutes);
       currentAchievedErrorPct = Number((exactE * 100).toFixed(1));
     }
 
-    // Statistical Validity: ONLY valid if AT LEAST 3 to 5 samples exist AND n >= N' AND error <= targetError
+    // Statistical Validity: ONLY valid if AT LEAST 5 samples exist AND n >= N' AND error <= targetError
     const isStatisticallyValid =
       minSamplesInSteps >= 5 &&
       minSamplesInSteps >= requiredSamples &&
@@ -528,7 +553,7 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
     } else if (minSamplesInSteps === 1) {
       reliabilityLevel = 'amostragem_inicial';
       reliabilityLabel = 'Amostragem Inicial (1 tomada - Insuficiente)';
-      reliabilityRecommendation = `Com apenas 1 tomada, o desvio padrão é indeterminado (margem de erro estimada em ±${currentAchievedErrorPct}%). Para certificar no Padrão Industrial (95% Confiança / ±5% Erro), realize no mínimo ${requiredSamples} tomadas (faltam ${remainingSamplesNeeded}).`;
+      reliabilityRecommendation = `Com apenas 1 tomada, o desvio padrão é preliminar (margem de erro estimada em ±${currentAchievedErrorPct}%). Para certificar no Padrão Industrial (95% Confiança / ±5% Erro), realize no mínimo ${requiredSamples} tomadas (faltam ${remainingSamplesNeeded}).`;
     } else if (minSamplesInSteps < 5) {
       reliabilityLevel = 'amostragem_inicial';
       reliabilityLabel = `Amostragem Preliminar (${minSamplesInSteps} tomadas)`;
@@ -546,6 +571,14 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
       reliabilityLabel = `Variação Detectada (Margem de erro: ±${currentAchievedErrorPct}%)`;
       reliabilityRecommendation = `Há oscilação entre as tomadas (CV = ${cvPct.toFixed(1)}%). São necessárias mais ${remainingSamplesNeeded} tomadas para estabilizar a média.`;
     }
+
+    // Average Pace and Allowance across micro-operations
+    const avgPace = microOperations.length > 0
+      ? microOperations.reduce((sum, op) => sum + (op.paceRating || 1.0), 0) / microOperations.length
+      : 1.0;
+    const avgAllowance = microOperations.length > 0
+      ? microOperations.reduce((sum, op) => sum + (op.allowancePercentage || 0.12), 0) / microOperations.length
+      : 0.12;
 
     return {
       meanMinutes: Number(meanTotalMinutes.toFixed(3)),
@@ -572,12 +605,12 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
       vaRatio: Number(vaRatio.toFixed(1)),
       nnvaRatio: Number(nnvaRatio.toFixed(1)),
       nvaRatio: Number(nvaRatio.toFixed(1)),
-      paceRating: globalPaceRating,
-      allowancePercentage: globalAllowancePct,
+      paceRating: avgPace,
+      allowancePercentage: avgAllowance,
       totalStandardTimeMinutes: Number(totalStandardMinutes.toFixed(2)),
       totalStandardTimeSeconds: Number(totalStandardSeconds.toFixed(1))
     };
-  }, [microOperations, confidenceLevel, errorMarginPct, globalPaceRating, globalAllowancePct]);
+  }, [microOperations, confidenceLevel, errorMarginPct]);
 
   // ==============================================================================
   // COMPARATIVE MATRIX OF CONFIDENCE LEVELS (Quantas amostras para cada nível)
@@ -587,7 +620,6 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
     const mean = totalStats.meanMinutes;
     const s = totalStats.stdDevMinutes;
 
-    // Use effective s for sizing (minimum pilot of 10% CV if n=1, or calculated s >= 3% if n>=2)
     const effectiveS = n >= 2 ? Math.max(s, mean * 0.03) : mean * 0.10;
 
     const levels = [
@@ -641,7 +673,6 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
         reqN = Math.max(lvl.minPilot, Math.ceil(exactN));
       }
 
-      // Valid ONLY if n >= minPilot AND n >= reqN
       const isAchieved = n >= lvl.minPilot && n >= reqN;
       const remaining = Math.max(0, reqN - n);
 
@@ -653,15 +684,6 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
       };
     });
   }, [totalStats.sampleCount, totalStats.meanMinutes, totalStats.stdDevMinutes]);
-
-  // Update pace and allowance across all micro-operations
-  const handleUpdateGlobalPaceAndAllowance = (pace: number, allowance: number) => {
-    setGlobalPaceRating(pace);
-    setGlobalAllowancePct(allowance);
-    setMicroOperations(prev =>
-      prev.map(op => computeMicroOpStats(op, pace, allowance))
-    );
-  };
 
   // Chart data for Micro-operations Breakdown (Kaizen & Bottleneck analysis)
   const microOpsChartData = useMemo(() => {
@@ -786,13 +808,78 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowBulkAdjust(!showBulkAdjust)}
+              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 text-xs font-semibold border border-slate-700 transition-colors flex items-center gap-1.5"
+              title="Ajustar Ritmo e Fadiga de todas as micro-operações de uma só vez"
+            >
+              <Sliders className="w-3.5 h-3.5" />
+              <span>Ajustar em Massa</span>
+            </button>
+
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
+
+        {/* Bulk Adjust Popover Banner */}
+        {showBulkAdjust && (
+          <div className="px-6 py-3 bg-slate-950 border-b border-cyan-900/60 flex flex-wrap items-center justify-between gap-4 text-xs animate-in fade-in">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-cyan-400" />
+              <span className="font-bold text-white">Padronizar Ritmo & Fadiga para todas as micro-etapas:</span>
+            </div>
+            
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400">Ritmo Geral:</span>
+                <select
+                  value={bulkPace}
+                  onChange={e => setBulkPace(parseFloat(e.target.value))}
+                  className="px-2 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs text-cyan-300 font-bold"
+                >
+                  <option value={0.80}>80% (Lento)</option>
+                  <option value={0.90}>90% (Hesitante)</option>
+                  <option value={0.95}>95% (Prudente)</option>
+                  <option value={1.00}>100% (Ritmo Padrão)</option>
+                  <option value={1.05}>105% (Fluido)</option>
+                  <option value={1.10}>110% (Ágil)</option>
+                  <option value={1.15}>115% (Muito Rápido)</option>
+                  <option value={1.20}>120% (Perito)</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400">Fadiga/Tolerância Geral:</span>
+                <select
+                  value={bulkAllowance}
+                  onChange={e => setBulkAllowance(parseFloat(e.target.value))}
+                  className="px-2 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs text-amber-300 font-bold"
+                >
+                  <option value={0.08}>+8% (Leve)</option>
+                  <option value={0.10}>+10% (Costura Básica)</option>
+                  <option value={0.12}>+12% (Padrão Big Bag)</option>
+                  <option value={0.15}>+15% (Costura Pesada)</option>
+                  <option value={0.18}>+18% (Alta Tensão/Esforço)</option>
+                  <option value={0.20}>+20% (Condições Severas)</option>
+                </select>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleBulkApplyPaceAndAllowance}
+                className="px-3.5 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold text-xs shadow-md transition-colors"
+              >
+                Aplicar a Todas
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Tab Navigation */}
         <div className="flex items-center justify-between px-6 pt-2 border-b border-slate-800 bg-slate-950/40">
@@ -806,7 +893,7 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
               }`}
             >
               <ListOrdered className="w-4 h-4" />
-              Micro-etapas & Mini-cronômetros ({microOperations.length})
+              Micro-etapas, Cronômetros & Ritmo ({microOperations.length})
             </button>
             <button
               onClick={() => setActiveTab('stats')}
@@ -834,7 +921,7 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
 
           {/* Top Time Sum Pill */}
           <div className="hidden sm:flex items-center gap-2 pb-2">
-            <span className="text-[10px] text-slate-400 uppercase font-bold">Tempo Padrão da Operação (∑):</span>
+            <span className="text-[10px] text-slate-400 uppercase font-bold">Tempo Padrão Consolidado (∑):</span>
             <span className="px-2.5 py-0.5 rounded-lg bg-emerald-950/60 text-emerald-300 border border-emerald-500/40 text-xs font-mono font-bold">
               {totalStats.totalStandardTimeMinutes.toFixed(2)} min ({totalStats.totalStandardTimeSeconds.toFixed(0)}s)
             </span>
@@ -844,7 +931,7 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
         {/* Modal Scrollable Body */}
         <div className="p-6 overflow-y-auto space-y-6 custom-scrollbar flex-1">
           
-          {/* TAB 1: FLOW & INDIVIDUAL MINI-CHRONOMETERS PER MICRO-OPERATION */}
+          {/* TAB 1: FLOW & INDIVIDUAL CONTROLS (STOPWATCH + PACE + FATIGUE PER MICRO-OPERATION) */}
           {activeTab === 'flow' && (
             <div className="space-y-5">
               
@@ -853,7 +940,7 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
                 <div className="flex items-center gap-2.5">
                   <Clock className="w-4 h-4 text-cyan-400 shrink-0" />
                   <span>
-                    Cada micro-operação possui seu <strong>mini-cronômetro individual</strong>. Clique em <strong>▶ Cronometrar</strong> e depois em <strong>✓ Gravar</strong> para registrar tomadas.
+                    Cronometre cada micro-operação e ajuste o <strong>Ritmo (%)</strong> e a <strong>Fadiga (%)</strong> diretamente no card de cada etapa para calcular o Tempo Padrão (TP).
                   </span>
                 </div>
                 <span className={`text-[11px] font-mono font-bold px-2.5 py-0.5 rounded border shrink-0 ${
@@ -899,24 +986,28 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
                 </div>
               </form>
 
-              {/* Micro-operations Cards with Dedicated Mini-Stopwatches */}
-              <div className="space-y-3">
-                {microOperations.map((step, idx) => {
+              {/* Micro-operations Cards with Dedicated Mini-Stopwatches and INLINE PACE & FATIGUE */}
+              <div className="space-y-4">
+                {microOperations.map(step => {
                   const timer = timers[step.id] || { isRunning: false, elapsedMs: 0 };
                   const badge = leanBadges[step.type];
                   const share = totalStats.totalStandardTimeMinutes > 0
                     ? ((step.standardTimeMinutes / totalStats.totalStandardTimeMinutes) * 100).toFixed(1)
                     : '0.0';
 
+                  const pace = step.paceRating || 1.0;
+                  const allowance = step.allowancePercentage || 0.12;
+
                   return (
                     <div
                       key={step.id}
-                      className={`p-4 rounded-2xl border transition-all ${
+                      className={`p-4 rounded-2xl border transition-all space-y-3.5 ${
                         timer.isRunning
                           ? 'bg-slate-950/90 border-cyan-500/80 shadow-lg shadow-cyan-500/10 ring-1 ring-cyan-500/40'
                           : 'bg-slate-950/60 border-slate-800/90 hover:border-slate-700/80'
                       }`}
                     >
+                      {/* Top Row: Title, Lean Badge & Mini-Stopwatch Controls */}
                       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                         
                         {/* Step Title & Lean Badge */}
@@ -938,15 +1029,15 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
                               >
                                 {step.type === 'valor_agregado' ? '🟢 VA' : step.type === 'necessario' ? '🟡 NNVA' : '🔴 NVA'}
                               </button>
+                              <span className="text-[10px] text-slate-400 font-mono">
+                                ({share}% do ciclo)
+                              </span>
                             </div>
-                            <span className="text-[11px] text-slate-400 mt-0.5 block font-mono">
-                              Média: <strong className="text-slate-200">{step.meanSeconds.toFixed(1)}s</strong> ({step.meanMinutes.toFixed(3)}m) &bull; TP: <strong className="text-emerald-400">{step.standardTimeMinutes.toFixed(2)}m</strong> ({share}% do ciclo)
-                            </span>
                           </div>
                         </div>
 
                         {/* Mini-Stopwatch & Action Controls for this specific step */}
-                        <div className="flex items-center gap-3 flex-wrap justify-between lg:justify-end border-t lg:border-t-0 pt-3 lg:pt-0 border-slate-800/80">
+                        <div className="flex items-center gap-3 flex-wrap justify-between lg:justify-end border-t lg:border-t-0 pt-2 lg:pt-0 border-slate-800/80">
                           
                           {/* Digital Mini-timer */}
                           <div className="flex items-center gap-2 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
@@ -1032,11 +1123,95 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
 
                       </div>
 
+                      {/* ============================================================================== */}
+                      {/* DEDICATED INDUSTRIAL CALCULATION STRIP (TO -> RITMO -> TN -> FADIGA -> TP) */}
+                      {/* ============================================================================== */}
+                      <div className="p-3 rounded-xl bg-slate-900/90 border border-slate-800/80 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs">
+                        
+                        {/* 1. Tempo Observado (TO) */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] uppercase font-bold text-slate-400">1. Observado (TO):</span>
+                          <span className="font-mono font-bold text-white bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
+                            {step.meanSeconds.toFixed(1)}s <span className="text-[10px] text-slate-400">({step.meanMinutes.toFixed(3)}m)</span>
+                          </span>
+                        </div>
+
+                        <ArrowRight className="w-3.5 h-3.5 text-slate-600 hidden md:block" />
+
+                        {/* 2. Seletor de Ritmo (%) */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] uppercase font-bold text-cyan-400 flex items-center gap-1">
+                            <Zap className="w-3 h-3 text-cyan-400" />
+                            2. Ritmo:
+                          </span>
+                          <select
+                            value={pace}
+                            onChange={e => handleUpdateStepPaceAndAllowance(step.id, parseFloat(e.target.value), undefined)}
+                            className="px-2 py-1 rounded-lg bg-slate-950 border border-cyan-800/60 text-xs font-mono font-bold text-cyan-300 focus:outline-none focus:border-cyan-500 cursor-pointer"
+                            title="Avalie a velocidade do operador nesta etapa específica"
+                          >
+                            <option value={0.80}>80% (Lento)</option>
+                            <option value={0.85}>85%</option>
+                            <option value={0.90}>90% (Hesitante)</option>
+                            <option value={0.95}>95%</option>
+                            <option value={1.00}>100% (Padrão)</option>
+                            <option value={1.05}>105%</option>
+                            <option value={1.10}>110% (Ágil)</option>
+                            <option value={1.15}>115% (Rápido)</option>
+                            <option value={1.20}>120% (Perito)</option>
+                          </select>
+                        </div>
+
+                        <ArrowRight className="w-3.5 h-3.5 text-slate-600 hidden md:block" />
+
+                        {/* 3. Tempo Normal (TN) */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] uppercase font-bold text-slate-400">3. Normal (TN):</span>
+                          <span className="font-mono font-bold text-cyan-200 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
+                            {(step.meanSeconds * pace).toFixed(1)}s
+                          </span>
+                        </div>
+
+                        <ArrowRight className="w-3.5 h-3.5 text-slate-600 hidden md:block" />
+
+                        {/* 4. Seletor de Fadiga / Tolerância (%) */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] uppercase font-bold text-amber-400 flex items-center gap-1">
+                            <Coffee className="w-3 h-3 text-amber-400" />
+                            4. Fadiga:
+                          </span>
+                          <select
+                            value={allowance}
+                            onChange={e => handleUpdateStepPaceAndAllowance(step.id, undefined, parseFloat(e.target.value))}
+                            className="px-2 py-1 rounded-lg bg-slate-950 border border-amber-800/60 text-xs font-mono font-bold text-amber-300 focus:outline-none focus:border-amber-500 cursor-pointer"
+                            title="Tolerância para necessidades pessoais e cansaço físico"
+                          >
+                            <option value={0.08}>+8% (Leve)</option>
+                            <option value={0.10}>+10% (Normal)</option>
+                            <option value={0.12}>+12% (Padrão)</option>
+                            <option value={0.15}>+15% (Pesado)</option>
+                            <option value={0.18}>+18% (Severo)</option>
+                            <option value={0.20}>+20% (Extremo)</option>
+                          </select>
+                        </div>
+
+                        <ArrowRight className="w-3.5 h-3.5 text-slate-600 hidden md:block" />
+
+                        {/* 5. Tempo Padrão Final da Etapa (TP) */}
+                        <div className="flex items-center gap-2 bg-emerald-950/60 px-3 py-1 rounded-lg border border-emerald-500/40">
+                          <span className="text-[10px] uppercase font-bold text-emerald-400">5. TP Final:</span>
+                          <span className="font-mono font-extrabold text-emerald-300">
+                            {step.standardTimeMinutes.toFixed(2)}m <span className="text-[10px] text-emerald-400">({step.standardTimeSeconds.toFixed(1)}s)</span>
+                          </span>
+                        </div>
+
+                      </div>
+
                       {/* Recorded Sample Pills for this step */}
                       {step.samples && step.samples.length > 0 && (
-                        <div className="mt-3 pt-2.5 border-t border-slate-900 flex items-center gap-2 overflow-x-auto">
+                        <div className="pt-2 border-t border-slate-900/80 flex items-center gap-2 overflow-x-auto">
                           <span className="text-[10px] uppercase font-bold text-slate-500 shrink-0">
-                            {step.samples.length} tomadas:
+                            {step.samples.length} tomadas registradas:
                           </span>
                           <div className="flex items-center gap-1.5 flex-wrap">
                             {step.samples.map(s => (
@@ -1425,11 +1600,11 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
                           <span>Passo 6:</span> Tempo Normal (TN) & Tempo Padrão Final (TP)
                         </span>
                         <span className="text-[11px] font-mono text-slate-400">
-                          FR = {(totalStats.paceRating * 100).toFixed(0)}% &bull; FT = {(totalStats.allowancePercentage * 100).toFixed(0)}%
+                          Média Ritmo: {(totalStats.paceRating * 100).toFixed(0)}% &bull; Média Fadiga: {(totalStats.allowancePercentage * 100).toFixed(0)}%
                         </span>
                       </div>
                       <div className="p-2.5 rounded-lg bg-slate-950 font-mono text-xs text-slate-200 overflow-x-auto space-y-1">
-                        <div>TN = &xmacr; &times; FR = {totalStats.meanMinutes.toFixed(3)} &times; {totalStats.paceRating} = {(totalStats.meanMinutes * totalStats.paceRating).toFixed(3)} min</div>
+                        <div>TN = &xmacr; &times; FR = {totalStats.meanMinutes.toFixed(3)} &times; {totalStats.paceRating.toFixed(2)} = {(totalStats.meanMinutes * totalStats.paceRating).toFixed(3)} min</div>
                         <div className="text-emerald-400 font-bold">
                           TP = &Sigma; Micro-etapas = {totalStats.totalStandardTimeMinutes.toFixed(2)} min ({totalStats.totalStandardTimeSeconds.toFixed(0)} segundos)
                         </div>
@@ -1552,49 +1727,19 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
         {/* Global Bottom Synthesis Bar */}
         <div className="px-6 py-4 border-t border-slate-800 bg-slate-950/95 flex flex-col md:flex-row items-center justify-between gap-4">
           
-          {/* Pace & Allowance Sliders */}
-          <div className="flex items-center gap-6 w-full md:w-auto">
-            <div className="text-xs">
-              <div className="flex justify-between mb-1">
-                <span className="text-slate-400">Ritmo (Velocidade):</span>
-                <strong className="font-mono text-cyan-300 ml-1">{(globalPaceRating * 100).toFixed(0)}%</strong>
-              </div>
-              <input
-                type="range"
-                min="0.80"
-                max="1.30"
-                step="0.05"
-                value={globalPaceRating}
-                onChange={e => handleUpdateGlobalPaceAndAllowance(parseFloat(e.target.value), globalAllowancePct)}
-                className="w-28 accent-cyan-400 cursor-pointer"
-              />
-            </div>
-
-            <div className="text-xs">
-              <div className="flex justify-between mb-1">
-                <span className="text-slate-400">Fadiga / Tolerância:</span>
-                <strong className="font-mono text-amber-300 ml-1">{(globalAllowancePct * 100).toFixed(0)}%</strong>
-              </div>
-              <input
-                type="range"
-                min="0.0"
-                max="0.30"
-                step="0.01"
-                value={globalAllowancePct}
-                onChange={e => handleUpdateGlobalPaceAndAllowance(globalPaceRating, parseFloat(e.target.value))}
-                className="w-28 accent-amber-400 cursor-pointer"
-              />
-            </div>
+          <div className="text-xs text-slate-400">
+            <span>Operador: <strong className="text-slate-200">{operatorName || 'Geral'}</strong> &bull; Engenheiro: <strong className="text-cyan-300">{analystName}</strong> &bull; {microOperations.length} micro-etapas</span>
           </div>
 
           {/* Consolidated Total & Action Buttons */}
           <div className="flex items-center gap-4 w-full md:w-auto justify-end">
             <div className="text-right">
               <span className="text-[10px] uppercase font-bold text-slate-400 block">
-                Novo Tempo da Operação (∑ Micro-etapas):
+                Novo Tempo da Operação (∑ TP Micro-etapas):
               </span>
               <div className="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-300 to-emerald-400 font-mono">
                 {totalStats.totalStandardTimeMinutes.toFixed(2)} <span className="text-sm font-bold text-teal-400">min</span>
+                <span className="text-xs font-normal text-slate-400 ml-1">({totalStats.totalStandardTimeSeconds.toFixed(0)}s)</span>
               </div>
             </div>
 
