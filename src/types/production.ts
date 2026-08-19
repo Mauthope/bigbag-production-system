@@ -61,7 +61,7 @@ export interface ProductionOrder {
   standardTimePerBag: number;     // in minutes
   totalStandardTime: number;      // standardTimePerBag * targetQuantity (in minutes)
   actualTimeTotal?: number;       // total minutes spent
-  componentTimes?: Record<ComponentCategoryKey, number>; // actual minutes spent per component
+  componentTimes?: Partial<Record<ComponentCategoryKey, number>>; // actual minutes spent per component
   operatorName?: string;
   shift?: string;
   status: OrderStatus;

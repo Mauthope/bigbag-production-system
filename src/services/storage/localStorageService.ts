@@ -59,23 +59,27 @@ export class LocalStorageService implements IStorageService {
 
   // Production Orders (OP)
   async getOrders(): Promise<ProductionOrder[]> {
-    if (!this.isClient()) return [];
+    if (!this.isClient()) return INITIAL_SAMPLE_ORDERS;
     try {
       const stored = localStorage.getItem(STORAGE_KEYS.ORDERS);
       if (!stored) {
-        await this.saveInitialOrders([]);
-        return [];
+        await this.saveInitialOrders(INITIAL_SAMPLE_ORDERS);
+        return INITIAL_SAMPLE_ORDERS;
       }
       const parsed: ProductionOrder[] = JSON.parse(stored);
       // Clean any legacy mock sample orders if present
       const cleanOrders = parsed.filter(o => !o.id.startsWith('op-sample-'));
+      if (cleanOrders.length === 0 && INITIAL_SAMPLE_ORDERS.length > 0) {
+        await this.saveInitialOrders(INITIAL_SAMPLE_ORDERS);
+        return INITIAL_SAMPLE_ORDERS;
+      }
       if (cleanOrders.length !== parsed.length) {
         await this.saveInitialOrders(cleanOrders);
       }
       return cleanOrders;
     } catch (e) {
       console.error('Error reading orders from localStorage:', e);
-      return [];
+      return INITIAL_SAMPLE_ORDERS;
     }
   }
 

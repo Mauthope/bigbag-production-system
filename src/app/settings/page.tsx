@@ -11,7 +11,6 @@ import {
   Sliders,
   Search,
   Plus,
-  RotateCcw,
   Trash2,
   Save,
   Download,
@@ -33,7 +32,6 @@ export default function SettingsPage() {
     updateOperationTime,
     addCustomOperation,
     deleteOperation,
-    resetOperationsToDefault,
     showToast
   } = useProduction();
 
@@ -128,15 +126,6 @@ export default function SettingsPage() {
           >
             <Download className="w-3.5 h-3.5 text-cyan-400" />
             <span>Backup / Supabase</span>
-          </button>
-
-          <button
-            onClick={resetOperationsToDefault}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-amber-400 border border-amber-900/40 text-xs font-medium transition-colors"
-            title="Restaura todos os tempos para a tabela de fábrica original"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Restaurar Fábrica</span>
           </button>
         </div>
       </div>

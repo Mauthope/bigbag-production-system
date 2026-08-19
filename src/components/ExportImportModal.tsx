@@ -8,7 +8,6 @@ import {
   Upload,
   Database,
   FileSpreadsheet,
-  RotateCcw,
   CheckCircle2,
   ExternalLink,
   Code,
@@ -21,7 +20,7 @@ interface ExportImportModalProps {
 }
 
 export const ExportImportModal: React.FC<ExportImportModalProps> = ({ isOpen, onClose }) => {
-  const { exportData, importData, orders, resetOperationsToDefault, clearAllDataForProduction, showToast } = useProduction();
+  const { exportData, importData, orders, clearAllDataForProduction, showToast } = useProduction();
   const [activeTab, setActiveTab] = useState<'backup' | 'csv' | 'supabase'>('backup');
   const [importJsonText, setImportJsonText] = useState('');
 
@@ -257,24 +256,6 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({ isOpen, on
 
               {/* Reset Section */}
               <div className="pt-2 border-t border-slate-800/80 space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl bg-slate-950/40 border border-slate-800/80">
-                  <div>
-                    <span className="text-xs font-semibold text-slate-300 block">
-                      Restaurar Tempos Padrão de Fábrica
-                    </span>
-                    <span className="text-[11px] text-slate-500">
-                      Restaura o catálogo de operações e tempos para os valores padrão sem apagar OPs.
-                    </span>
-                  </div>
-                  <button
-                    onClick={resetOperationsToDefault}
-                    className="px-3 py-1.5 rounded-lg text-xs font-medium text-amber-400 hover:bg-amber-950/30 border border-amber-900/40 flex items-center gap-1.5 shrink-0 self-start sm:self-auto"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    Restaurar Padrões
-                  </button>
-                </div>
-
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl bg-rose-950/20 border border-rose-900/40">
                   <div>
                     <span className="text-xs font-bold text-rose-300 block">
