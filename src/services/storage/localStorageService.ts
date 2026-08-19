@@ -1,13 +1,14 @@
-import { DEFAULT_OPERATIONS, INITIAL_SAMPLE_ORDERS } from '@/data/defaultData';
-import { OperationItem, ProductionOrder, TimeStudy } from '@/types/production';
+import { DEFAULT_CATEGORIES, DEFAULT_OPERATIONS, INITIAL_SAMPLE_ORDERS } from '@/data/defaultData';
+import { ComponentCategoryConfig, OperationItem, ProductionOrder, TimeStudy } from '@/types/production';
 import { IStorageService, StorageData } from './types';
 
 const STORAGE_KEYS = {
+  CATEGORIES: 'bigbag_production_categories_v1',
   OPERATIONS: 'bigbag_production_operations_v1',
   ORDERS: 'bigbag_production_orders_v1',
   TIME_STUDIES: 'bigbag_production_time_studies_v1',
   CALCULATOR_SELECTION: 'bigbag_calculator_selection_v1',
-  DATA_VERSION: '1.1.0'
+  DATA_VERSION: '1.2.0'
 };
 
 export class LocalStorageService implements IStorageService {
@@ -15,6 +16,34 @@ export class LocalStorageService implements IStorageService {
 
   private isClient(): boolean {
     return typeof window !== 'undefined';
+  }
+
+  // Categories / Blocks
+  async getCategories(): Promise<ComponentCategoryConfig[]> {
+    if (!this.isClient()) return DEFAULT_CATEGORIES;
+    try {
+      const stored = localStorage.getItem(STORAGE_KEYS.CATEGORIES);
+      if (!stored) {
+        await this.saveCategories(DEFAULT_CATEGORIES);
+        return DEFAULT_CATEGORIES;
+      }
+      return JSON.parse(stored);
+    } catch (e) {
+      console.error('Error reading categories from localStorage:', e);
+      return DEFAULT_CATEGORIES;
+    }
+  }
+
+  async saveCategories(categories: ComponentCategoryConfig[]): Promise<void> {
+    if (!this.isClient()) return;
+    localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(categories));
+  }
+
+  async resetCategories(): Promise<ComponentCategoryConfig[]> {
+    if (this.isClient()) {
+      localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(DEFAULT_CATEGORIES));
+    }
+    return DEFAULT_CATEGORIES;
   }
 
   // Operations
@@ -181,12 +210,14 @@ export class LocalStorageService implements IStorageService {
 
   // Backup & Restore
   async exportAllData(): Promise<StorageData> {
+    const categories = await this.getCategories();
     const operations = await this.getOperations();
     const orders = await this.getOrders();
     const timeStudies = await this.getTimeStudies();
     const selectedCalculatorIds = await this.getCalculatorSelection();
 
     return {
+      categories,
       operations,
       orders,
       timeStudies,
@@ -198,6 +229,9 @@ export class LocalStorageService implements IStorageService {
 
   async importAllData(data: StorageData): Promise<void> {
     if (!this.isClient()) return;
+    if (data.categories && Array.isArray(data.categories)) {
+      await this.saveCategories(data.categories);
+    }
     if (data.operations && Array.isArray(data.operations)) {
       await this.saveOperations(data.operations);
     }

@@ -19,7 +19,7 @@ import Link from 'next/link';
 
 export default function CalculatorPage() {
   const {
-    categoriesConfig,
+    categories,
     operations,
     selectedOperationIds,
     toggleOperation,
@@ -41,8 +41,6 @@ export default function CalculatorPage() {
     );
   }
 
-  const categoryKeys = Object.keys(categoriesConfig) as ComponentCategoryKey[];
-
   return (
     <div className="flex flex-col gap-6">
       
@@ -54,7 +52,7 @@ export default function CalculatorPage() {
               Calculadora Kanban de Tempo de Produção
             </h1>
             <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-cyan-950/70 text-cyan-300 border border-cyan-800/40">
-              11 Componentes
+              {categories.length} Componentes
             </span>
           </div>
           <p className="text-sm text-slate-400 mt-1">
@@ -102,14 +100,13 @@ export default function CalculatorPage() {
 
       {/* Main Kanban Grid */}
       <main className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-5">
-        {categoryKeys.map(catKey => {
-          const config = categoriesConfig[catKey];
-          const catOperations = operations.filter(op => op.category === catKey);
-          const catTotal = categoryTotals[catKey]?.totalTime || 0;
+        {categories.map(config => {
+          const catOperations = operations.filter(op => op.category === config.key);
+          const catTotal = categoryTotals[config.key]?.totalTime || 0;
 
           return (
             <KanbanColumn
-              key={catKey}
+              key={config.key}
               config={config}
               items={catOperations}
               selectedIds={selectedOperationIds}

@@ -1,95 +1,111 @@
 import { ComponentCategoryConfig, ComponentCategoryKey, OperationItem } from '../types/production';
 
-export const CATEGORIES_CONFIG: Record<ComponentCategoryKey, ComponentCategoryConfig> = {
-  alca: {
+export const DEFAULT_CATEGORIES: ComponentCategoryConfig[] = [
+  {
     key: 'alca',
     title: 'Alça',
     icon: 'M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',
     colorClass: 'alca',
     colorHex: '#06b6d4',
-    description: 'Costura e fixação de alças de sustentação'
+    description: 'Costura e fixação de alças de sustentação',
+    orderIndex: 1
   },
-  fundo: {
+  {
     key: 'fundo',
     title: 'Fundo',
     icon: 'M3 3h18v18H3z M3 21h18',
     colorClass: 'fundo',
     colorHex: '#10b981',
-    description: 'Montagem e costura de fundo'
+    description: 'Montagem e costura de fundo',
+    orderIndex: 2
   },
-  topo: {
+  {
     key: 'topo',
     title: 'Topo',
     icon: 'm3 21 1.9-5.7a8.5 8.5 0 1 1 14.2 0L21 21Z',
     colorClass: 'topo',
     colorHex: '#8b5cf6',
-    description: 'Costura do topo / saia / aba'
+    description: 'Costura do topo / saia / aba',
+    orderIndex: 3
   },
-  travas: {
+  {
     key: 'travas',
     title: 'Travas',
     icon: 'M12 3v18 M3 12h18',
     colorClass: 'travas',
     colorHex: '#f59e0b',
-    description: 'Travas internas (4 painéis ou circular)'
+    description: 'Travas internas (4 painéis ou circular)',
+    orderIndex: 4
   },
-  fechamento: {
+  {
     key: 'fechamento',
     title: 'Fechamento',
     icon: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zm0-15v10',
     colorClass: 'fechamento',
     colorHex: '#f43f5e',
-    description: 'Fechamento do corpo do Big Bag'
+    description: 'Fechamento do corpo do Big Bag',
+    orderIndex: 5
   },
-  valvFundo: {
+  {
     key: 'valvFundo',
     title: 'Válvula Padrão Fundo',
     icon: 'M19 14l-7 7-7-7 M12 3v18',
     colorClass: 'valv-fundo',
     colorHex: '#0d9488',
-    description: 'Válvula de descarga inferior'
+    description: 'Válvula de descarga inferior',
+    orderIndex: 6
   },
-  valvTopo: {
+  {
     key: 'valvTopo',
     title: 'Válvula Padrão Topo',
     icon: 'M5 10l7-7 7 7 M12 21V3',
     colorClass: 'valv-topo',
     colorHex: '#4f46e5',
-    description: 'Válvula de carregamento superior'
+    description: 'Válvula de carregamento superior',
+    orderIndex: 7
   },
-  saia: {
+  {
     key: 'saia',
     title: 'Personalização Fechamento da Saia',
     icon: 'M12 2L2 22h20L12 2z',
     colorClass: 'saia',
     colorHex: '#d946ef',
-    description: 'Opções de saia e fechamento superior'
+    description: 'Opções de saia e fechamento superior',
+    orderIndex: 8
   },
-  valvCustom: {
+  {
     key: 'valvCustom',
     title: 'Personalização da Válvula',
     icon: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
     colorClass: 'valv-custom',
     colorHex: '#0ea5e9',
-    description: 'Costura e formato da válvula (cônica, lacre, etc.)'
+    description: 'Costura e formato da válvula (cônica, lacre, etc.)',
+    orderIndex: 9
   },
-  outras: {
+  {
     key: 'outras',
     title: 'Demais Operações',
     icon: 'M4 6h16M4 12h16M4 18h16',
     colorClass: 'outras',
     colorHex: '#64748b',
-    description: 'Bainhas, liners e acessórios'
+    description: 'Bainhas, liners e acessórios',
+    orderIndex: 10
   },
-  preparacao: {
+  {
     key: 'preparacao',
     title: 'Preparação',
     icon: 'M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z',
     colorClass: 'preparacao',
     colorHex: '#84cc16',
-    description: 'Corte, amarração, inspeção, prensa e etiquetas'
+    description: 'Corte, amarração, inspeção, prensa e etiquetas',
+    orderIndex: 11
   }
-};
+];
+
+export const CATEGORIES_CONFIG: Record<string, ComponentCategoryConfig> = DEFAULT_CATEGORIES.reduce(
+  (acc, item) => ({ ...acc, [item.key]: item }),
+  {} as Record<string, ComponentCategoryConfig>
+);
 
 export const DEFAULT_OPERATIONS: OperationItem[] = [
   // ALÇA

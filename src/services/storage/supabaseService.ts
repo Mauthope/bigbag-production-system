@@ -1,4 +1,5 @@
-import { OperationItem, ProductionOrder, TimeStudy } from '@/types/production';
+import { DEFAULT_CATEGORIES } from '@/data/defaultData';
+import { ComponentCategoryConfig, OperationItem, ProductionOrder, TimeStudy } from '@/types/production';
 import { IStorageService, StorageData } from './types';
 
 /**
@@ -21,6 +22,20 @@ export class SupabaseStorageService implements IStorageService {
       process.env.NEXT_PUBLIC_SUPABASE_URL && 
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
     );
+  }
+
+  // Categories / Blocks
+  async getCategories(): Promise<ComponentCategoryConfig[]> {
+    if (!this.isConfigured()) return DEFAULT_CATEGORIES;
+    return DEFAULT_CATEGORIES;
+  }
+
+  async saveCategories(categories: ComponentCategoryConfig[]): Promise<void> {
+    if (!this.isConfigured()) return;
+  }
+
+  async resetCategories(): Promise<ComponentCategoryConfig[]> {
+    return DEFAULT_CATEGORIES;
   }
 
   // Operations

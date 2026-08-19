@@ -1,8 +1,9 @@
-import { OperationItem, ProductionOrder, TimeStudy } from '@/types/production';
+import { ComponentCategoryConfig, OperationItem, ProductionOrder, TimeStudy } from '@/types/production';
 
 export interface StorageData {
   operations: OperationItem[];
   orders: ProductionOrder[];
+  categories?: ComponentCategoryConfig[];
   timeStudies?: TimeStudy[];
   selectedCalculatorIds: string[];
   lastUpdated: string;
@@ -11,6 +12,11 @@ export interface StorageData {
 
 export interface IStorageService {
   name: 'localStorage' | 'supabase';
+  // Categories / Blocks
+  getCategories(): Promise<ComponentCategoryConfig[]>;
+  saveCategories(categories: ComponentCategoryConfig[]): Promise<void>;
+  resetCategories?(): Promise<ComponentCategoryConfig[]>;
+
   // Operations
   getOperations(): Promise<OperationItem[]>;
   saveOperations(operations: OperationItem[]): Promise<void>;

@@ -48,12 +48,12 @@ type MatrixSortOption =
 type MatrixEfficiencyFilter = 'all' | 'high' | 'medium' | 'low';
 
 export default function DashboardPage() {
-  const { operations, orders, categoriesConfig } = useProduction();
+  const { operations, orders, categories, categoriesConfig } = useProduction();
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
   // Global Page Filters State
   const [selectedOpId, setSelectedOpId] = useState<string | 'all'>('all');
-  const [selectedCategory, setSelectedCategory] = useState<ComponentCategoryKey | 'all'>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string | 'all'>('all');
   const [selectedStatus, setSelectedStatus] = useState<OrderStatus | 'all'>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
 
@@ -103,7 +103,7 @@ export default function DashboardPage() {
     });
   }, [orders, selectedOpId, selectedStatus, searchTerm]);
 
-  // Matrix Breakdown: Array of { op, category, config, stdTimePerBag, totalStdMin, actualMin, efficiency, varianceMin, count }
+  // Granular Matrix Breakdown of every Component in every OP
   const rawMatrixBreakdown = useMemo(() => {
     const rows: Array<{
       id: string;
@@ -112,7 +112,7 @@ export default function DashboardPage() {
       client: string;
       modelDescription: string;
       status: OrderStatus;
-      categoryKey: ComponentCategoryKey;
+      categoryKey: string;
       categoryTitle: string;
       categoryColor: string;
       producedQuantity: number;
@@ -126,9 +126,9 @@ export default function DashboardPage() {
     }> = [];
 
     filteredOrders.forEach(order => {
-      const categories = Object.keys(categoriesConfig) as ComponentCategoryKey[];
+      categories.forEach(config => {
+        const catKey = config.key;
 
-      categories.forEach(catKey => {
         // Only include if category matches filter
         if (selectedCategory !== 'all' && catKey !== selectedCategory) {
           return;
@@ -147,8 +147,8 @@ export default function DashboardPage() {
 
         // Actual time for this component if recorded
         let actualMinutes = 0;
-        if (order.componentTimes && order.componentTimes[catKey] !== undefined) {
-          actualMinutes = order.componentTimes[catKey];
+        if (order.componentTimes && order.componentTimes[catKey as ComponentCategoryKey] !== undefined) {
+          actualMinutes = order.componentTimes[catKey as ComponentCategoryKey] || 0;
         } else if (order.actualTimeTotal && order.actualTimeTotal > 0 && order.totalStandardTime > 0) {
           actualMinutes = (totalStdMinutes / order.totalStandardTime) * order.actualTimeTotal;
         } else {
@@ -167,8 +167,8 @@ export default function DashboardPage() {
           modelDescription: order.modelDescription,
           status: order.status,
           categoryKey: catKey,
-          categoryTitle: categoriesConfig[catKey].title,
-          categoryColor: categoriesConfig[catKey].colorHex,
+          categoryTitle: config.title,
+          categoryColor: config.colorHex,
           producedQuantity: order.producedQuantity,
           targetQuantity: order.targetQuantity,
           stdTimePerBag: Number(stdTimePerBag.toFixed(2)),
@@ -182,7 +182,7 @@ export default function DashboardPage() {
     });
 
     return rows;
-  }, [filteredOrders, operations, categoriesConfig, selectedCategory]);
+  }, [filteredOrders, operations, categories, selectedCategory]);
 
   // Filtered & Sorted Matrix Breakdown
   const sortedMatrixBreakdown = useMemo(() => {
@@ -536,17 +536,15 @@ export default function DashboardPage() {
             >
               Todos os Componentes
             </button>
-            {Object.keys(categoriesConfig).map(catKey => {
-              const key = catKey as ComponentCategoryKey;
-              const config = categoriesConfig[key];
-              const isSelected = selectedCategory === key;
+            {categories.map(config => {
+              const isSelected = selectedCategory === config.key;
               return (
                 <button
-                  key={key}
-                  onClick={() => setSelectedCategory(key)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
+                  key={config.key}
+                  onClick={() => setSelectedCategory(config.key)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
                     isSelected
-                      ? 'border text-white shadow-md scale-[1.02]'
+                      ? 'border text-white shadow-md scale-[1.02] font-bold'
                       : 'bg-slate-950/70 text-slate-400 hover:text-slate-200 border border-slate-800'
                   }`}
                   style={{

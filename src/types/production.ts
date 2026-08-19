@@ -1,15 +1,4 @@
-export type ComponentCategoryKey =
-  | 'alca'
-  | 'fundo'
-  | 'topo'
-  | 'travas'
-  | 'fechamento'
-  | 'valvFundo'
-  | 'valvTopo'
-  | 'saia'
-  | 'valvCustom'
-  | 'outras'
-  | 'preparacao';
+export type ComponentCategoryKey = string;
 
 export interface OperationTimeHistoryEntry {
   id: string;
@@ -32,12 +21,13 @@ export interface OperationItem {
 }
 
 export interface ComponentCategoryConfig {
-  key: ComponentCategoryKey;
+  key: string;
   title: string;
-  icon: string;
-  colorClass: string;
+  icon?: string;
+  colorClass?: string;
   colorHex: string;
   description?: string;
+  orderIndex?: number;
 }
 
 export type OrderStatus = 'planejada' | 'em_producao' | 'concluida' | 'cancelada';

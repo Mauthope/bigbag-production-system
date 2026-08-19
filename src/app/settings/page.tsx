@@ -2,10 +2,11 @@
 
 import React, { useState, useMemo } from 'react';
 import { useProduction } from '@/context/ProductionContext';
-import { ComponentCategoryKey, OperationItem } from '@/types/production';
+import { OperationItem } from '@/types/production';
 import { TimeStudyModal } from '@/components/TimeStudyModal';
 import { TimeEvolutionModal } from '@/components/TimeEvolutionModal';
 import { ExportImportModal } from '@/components/ExportImportModal';
+import { CategoryManagerModal } from '@/components/CategoryManagerModal';
 import { Sparkline } from '@/components/Sparkline';
 import {
   Sliders,
@@ -24,13 +25,15 @@ import {
   LineChart as LineChartIcon,
   Pencil,
   Check,
-  X
+  X,
+  Boxes
 } from 'lucide-react';
 
 export default function SettingsPage() {
   const {
-    operations,
+    categories,
     categoriesConfig,
+    operations,
     timeStudies,
     updateOperationTime,
     updateOperation,
@@ -39,10 +42,11 @@ export default function SettingsPage() {
     showToast
   } = useProduction();
 
-  const [selectedCategory, setSelectedCategory] = useState<ComponentCategoryKey | 'all'>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [editingTimes, setEditingTimes] = useState<Record<string, number>>({});
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [selectedOpForTimeStudy, setSelectedOpForTimeStudy] = useState<OperationItem | null>(null);
   const [selectedOpForHistory, setSelectedOpForHistory] = useState<OperationItem | null>(null);
 
@@ -64,7 +68,7 @@ export default function SettingsPage() {
 
   // Add Operation Form State
   const [isAddingOp, setIsAddingOp] = useState(false);
-  const [newOpCategory, setNewOpCategory] = useState<ComponentCategoryKey>('alca');
+  const [newOpCategory, setNewOpCategory] = useState<string>('alca');
   const [newOpName, setNewOpName] = useState('');
   const [newOpTime, setNewOpTime] = useState<number>(0.5);
 
@@ -104,7 +108,7 @@ export default function SettingsPage() {
       name: newOpName.trim(),
       time: Number(newOpTime),
       isDefault: false,
-      category: newOpCategory
+      category: newOpCategory || (categories[0]?.key || 'alca')
     });
 
     setNewOpName('');
@@ -133,8 +137,17 @@ export default function SettingsPage() {
 
         <div className="flex items-center gap-2.5 flex-wrap">
           <button
+            onClick={() => setIsCategoryModalOpen(true)}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-cyan-300 hover:text-cyan-200 border border-cyan-500/30 text-xs font-semibold shadow-sm transition-all cursor-pointer active:scale-95"
+            title="Adicionar, renomear, colorir ou excluir blocos e componentes"
+          >
+            <Boxes className="w-4 h-4 text-cyan-400" />
+            <span>Gerenciar Blocos ({categories.length})</span>
+          </button>
+
+          <button
             onClick={() => setIsAddingOp(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-400 hover:to-teal-400 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/20 transition-all active:scale-95"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-400 hover:to-teal-400 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/20 transition-all active:scale-95 cursor-pointer"
           >
             <Plus className="w-4 h-4 stroke-[3]" />
             <span>Adicionar Operação</span>
@@ -142,10 +155,10 @@ export default function SettingsPage() {
 
           <button
             onClick={() => setIsExportModalOpen(true)}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/60 text-xs font-medium transition-colors"
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/60 text-xs font-medium transition-colors cursor-pointer"
           >
             <Download className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Backup / Supabase</span>
+            <span>Backup / LocalStorage</span>
           </button>
         </div>
       </div>
@@ -160,7 +173,7 @@ export default function SettingsPage() {
             </h3>
             <button
               onClick={() => setIsAddingOp(false)}
-              className="text-xs text-slate-400 hover:text-white"
+              className="text-xs text-slate-400 hover:text-white cursor-pointer"
             >
               Cancelar
             </button>
@@ -169,16 +182,16 @@ export default function SettingsPage() {
           <form onSubmit={handleCreateNewOperation} className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Componente / Categoria
+                Componente / Bloco
               </label>
               <select
                 value={newOpCategory}
-                onChange={e => setNewOpCategory(e.target.value as ComponentCategoryKey)}
+                onChange={e => setNewOpCategory(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:border-cyan-500"
               >
-                {Object.keys(categoriesConfig).map(catKey => (
-                  <option key={catKey} value={catKey}>
-                    {categoriesConfig[catKey as ComponentCategoryKey].title}
+                {categories.map(cat => (
+                  <option key={cat.key} value={cat.key}>
+                    {cat.title}
                   </option>
                 ))}
               </select>
@@ -213,7 +226,7 @@ export default function SettingsPage() {
                 />
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold shrink-0 transition-colors"
+                  className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold shrink-0 transition-colors cursor-pointer"
                 >
                   Salvar
                 </button>
@@ -239,38 +252,37 @@ export default function SettingsPage() {
         </div>
 
         {/* Category Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto pb-1 md:pb-0">
+        <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 custom-scrollbar">
           <button
             onClick={() => setSelectedCategory('all')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors shrink-0 ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors shrink-0 cursor-pointer ${
               selectedCategory === 'all'
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold'
                 : 'bg-slate-950/60 text-slate-400 hover:text-slate-200 border border-slate-800'
             }`}
           >
             Todos ({operations.length})
           </button>
-          {Object.keys(categoriesConfig).map(catKey => {
-            const key = catKey as ComponentCategoryKey;
-            const config = categoriesConfig[key];
-            const count = operations.filter(o => o.category === key).length;
-            const isSelected = selectedCategory === key;
+          {categories.map(cat => {
+            const count = operations.filter(o => o.category === cat.key).length;
+            const isSelected = selectedCategory === cat.key;
             return (
               <button
-                key={key}
-                onClick={() => setSelectedCategory(key)}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors shrink-0 flex items-center gap-1.5 ${
+                key={cat.key}
+                onClick={() => setSelectedCategory(cat.key)}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors shrink-0 flex items-center gap-1.5 cursor-pointer ${
                   isSelected
-                    ? 'border text-white shadow-sm'
+                    ? 'border text-white shadow-sm font-bold'
                     : 'bg-slate-950/60 text-slate-400 hover:text-slate-200 border border-slate-800'
                 }`}
                 style={{
-                  backgroundColor: isSelected ? `${config.colorHex}25` : undefined,
-                  borderColor: isSelected ? config.colorHex : undefined,
-                  color: isSelected ? config.colorHex : undefined
+                  backgroundColor: isSelected ? `${cat.colorHex}25` : undefined,
+                  borderColor: isSelected ? cat.colorHex : undefined,
+                  color: isSelected ? cat.colorHex : undefined
                 }}
               >
-                <span>{config.title}</span>
+                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.colorHex }} />
+                <span>{cat.title}</span>
                 <span className="text-[10px] opacity-70">({count})</span>
               </button>
             );
@@ -296,7 +308,11 @@ export default function SettingsPage() {
             </thead>
             <tbody className="divide-y divide-slate-800/60 text-xs">
               {filteredOperations.map(op => {
-                const config = categoriesConfig[op.category];
+                const config = categoriesConfig[op.category] || {
+                  key: op.category,
+                  title: op.category,
+                  colorHex: '#06b6d4'
+                };
                 const isModified = editingTimes[op.id] !== undefined && editingTimes[op.id] !== op.time;
                 const currentTimeVal = editingTimes[op.id] !== undefined ? editingTimes[op.id] : op.time;
                 const study = timeStudies.find(s => s.operationId === op.id);
@@ -475,6 +491,12 @@ export default function SettingsPage() {
       <ExportImportModal
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
+      />
+
+      {/* Category / Block Manager Modal */}
+      <CategoryManagerModal
+        isOpen={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
       />
 
     </div>

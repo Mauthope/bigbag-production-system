@@ -11,7 +11,7 @@ import {
   TimeStudy,
   OperationTimeHistoryEntry
 } from '@/types/production';
-import { CATEGORIES_CONFIG, DEFAULT_OPERATIONS } from '@/data/defaultData';
+import { CATEGORIES_CONFIG, DEFAULT_CATEGORIES, DEFAULT_OPERATIONS } from '@/data/defaultData';
 import { localStorageService } from '@/services/storage/localStorageService';
 import { StorageData } from '@/services/storage/types';
 
@@ -23,7 +23,13 @@ interface ToastState {
 
 interface ProductionContextType {
   // Config & Operations
-  categoriesConfig: Record<ComponentCategoryKey, ComponentCategoryConfig>;
+  categories: ComponentCategoryConfig[];
+  categoriesConfig: Record<string, ComponentCategoryConfig>;
+  addCategory: (category: Omit<ComponentCategoryConfig, 'key'> & { key?: string }) => Promise<void>;
+  updateCategory: (key: string, updates: Partial<ComponentCategoryConfig>) => Promise<void>;
+  deleteCategory: (key: string) => Promise<void>;
+  resetCategoriesToDefault: () => Promise<void>;
+
   operations: OperationItem[];
   isLoading: boolean;
   updateOperationTime: (
@@ -46,7 +52,7 @@ interface ProductionContextType {
   resetToStandardOperations: () => void;
   calculatorTotalMinutes: number;
   calculatorReadableTime: string;
-  categoryTotals: Record<ComponentCategoryKey, { totalTime: number; selectedCount: number; totalCount: number }>;
+  categoryTotals: Record<string, { totalTime: number; selectedCount: number; totalCount: number }>;
 
   // Production Orders (OP)
   orders: ProductionOrder[];
@@ -84,6 +90,7 @@ interface ProductionContextType {
 const ProductionContext = createContext<ProductionContextType | undefined>(undefined);
 
 export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [categories, setCategories] = useState<ComponentCategoryConfig[]>(DEFAULT_CATEGORIES);
   const [operations, setOperations] = useState<OperationItem[]>(DEFAULT_OPERATIONS);
   const [orders, setOrders] = useState<ProductionOrder[]>([]);
   const [timeStudies, setTimeStudies] = useState<TimeStudy[]>([]);
@@ -98,16 +105,25 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }, 3500);
   }, []);
 
+  const categoriesConfig = useMemo(() => {
+    return categories.reduce((acc, cat) => {
+      acc[cat.key] = cat;
+      return acc;
+    }, {} as Record<string, ComponentCategoryConfig>);
+  }, [categories]);
+
   // Initial Load from Storage
   useEffect(() => {
     async function init() {
       try {
-        const [loadedOps, loadedOrders, loadedStudies, loadedSelection] = await Promise.all([
+        const [loadedCats, loadedOps, loadedOrders, loadedStudies, loadedSelection] = await Promise.all([
+          localStorageService.getCategories(),
           localStorageService.getOperations(),
           localStorageService.getOrders(),
           localStorageService.getTimeStudies(),
           localStorageService.getCalculatorSelection()
         ]);
+        setCategories(loadedCats);
         setOperations(loadedOps);
         setOrders(loadedOrders);
         setTimeStudies(loadedStudies);
@@ -120,6 +136,51 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
     init();
   }, []);
+
+  // Category / Block Management
+  const addCategory = useCallback(async (catData: Omit<ComponentCategoryConfig, 'key'> & { key?: string }) => {
+    const rawKey = catData.key?.trim() || catData.title.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    const uniqueKey = rawKey || `cat_${Date.now()}`;
+    const newCat: ComponentCategoryConfig = {
+      key: uniqueKey,
+      title: catData.title,
+      colorHex: catData.colorHex || '#06b6d4',
+      description: catData.description || '',
+      icon: catData.icon || 'M4 6h16M4 12h16M4 18h16',
+      orderIndex: categories.length + 1
+    };
+    const updated = [...categories, newCat];
+    setCategories(updated);
+    await localStorageService.saveCategories(updated);
+    showToast(`Bloco "${newCat.title}" criado com sucesso!`, 'success');
+  }, [categories, showToast]);
+
+  const updateCategory = useCallback(async (key: string, updates: Partial<ComponentCategoryConfig>) => {
+    const updated = categories.map(cat => (cat.key === key ? { ...cat, ...updates } : cat));
+    setCategories(updated);
+    await localStorageService.saveCategories(updated);
+    showToast('Bloco atualizado com sucesso!', 'success');
+  }, [categories, showToast]);
+
+  const deleteCategory = useCallback(async (key: string) => {
+    const updatedCats = categories.filter(c => c.key !== key);
+    const updatedOps = operations.filter(op => op.category !== key);
+    const removedOpIds = operations.filter(op => op.category === key).map(op => op.id);
+
+    setCategories(updatedCats);
+    setOperations(updatedOps);
+    setSelectedOperationIds(prev => prev.filter(id => !removedOpIds.includes(id)));
+
+    await localStorageService.saveCategories(updatedCats);
+    await localStorageService.saveOperations(updatedOps);
+    showToast('Bloco e operações vinculadas removidos com sucesso!', 'info');
+  }, [categories, operations, showToast]);
+
+  const resetCategoriesToDefault = useCallback(async () => {
+    const defs = await localStorageService.resetCategories();
+    setCategories(defs);
+    showToast('Blocos restaurados para a lista de fábrica!', 'success');
+  }, [showToast]);
 
   // Calculator Toggles
   const toggleOperation = useCallback((id: string) => {
@@ -366,12 +427,14 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const importData = useCallback(async (data: StorageData) => {
     await localStorageService.importAllData(data);
-    const [loadedOps, loadedOrders, loadedStudies, loadedSelection] = await Promise.all([
+    const [loadedCats, loadedOps, loadedOrders, loadedStudies, loadedSelection] = await Promise.all([
+      localStorageService.getCategories(),
       localStorageService.getOperations(),
       localStorageService.getOrders(),
       localStorageService.getTimeStudies(),
       localStorageService.getCalculatorSelection()
     ]);
+    setCategories(loadedCats);
     setOperations(loadedOps);
     setOrders(loadedOrders);
     setTimeStudies(loadedStudies);
@@ -394,29 +457,22 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   // Calculator Totals Computation
   const { calculatorTotalMinutes, categoryTotals } = useMemo(() => {
     let grandTotal = 0;
-    const catTotals: Record<ComponentCategoryKey, { totalTime: number; selectedCount: number; totalCount: number }> = {
-      alca: { totalTime: 0, selectedCount: 0, totalCount: 0 },
-      fundo: { totalTime: 0, selectedCount: 0, totalCount: 0 },
-      topo: { totalTime: 0, selectedCount: 0, totalCount: 0 },
-      travas: { totalTime: 0, selectedCount: 0, totalCount: 0 },
-      fechamento: { totalTime: 0, selectedCount: 0, totalCount: 0 },
-      valvFundo: { totalTime: 0, selectedCount: 0, totalCount: 0 },
-      valvTopo: { totalTime: 0, selectedCount: 0, totalCount: 0 },
-      saia: { totalTime: 0, selectedCount: 0, totalCount: 0 },
-      valvCustom: { totalTime: 0, selectedCount: 0, totalCount: 0 },
-      outras: { totalTime: 0, selectedCount: 0, totalCount: 0 },
-      preparacao: { totalTime: 0, selectedCount: 0, totalCount: 0 }
-    };
+    const catTotals: Record<string, { totalTime: number; selectedCount: number; totalCount: number }> = {};
+    
+    categories.forEach(cat => {
+      catTotals[cat.key] = { totalTime: 0, selectedCount: 0, totalCount: 0 };
+    });
 
     operations.forEach(item => {
       const cat = item.category;
-      if (catTotals[cat]) {
-        catTotals[cat].totalCount++;
-        if (selectedOperationIds.includes(item.id)) {
-          catTotals[cat].selectedCount++;
-          catTotals[cat].totalTime += item.time;
-          grandTotal += item.time;
-        }
+      if (!catTotals[cat]) {
+        catTotals[cat] = { totalTime: 0, selectedCount: 0, totalCount: 0 };
+      }
+      catTotals[cat].totalCount++;
+      if (selectedOperationIds.includes(item.id)) {
+        catTotals[cat].selectedCount++;
+        catTotals[cat].totalTime += item.time;
+        grandTotal += item.time;
       }
     });
 
@@ -424,7 +480,7 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       calculatorTotalMinutes: grandTotal,
       categoryTotals: catTotals
     };
-  }, [operations, selectedOperationIds]);
+  }, [categories, operations, selectedOperationIds]);
 
   const calculatorReadableTime = useMemo(() => {
     const absMinutes = Math.abs(calculatorTotalMinutes);
@@ -480,17 +536,14 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Component Efficiency Statistics for Dashboard
   const componentStats: ComponentEfficiencyStat[] = useMemo(() => {
-    const categories = Object.keys(CATEGORIES_CONFIG) as ComponentCategoryKey[];
-
-    return categories.map(catKey => {
-      const config = CATEGORIES_CONFIG[catKey];
+    return categories.map(cat => {
       let standardMinutes = 0;
       let actualMinutes = 0;
       let countUsage = 0;
 
       orders.forEach(order => {
         const catOps = operations.filter(
-          op => op.category === catKey && order.selectedOperationIds.includes(op.id)
+          op => op.category === cat.key && order.selectedOperationIds.includes(op.id)
         );
         const catStdTimePerBag = catOps.reduce((sum, op) => sum + op.time, 0);
         const totalCatStd = catStdTimePerBag * (order.producedQuantity || 0);
@@ -500,8 +553,8 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           countUsage += order.producedQuantity || 0;
         }
 
-        if (order.componentTimes && order.componentTimes[catKey]) {
-          actualMinutes += order.componentTimes[catKey];
+        if (order.componentTimes && order.componentTimes[cat.key]) {
+          actualMinutes += order.componentTimes[cat.key] || 0;
         }
       });
 
@@ -510,21 +563,26 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         effectiveActual > 0 ? (standardMinutes / effectiveActual) * 100 : 100;
 
       return {
-        category: catKey,
-        title: config.title,
-        colorHex: config.colorHex,
+        category: cat.key,
+        title: cat.title,
+        colorHex: cat.colorHex,
         standardMinutes,
         actualMinutes: effectiveActual,
         efficiency,
         countUsage
       };
     });
-  }, [orders, operations]);
+  }, [categories, orders, operations]);
 
   return (
     <ProductionContext.Provider
       value={{
-        categoriesConfig: CATEGORIES_CONFIG,
+        categories,
+        categoriesConfig,
+        addCategory,
+        updateCategory,
+        deleteCategory,
+        resetCategoriesToDefault,
         operations,
         isLoading,
         updateOperationTime,

@@ -107,7 +107,11 @@ export const TimeEvolutionModal: React.FC<TimeEvolutionModalProps> = ({
 
   if (!isOpen || !operation) return null;
 
-  const config = categoriesConfig[operation.category];
+  const config = categoriesConfig[operation.category] || {
+    key: operation.category,
+    title: operation.category,
+    colorHex: '#06b6d4'
+  };
 
   const handleAddHistoricalPoint = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -14,7 +14,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({ onOpenNewOrderModal 
     calculatorReadableTime,
     selectedOperationIds,
     operations,
-    categoriesConfig,
+    categories,
     showToast
   } = useProduction();
 
@@ -22,10 +22,9 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({ onOpenNewOrderModal 
     let summaryText = `📋 **RESUMO DO TEMPO DE PRODUÇÃO - BIG BAGS**\n\n`;
     let grandTotal = 0;
 
-    Object.keys(categoriesConfig).forEach(catKey => {
-      const config = categoriesConfig[catKey as keyof typeof categoriesConfig];
+    categories.forEach(config => {
       const catOps = operations.filter(
-        op => op.category === catKey && selectedOperationIds.includes(op.id)
+        op => op.category === config.key && selectedOperationIds.includes(op.id)
       );
       const catTotal = catOps.reduce((sum, op) => sum + op.time, 0);
       grandTotal += catTotal;

@@ -23,24 +23,12 @@ interface RecordTimeModalProps {
 }
 
 export const RecordTimeModal: React.FC<RecordTimeModalProps> = ({ order, isOpen, onClose }) => {
-  const { recordOrderTime, categoriesConfig, operations, showToast } = useProduction();
+  const { recordOrderTime, categories, categoriesConfig, operations, showToast } = useProduction();
 
   const [producedQuantity, setProducedQuantity] = useState<number>(1);
   const [actualTotalMinutes, setActualTotalMinutes] = useState<number>(0);
   const [showComponentBreakdown, setShowComponentBreakdown] = useState<boolean>(false);
-  const [componentTimes, setComponentTimes] = useState<Record<ComponentCategoryKey, number>>({
-    alca: 0,
-    fundo: 0,
-    topo: 0,
-    travas: 0,
-    fechamento: 0,
-    valvFundo: 0,
-    valvTopo: 0,
-    saia: 0,
-    valvCustom: 0,
-    outras: 0,
-    preparacao: 0
-  });
+  const [componentTimes, setComponentTimes] = useState<Record<string, number>>({});
   const [notes, setNotes] = useState<string>('');
 
   useEffect(() => {
@@ -50,14 +38,14 @@ export const RecordTimeModal: React.FC<RecordTimeModalProps> = ({ order, isOpen,
         order.actualTimeTotal || Number((order.standardTimePerBag * (order.producedQuantity || order.targetQuantity)).toFixed(1))
       );
       if (order.componentTimes) {
-        setComponentTimes({ ...componentTimes, ...order.componentTimes });
+        setComponentTimes(order.componentTimes as Record<string, number>);
       }
       setNotes(order.notes || '');
     }
   }, [order]);
 
   // If user edits component times, sync total
-  const handleComponentTimeChange = (cat: ComponentCategoryKey, val: number) => {
+  const handleComponentTimeChange = (cat: string, val: number) => {
     const next = { ...componentTimes, [cat]: Math.max(0, val) };
     setComponentTimes(next);
     const sum = Object.values(next).reduce((a, b) => a + b, 0);
@@ -259,11 +247,9 @@ export const RecordTimeModal: React.FC<RecordTimeModalProps> = ({ order, isOpen,
 
             {showComponentBreakdown && (
               <div className="mt-3 p-4 rounded-xl bg-slate-950/80 border border-slate-800 grid grid-cols-2 sm:grid-cols-3 gap-3 animate-in fade-in">
-                {Object.keys(categoriesConfig).map(catKey => {
-                  const key = catKey as ComponentCategoryKey;
-                  const config = categoriesConfig[key];
+                {categories.map(config => {
                   return (
-                    <div key={key}>
+                    <div key={config.key}>
                       <label
                         className="block text-[11px] font-semibold truncate mb-1"
                         style={{ color: config.colorHex }}
@@ -274,8 +260,8 @@ export const RecordTimeModal: React.FC<RecordTimeModalProps> = ({ order, isOpen,
                         type="number"
                         step="0.1"
                         min="0"
-                        value={componentTimes[key] || ''}
-                        onChange={e => handleComponentTimeChange(key, parseFloat(e.target.value) || 0)}
+                        value={componentTimes[config.key] || ''}
+                        onChange={e => handleComponentTimeChange(config.key, parseFloat(e.target.value) || 0)}
                         placeholder="0 min"
                         className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-white focus:outline-none focus:border-cyan-500 font-mono"
                       />

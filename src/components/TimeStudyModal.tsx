@@ -742,7 +742,11 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
 
   if (!isOpen || !operation) return null;
 
-  const config = categoriesConfig[operation.category];
+  const config = categoriesConfig[operation.category] || {
+    key: operation.category,
+    title: operation.category,
+    colorHex: '#06b6d4'
+  };
 
   // Save Study & Apply Consolidated Sum
   const handleSaveAndApply = async () => {
