@@ -72,31 +72,6 @@ const Z_VALUES: Record<number, number> = {
   99: 2.576
 };
 
-// Preset suggested micro-operations templates
-const DEFAULT_PRESET_STEPS: Record<string, Array<{ name: string; type: LeanActionType; defaultSec: number }>> = {
-  alca: [
-    { name: '1. Pegar corpo do bag e posicionar na máquina', type: 'necessario', defaultSec: 18 },
-    { name: '2. Pegar alça e alinhar no gabarito/marcação', type: 'necessario', defaultSec: 15 },
-    { name: '3. Costura travada da 1ª perna da alça', type: 'valor_agregado', defaultSec: 45 },
-    { name: '4. Virar e costurar 2ª perna da alça', type: 'valor_agregado', defaultSec: 45 },
-    { name: '5. Cortar linha e retirar sobras', type: 'desperdicio', defaultSec: 12 },
-    { name: '6. Deslocar bag para a esteira/pilha', type: 'necessario', defaultSec: 15 }
-  ],
-  fundo: [
-    { name: '1. Posicionar fundo no corpo do Big Bag', type: 'necessario', defaultSec: 20 },
-    { name: '2. Alinhar cantos e vincos do fundo', type: 'necessario', defaultSec: 15 },
-    { name: '3. Costura contínua perimetral do fundo', type: 'valor_agregado', defaultSec: 55 },
-    { name: '4. Aplicação e costura de vedante/reforço', type: 'valor_agregado', defaultSec: 25 },
-    { name: '5. Arremate de linha e inspeção rápida', type: 'desperdicio', defaultSec: 10 }
-  ],
-  default: [
-    { name: '1. Preparação e posicionamento do material', type: 'necessario', defaultSec: 20 },
-    { name: '2. Execução da costura principal', type: 'valor_agregado', defaultSec: 60 },
-    { name: '3. Costura de reforço ou acessório', type: 'valor_agregado', defaultSec: 30 },
-    { name: '4. Corte de linha e inspeção visual', type: 'desperdicio', defaultSec: 10 }
-  ]
-};
-
 export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
   operation,
   isOpen,
@@ -150,40 +125,13 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
         setErrorMarginPct(existing.stats?.errorMarginPct || 0.05);
         setNotes(existing.notes || '');
       } else {
-        // Seed default micro-operations
-        const preset = DEFAULT_PRESET_STEPS[operation.category] || DEFAULT_PRESET_STEPS.default;
-        const seeded: MicroOperation[] = preset.map((p, idx) => {
-          const sample: TimeStudySample = {
-            id: `sample-${Date.now()}-${idx + 1}`,
-            sampleIndex: 1,
-            timeInSeconds: p.defaultSec,
-            timeInMinutes: Number((p.defaultSec / 60).toFixed(3)),
-            type: p.type,
-            stepName: p.name,
-            timestamp: new Date().toISOString()
-          };
-          const meanMin = sample.timeInMinutes;
-          const normMin = meanMin * 1.0;
-          const stdMin = Number((normMin * 1.12).toFixed(2));
-
-          return {
-            id: `micro-${Date.now()}-${idx + 1}`,
-            orderIndex: idx + 1,
-            name: p.name,
-            type: p.type,
-            samples: [sample],
-            meanSeconds: p.defaultSec,
-            meanMinutes: meanMin,
-            paceRating: 1.0,
-            allowancePercentage: 0.12,
-            normalTimeMinutes: normMin,
-            standardTimeMinutes: stdMin,
-            standardTimeSeconds: stdMin * 60
-          };
-        });
-
-        setMicroOperations(seeded);
+        // Marco Zero: Inicia 100% limpo sem micro-ações pré-cadastradas
+        setMicroOperations([]);
         setOperatorName('');
+        setAnalystName('Eng. de Processos');
+        setConfidenceLevel(95);
+        setErrorMarginPct(0.05);
+        setNotes('');
       }
 
       // Reset all mini-stopwatches
@@ -1113,7 +1061,7 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
                     required
                     value={newStepName}
                     onChange={e => setNewStepName(e.target.value)}
-                    placeholder="Adicionar nova micro-etapa (ex: 7. Inspecionar e empilhar)..."
+                    placeholder="Adicionar micro-etapa (ex: 1. Pegar corpo e posicionar, 2. Costurar...)"
                     className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
                   />
                 </div>
@@ -1131,13 +1079,31 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
 
                   <button
                     type="submit"
-                    className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold shrink-0 transition-colors flex items-center gap-1.5"
+                    className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold shrink-0 transition-colors flex items-center gap-1.5 whitespace-nowrap"
                   >
                     <Plus className="w-4 h-4 stroke-[3]" />
-                    <span>Adicionar</span>
+                    <span>Adicionar Etapa</span>
                   </button>
                 </div>
               </form>
+
+              {/* Empty State / Marco Zero Banner */}
+              {microOperations.length === 0 && (
+                <div className="p-8 rounded-2xl bg-slate-950/40 border border-dashed border-slate-800 text-center space-y-3">
+                  <div className="w-12 h-12 rounded-2xl bg-cyan-950/40 border border-cyan-500/30 text-cyan-400 mx-auto flex items-center justify-center shadow-lg shadow-cyan-500/10">
+                    <Workflow className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <div className="max-w-md mx-auto space-y-1">
+                    <h4 className="text-sm font-bold text-white">
+                      Marco Zero: Nenhuma micro-ação cadastrada
+                    </h4>
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      O tempo padrão cadastrado no catálogo (<strong className="text-cyan-300">{operation.time.toFixed(2)} min</strong>) é o seu ponto de partida.
+                      Cadastre a primeira micro-etapa no campo acima para iniciar a cronometragem real do processo.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Micro-operations Cards with Dedicated Mini-Stopwatches and INLINE PACE & FATIGUE */}
               <div className="space-y-4">
