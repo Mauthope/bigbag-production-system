@@ -33,6 +33,7 @@ interface ProductionContextType {
     source?: 'cronoanalise' | 'manual'
   ) => Promise<void>;
   updateOperationHistory: (id: string, history: OperationTimeHistoryEntry[]) => Promise<void>;
+  updateOperation: (id: string, updates: Partial<OperationItem>) => Promise<void>;
   addCustomOperation: (item: Omit<OperationItem, 'id'>) => Promise<void>;
   deleteOperation: (id: string) => Promise<void>;
   resetOperationsToDefault: () => Promise<void>;
@@ -211,6 +212,22 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setOperations(updated);
     await localStorageService.saveOperations(updated);
   }, [operations]);
+
+  const updateOperation = useCallback(async (id: string, updates: Partial<OperationItem>) => {
+    const updated = operations.map(op => {
+      if (op.id === id) {
+        return {
+          ...op,
+          ...updates,
+          updatedAt: new Date().toISOString()
+        };
+      }
+      return op;
+    });
+    setOperations(updated);
+    await localStorageService.saveOperations(updated);
+    showToast('Operação atualizada com sucesso!', 'success');
+  }, [operations, showToast]);
 
   const addCustomOperation = useCallback(async (item: Omit<OperationItem, 'id'>) => {
     const newId = `${item.category}-custom-${Date.now()}`;
@@ -512,6 +529,7 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         isLoading,
         updateOperationTime,
         updateOperationHistory,
+        updateOperation,
         addCustomOperation,
         deleteOperation,
         resetOperationsToDefault,

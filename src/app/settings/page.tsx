@@ -21,7 +21,10 @@ import {
   Clock,
   CheckCircle2,
   TrendingDown,
-  LineChart as LineChartIcon
+  LineChart as LineChartIcon,
+  Pencil,
+  Check,
+  X
 } from 'lucide-react';
 
 export default function SettingsPage() {
@@ -30,6 +33,7 @@ export default function SettingsPage() {
     categoriesConfig,
     timeStudies,
     updateOperationTime,
+    updateOperation,
     addCustomOperation,
     deleteOperation,
     showToast
@@ -41,6 +45,22 @@ export default function SettingsPage() {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [selectedOpForTimeStudy, setSelectedOpForTimeStudy] = useState<OperationItem | null>(null);
   const [selectedOpForHistory, setSelectedOpForHistory] = useState<OperationItem | null>(null);
+
+  // Inline Rename State
+  const [editingOpNameId, setEditingOpNameId] = useState<string | null>(null);
+  const [tempOpName, setTempOpName] = useState<string>('');
+
+  const handleStartRename = (op: OperationItem) => {
+    setEditingOpNameId(op.id);
+    setTempOpName(op.name);
+  };
+
+  const handleSaveRename = (id: string) => {
+    if (tempOpName.trim()) {
+      updateOperation(id, { name: tempOpName.trim() });
+    }
+    setEditingOpNameId(null);
+  };
 
   // Add Operation Form State
   const [isAddingOp, setIsAddingOp] = useState(false);
@@ -298,21 +318,62 @@ export default function SettingsPage() {
 
                     {/* Name */}
                     <td className="py-3 px-4">
-                      <div className="font-medium text-white">{op.name}</div>
+                      {editingOpNameId === op.id ? (
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="text"
+                            value={tempOpName}
+                            onChange={e => setTempOpName(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') handleSaveRename(op.id);
+                              if (e.key === 'Escape') setEditingOpNameId(null);
+                            }}
+                            autoFocus
+                            className="px-2 py-1 rounded bg-slate-950 border border-cyan-500 text-white text-xs font-medium focus:outline-none w-full max-w-xs"
+                          />
+                          <button
+                            onClick={() => handleSaveRename(op.id)}
+                            className="p-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white"
+                            title="Salvar nome"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setEditingOpNameId(null)}
+                            className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-400"
+                            title="Cancelar"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 group/name">
+                          <div className="font-medium text-white">{op.name}</div>
+                          <button
+                            onClick={() => handleStartRename(op)}
+                            className="opacity-0 group-hover/name:opacity-100 p-1 text-slate-500 hover:text-cyan-300 transition-opacity"
+                            title="Renomear operação"
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </button>
+                        </div>
+                      )}
                       <span className="text-[10px] text-slate-500 font-mono">{op.id}</span>
                     </td>
 
-                    {/* Default or Custom */}
+                    {/* Default or Custom Toggle */}
                     <td className="py-3 px-4 text-center">
-                      {op.isDefault ? (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-950/60 text-cyan-300 border border-cyan-800/50">
-                          Padrão
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700">
-                          Opcional
-                        </span>
-                      )}
+                      <button
+                        onClick={() => updateOperation(op.id, { isDefault: !op.isDefault })}
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-colors cursor-pointer hover:scale-105 ${
+                          op.isDefault
+                            ? 'bg-cyan-950/60 text-cyan-300 border-cyan-800/50 hover:bg-cyan-900/60'
+                            : 'bg-slate-800 text-slate-400 border border-slate-700 hover:bg-slate-700 hover:text-slate-200'
+                        }`}
+                        title="Clique para alternar entre Padrão (marcado por padrão na calculadora) e Opcional"
+                      >
+                        {op.isDefault ? '✓ Padrão' : 'Opcional'}
+                      </button>
                     </td>
 
                     {/* Time Study Status & Trigger */}
@@ -375,15 +436,17 @@ export default function SettingsPage() {
                     {/* Actions */}
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        {!op.isDefault && (
-                          <button
-                            onClick={() => deleteOperation(op.id)}
-                            className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-950/30 transition-colors"
-                            title="Excluir operação"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`Tem certeza que deseja excluir a operação "${op.name}" do catálogo?`)) {
+                              deleteOperation(op.id);
+                            }
+                          }}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 transition-colors"
+                          title="Excluir operação do catálogo"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </td>
                   </tr>
