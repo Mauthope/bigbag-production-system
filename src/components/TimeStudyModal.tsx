@@ -95,6 +95,7 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
   // Kaizen Cycle Reset Modal State
   const [isKaizenModalOpen, setIsKaizenModalOpen] = useState<boolean>(false);
   const [kaizenActionDescription, setKaizenActionDescription] = useState<string>('');
+  const [kaizenAnalyst, setKaizenAnalyst] = useState<string>('Eng. de Processos');
 
   // Bulk Apply Modal/Popover state
   const [showBulkAdjust, setShowBulkAdjust] = useState<boolean>(false);
@@ -311,23 +312,20 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
     if (!operation) return;
 
     const actionText = kaizenActionDescription.trim() || 'Nova Melhoria Kaizen de Processo';
+    const responsible = kaizenAnalyst.trim() || analystName.trim() || 'Eng. de Processos';
 
-    // 1. If operation has historical entries, archive the current baseline point
-    if (operation.history && operation.history.length > 0) {
-      const today = new Date().toISOString().split('T')[0];
-      const hasTodayBaseline = operation.history.some(h => h.date === today);
-      if (!hasTodayBaseline) {
-        const baselinePoint: OperationTimeHistoryEntry = {
-          id: `hist-pre-kaizen-${Date.now()}`,
-          operationId: operation.id,
-          time: operation.time,
-          date: today,
-          notes: `Método anterior ao Kaizen (${operation.time.toFixed(2)} min)`,
-          source: 'cronoanalise'
-        };
-        await updateOperationHistory(operation.id, [...operation.history, baselinePoint]);
-      }
-    }
+    // 1. Archive the current baseline point in the Operation's Revision History
+    const today = new Date().toISOString().split('T')[0];
+    const baselinePoint: OperationTimeHistoryEntry = {
+      id: `hist-kaizen-${Date.now()}`,
+      operationId: operation.id,
+      time: operation.time,
+      date: today,
+      notes: `${actionText} (Resp: ${responsible})`,
+      source: 'cronoanalise'
+    };
+    const currentHist = operation.history || [];
+    await updateOperationHistory(operation.id, [...currentHist, baselinePoint]);
 
     // 2. Clear samples across all micro-operations to start clean at Sample #1
     setMicroOperations(prev =>
@@ -344,6 +342,7 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
 
     // 3. Set the Kaizen notes and reset stopwatches
     setNotes(actionText);
+    setAnalystName(responsible);
     setTimers({});
 
     // 4. Close Kaizen modal and celebrate
@@ -358,7 +357,7 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
       });
     } catch {}
 
-    showToast('✨ Novo Ciclo Kaizen iniciado! As medições anteriores foram arquivadas. A próxima medição será a Tomada #1.', 'success');
+    showToast('✨ Novo Ciclo Kaizen iniciado! O método anterior foi arquivado na Linha do Tempo e a próxima tomada será a #1.', 'success');
   };
 
   // Reset samples for a single micro-operation (partial Kaizen)
@@ -746,9 +745,9 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
   const config = categoriesConfig[operation.category];
 
   // Save Study & Apply Consolidated Sum
-  const handleSaveAndApply = async (applyToOperation: boolean = true) => {
+  const handleSaveAndApply = async () => {
     if (microOperations.length === 0) {
-      showToast('Cadastre ao menos uma micro-operação no percurso.', 'error');
+      showToast('Cadastre ao menos uma micro-operação antes de salvar.', 'error');
       return;
     }
 
@@ -767,18 +766,17 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
       updatedAt: new Date().toISOString()
     };
 
-    await saveTimeStudyAndApply(study, applyToOperation);
+    await saveTimeStudyAndApply(study, true);
 
-    if (applyToOperation) {
-      try {
-        confetti({
-          particleCount: 70,
-          spread: 75,
-          origin: { y: 0.7 }
-        });
-      } catch {}
-    }
+    try {
+      confetti({
+        particleCount: 70,
+        spread: 75,
+        origin: { y: 0.7 }
+      });
+    } catch {}
 
+    showToast(`Tempo Padrão da operação "${operation.name}" atualizado para ${totalStats.totalStandardTimeMinutes.toFixed(2)} min!`, 'success');
     onClose();
   };
 
@@ -1902,76 +1900,43 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
 
         </div>
 
-        {/* Global Bottom Synthesis Bar with Kaizen Justification */}
-        <div className="px-4 sm:px-6 py-4 border-t border-slate-800 bg-slate-950/98 flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-4">
+        {/* Global Bottom Synthesis Bar - Simple, Clean & Single Action Button */}
+        <div className="px-4 sm:px-6 py-3.5 border-t border-slate-800 bg-slate-950/98 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
           
-          {/* Left: Kaizen Justification & Analyst Details */}
-          <div className="flex-1 w-full space-y-1.5">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-              <label className="text-[10px] uppercase font-bold text-amber-300">
-                Justificativa / Melhoria Kaizen (Grava na Linha do Tempo):
-              </label>
+          {/* Left: Summary Info */}
+          <div className="flex items-center gap-3 text-xs text-slate-400">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-cyan-400" />
+              <span>{microOperations.length} micro-etapa{microOperations.length !== 1 ? 's' : ''}</span>
             </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
-              {/* Justification input (8 cols on sm) */}
-              <div className="sm:col-span-8">
-                <input
-                  type="text"
-                  value={notes}
-                  onChange={e => setNotes(e.target.value)}
-                  placeholder="Ex: Implementado gabarito magnético de alça para reduzir dobras..."
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700/80 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 font-medium"
-                />
-              </div>
-
-              {/* Analyst input (4 cols on sm) */}
-              <div className="sm:col-span-4 flex items-center gap-1.5 bg-slate-900 px-2.5 py-1.5 rounded-xl border border-slate-700/80">
-                <span className="text-[10px] text-slate-400 uppercase font-bold shrink-0">Resp:</span>
-                <input
-                  type="text"
-                  value={analystName}
-                  onChange={e => setAnalystName(e.target.value)}
-                  placeholder="Eng. Responsável"
-                  className="w-full bg-transparent text-cyan-300 text-xs font-mono font-bold focus:outline-none placeholder-slate-600"
-                />
-              </div>
+            <span>&bull;</span>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              <span>{totalStats.sampleCount} tomada{totalStats.sampleCount !== 1 ? 's' : ''}</span>
             </div>
           </div>
 
-          {/* Right: Consolidated Total & Action Buttons */}
-          <div className="flex flex-wrap sm:flex-nowrap items-center gap-4 justify-between xl:justify-end border-t xl:border-t-0 pt-3 xl:pt-0 border-slate-800/80 shrink-0">
-            <div className="text-left xl:text-right shrink-0">
+          {/* Right: Consolidated Total & Single Action Button */}
+          <div className="flex items-center gap-4 sm:gap-6 justify-between sm:justify-end w-full sm:w-auto border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-800/80">
+            <div className="text-left sm:text-right shrink-0">
               <span className="text-[10px] uppercase font-bold text-slate-400 block">
-                Novo Tempo da Operação (∑ TP):
+                Novo Tempo Padrão (∑ TP):
               </span>
-              <div className="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-300 to-emerald-400 font-mono">
+              <div className="text-xl sm:text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-300 to-emerald-400 font-mono">
                 {totalStats.totalStandardTimeMinutes.toFixed(2)} <span className="text-sm font-bold text-teal-400">min</span>
                 <span className="text-xs font-normal text-slate-400 ml-1">({totalStats.totalStandardTimeSeconds.toFixed(0)}s)</span>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => handleSaveAndApply(false)}
-                className="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors whitespace-nowrap"
-                title="Salvar o estudo de micro-etapas sem alterar o tempo oficial"
-              >
-                Salvar Estudo
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleSaveAndApply(true)}
-                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 via-teal-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/25 transition-all flex items-center gap-2 active:scale-95 whitespace-nowrap"
-                title="Salvar, aplicar novo tempo padrão e registrar marco na Linha do Tempo Kaizen"
-              >
-                <Sparkles className="w-4 h-4 stroke-[2.5]" />
-                <span>Aplicar Soma & Kaizen</span>
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={handleSaveAndApply}
+              className="px-4 sm:px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 via-teal-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-extrabold text-xs sm:text-sm shadow-lg shadow-cyan-500/25 transition-all flex items-center gap-2 active:scale-95 whitespace-nowrap"
+              title="Salvar o estudo de micro-etapas e aplicar o novo tempo padrão na operação"
+            >
+              <Check className="w-4 h-4 stroke-[3]" />
+              <span>Salvar & Aplicar Tempo Padrão</span>
+            </button>
           </div>
 
         </div>
@@ -1995,7 +1960,7 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
                     Iniciar Novo Ciclo Kaizen
                   </h3>
                   <p className="text-xs text-slate-400">
-                    Arquivar método anterior e cronometrar a partir da Tomada #1
+                    Registrar melhoria, arquivar método anterior e iniciar Tomada #1
                   </p>
                 </div>
               </div>
@@ -2015,25 +1980,40 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
                 O que acontecerá ao confirmar:
               </div>
               <ul className="list-disc list-inside space-y-1 text-[11px] text-slate-300">
-                <li>O tempo atual (<strong>{operation.time.toFixed(2)} min</strong>) será arquivado no <strong>Histórico de Revisões</strong> como marco anterior.</li>
-                <li>As tomadas antigas de todas as micro-etapas serão <strong>resetadas</strong>.</li>
+                <li>O tempo atual (<strong>{operation.time.toFixed(2)} min</strong>) será arquivado no <strong>Histórico de Revisões</strong> com sua justificativa.</li>
+                <li>As tomadas antigas das micro-etapas serão <strong>resetadas</strong>.</li>
                 <li>A próxima medição no cronômetro será tratada como a <strong>Tomada #1 do Novo Método</strong>.</li>
-                <li>O motor estatístico ($N'$) recalculará o número de amostras necessárias para certificar a melhoria.</li>
+                <li>O motor estatístico ($N'$) recalculará o número de tomadas necessárias para certificar a melhoria.</li>
               </ul>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-300">
-                Descrição da Melhoria / Ação Kaizen Realizada:
-              </label>
-              <textarea
-                rows={3}
-                required
-                value={kaizenActionDescription}
-                onChange={e => setKaizenActionDescription(e.target.value)}
-                placeholder="Ex: Instalado novo gabarito magnético e trocado calcador para eliminar 2 dobras manuais da alça..."
-                className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
-              />
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-300">
+                  Justificativa / Melhoria Kaizen Realizada:
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  value={kaizenActionDescription}
+                  onChange={e => setKaizenActionDescription(e.target.value)}
+                  placeholder="Ex: Instalado novo gabarito magnético e trocado calcador para eliminar 2 dobras manuais da alça..."
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 font-medium"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-300">
+                  Responsável / Engenheiro de Processos:
+                </label>
+                <input
+                  type="text"
+                  value={kaizenAnalyst}
+                  onChange={e => setKaizenAnalyst(e.target.value)}
+                  placeholder="Ex: Eng. Maurício Grigol"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-cyan-300 placeholder-slate-600 focus:outline-none focus:border-amber-500 font-medium"
+                />
+              </div>
             </div>
 
             <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-800">
@@ -2051,7 +2031,7 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
                 className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 via-teal-500 to-emerald-500 hover:from-amber-400 hover:to-emerald-400 text-slate-950 font-bold text-xs shadow-lg shadow-amber-500/20 transition-all flex items-center gap-1.5 active:scale-95"
               >
                 <Sparkles className="w-4 h-4 stroke-[2.5]" />
-                <span>Iniciar Medição do Novo Ciclo</span>
+                <span>Confirmar & Iniciar Novo Ciclo</span>
               </button>
             </div>
 
