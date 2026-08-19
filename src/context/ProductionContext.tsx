@@ -73,6 +73,7 @@ interface ProductionContextType {
   // Export / Import
   exportData: () => Promise<StorageData>;
   importData: (data: StorageData) => Promise<void>;
+  clearAllDataForProduction: () => Promise<void>;
 
   // Toast Helper
   toast: ToastState;
@@ -361,6 +362,18 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     showToast('Dados importados com sucesso!', 'success');
   }, [showToast]);
 
+  const clearAllDataForProduction = useCallback(async () => {
+    if (localStorageService.clearAllDataForProduction) {
+      await localStorageService.clearAllDataForProduction();
+    }
+    setOperations(DEFAULT_OPERATIONS);
+    setOrders([]);
+    setTimeStudies([]);
+    const defaultIds = DEFAULT_OPERATIONS.filter(o => o.isDefault).map(o => o.id);
+    setSelectedOperationIds(defaultIds);
+    showToast('Banco de dados 100% limpo! Pronto para produção real.', 'success');
+  }, [showToast]);
+
   // Calculator Totals Computation
   const { calculatorTotalMinutes, categoryTotals } = useMemo(() => {
     let grandTotal = 0;
@@ -523,6 +536,7 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         componentStats,
         exportData,
         importData,
+        clearAllDataForProduction,
         toast,
         showToast
       }}

@@ -99,11 +99,7 @@ export const DEFAULT_OPERATIONS: OperationItem[] = [
     time: 2.50,
     isDefault: true,
     category: 'alca',
-    history: [
-      { id: 'h-alca-1', operationId: 'alca-op-padrao', time: 2.85, date: '2026-03-15', notes: 'Tempo de fábrica inicial (Baseline)', source: 'inicial' },
-      { id: 'h-alca-2', operationId: 'alca-op-padrao', time: 2.65, date: '2026-06-10', notes: 'Kaizen 1: Novo gabarito de alinhamento', source: 'cronoanalise' },
-      { id: 'h-alca-3', operationId: 'alca-op-padrao', time: 2.50, date: '2026-08-18', notes: 'Kaizen 2: Padronização do método de costura contínua', source: 'cronoanalise' }
-    ]
+    history: []
   },
   { id: 'alca-sem-pers', name: 'Sem personalização', time: 0.00, isDefault: false, category: 'alca' },
   { id: 'alca-laminado', name: 'Laminado', time: 0.50, isDefault: false, category: 'alca' },
@@ -128,11 +124,7 @@ export const DEFAULT_OPERATIONS: OperationItem[] = [
     time: 1.75,
     isDefault: true,
     category: 'fundo',
-    history: [
-      { id: 'h-fundo-1', operationId: 'fundo-op-padrao', time: 2.10, date: '2026-04-01', notes: 'Tempo de fábrica inicial (Baseline)', source: 'inicial' },
-      { id: 'h-fundo-2', operationId: 'fundo-op-padrao', time: 1.90, date: '2026-06-20', notes: 'Kaizen: Melhoria no dispositivo de dobra', source: 'cronoanalise' },
-      { id: 'h-fundo-3', operationId: 'fundo-op-padrao', time: 1.75, date: '2026-08-18', notes: 'Kaizen: Eliminação de aparas no processo', source: 'cronoanalise' }
-    ]
+    history: []
   },
   { id: 'fundo-sem-pers', name: 'Sem personalização', time: 0.00, isDefault: false, category: 'fundo' },
   { id: 'fundo-laminado', name: 'Laminado', time: 0.35, isDefault: false, category: 'fundo' },
@@ -285,150 +277,5 @@ export const DEFAULT_OPERATIONS: OperationItem[] = [
   { id: 'preparacao-costura-patch', name: 'Costura do patch (Desfiamento - 4 Um)', time: 1.60, isDefault: false, category: 'preparacao' }
 ];
 
-export const INITIAL_SAMPLE_ORDERS: import('../types/production').ProductionOrder[] = [
-  {
-    id: 'op-sample-01',
-    opNumber: 'OP-2026-001',
-    client: 'AgroSul Cooperativa',
-    modelDescription: 'Big Bag 1.500kg - Standard 4 Painéis',
-    targetQuantity: 150,
-    producedQuantity: 150,
-    selectedOperationIds: [
-      'alca-op-padrao',
-      'fundo-op-padrao',
-      'topo-op-padrao',
-      'travas-op-padrao',
-      'fechamento-ate-17-4p',
-      'valvfundo-op-padrao',
-      'valvtopo-op-padrao',
-      'saia-op-padrao',
-      'valvcustom-op-padrao',
-      'preparacao-amarracao',
-      'preparacao-inspecao',
-      'preparacao-dobra-movimentacao',
-      'preparacao-prensa',
-      'preparacao-etiqueta-regata',
-      'preparacao-etiquetas'
-    ],
-    standardTimePerBag: 14.88,
-    totalStandardTime: 2232, // 14.88 * 150
-    actualTimeTotal: 2150,   // Realized faster -> ~103.8% efficiency
-    componentTimes: {
-      alca: 375,
-      fundo: 260,
-      topo: 250,
-      travas: 510,
-      fechamento: 220,
-      valvFundo: 75,
-      valvTopo: 75,
-      saia: 75,
-      valvCustom: 50,
-      outras: 0,
-      preparacao: 260
-    },
-    operatorName: 'Carlos Silva (Linha 1)',
-    shift: 'Turno A',
-    status: 'concluida',
-    notes: 'Lote produzido dentro da meta com alta eficiência na costura das alças.',
-    createdAt: '2026-08-10T08:00:00.000Z',
-    updatedAt: '2026-08-12T17:30:00.000Z',
-    completedAt: '2026-08-12T17:30:00.000Z'
-  },
-  {
-    id: 'op-sample-02',
-    opNumber: 'OP-2026-002',
-    client: 'Mineração Vale Verde',
-    modelDescription: 'Big Bag Condutivo com Liner e Feltro',
-    targetQuantity: 80,
-    producedQuantity: 80,
-    selectedOperationIds: [
-      'alca-op-padrao',
-      'alca-feltro',
-      'fundo-op-padrao',
-      'fundo-feltro',
-      'topo-op-padrao',
-      'topo-feltro',
-      'travas-op-padrao',
-      'fechamento-ate-17-4p',
-      'valvfundo-op-padrao',
-      'valvtopo-op-padrao',
-      'saia-op-padrao',
-      'valvcustom-op-padrao',
-      'preparacao-forro-feltro',
-      'preparacao-amarracao',
-      'preparacao-inspecao',
-      'preparacao-dobra-movimentacao',
-      'preparacao-prensa'
-    ],
-    standardTimePerBag: 23.23,
-    totalStandardTime: 1858.4,
-    actualTimeTotal: 2020, // Realized slower -> ~92% efficiency (gargalo no feltro)
-    componentTimes: {
-      alca: 290,
-      fundo: 310,
-      topo: 300,
-      travas: 300,
-      fechamento: 140,
-      valvFundo: 45,
-      valvTopo: 45,
-      saia: 40,
-      valvCustom: 30,
-      outras: 0,
-      preparacao: 520
-    },
-    operatorName: 'Mariana Duarte (Linha 2)',
-    shift: 'Turno B',
-    status: 'concluida',
-    notes: 'Ajuste de agulha e preparação com feltro demandou maior tempo.',
-    createdAt: '2026-08-14T09:00:00.000Z',
-    updatedAt: '2026-08-16T18:00:00.000Z',
-    completedAt: '2026-08-16T18:00:00.000Z'
-  },
-  {
-    id: 'op-sample-03',
-    opNumber: 'OP-2026-003',
-    client: 'Fertilizantes do Cerrado',
-    modelDescription: 'Big Bag 1.000kg - 1 Vedante',
-    targetQuantity: 200,
-    producedQuantity: 120,
-    selectedOperationIds: [
-      'alca-op-padrao',
-      'fundo-op-padrao',
-      'fundo-1-vedante',
-      'topo-op-padrao',
-      'topo-1-vedante',
-      'travas-op-padrao',
-      'fechamento-ate-17-4p',
-      'valvfundo-op-padrao',
-      'valvtopo-op-padrao',
-      'saia-op-padrao',
-      'valvcustom-op-padrao',
-      'preparacao-amarracao',
-      'preparacao-inspecao',
-      'preparacao-dobra-movimentacao',
-      'preparacao-prensa'
-    ],
-    standardTimePerBag: 16.88,
-    totalStandardTime: 3376,
-    actualTimeTotal: 1950, // For 120 bags produced so far
-    componentTimes: {
-      alca: 420,
-      fundo: 330,
-      topo: 330,
-      travas: 410,
-      fechamento: 180,
-      valvFundo: 60,
-      valvTopo: 60,
-      saia: 60,
-      valvCustom: 40,
-      outras: 0,
-      preparacao: 60
-    },
-    operatorName: 'Roberto Alves (Linha 1)',
-    shift: 'Turno A',
-    status: 'em_producao',
-    notes: 'Lote em andamento. Produção fluindo conforme o cronograma.',
-    createdAt: '2026-08-17T07:30:00.000Z',
-    updatedAt: '2026-08-18T10:00:00.000Z'
-  }
-];
+export const INITIAL_SAMPLE_ORDERS: import('../types/production').ProductionOrder[] = [];
+

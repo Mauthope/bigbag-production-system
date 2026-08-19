@@ -59,18 +59,23 @@ export class LocalStorageService implements IStorageService {
 
   // Production Orders (OP)
   async getOrders(): Promise<ProductionOrder[]> {
-    if (!this.isClient()) return INITIAL_SAMPLE_ORDERS;
+    if (!this.isClient()) return [];
     try {
       const stored = localStorage.getItem(STORAGE_KEYS.ORDERS);
       if (!stored) {
-        // Initialize with initial sample orders for rich immediate experience
-        await this.saveInitialOrders(INITIAL_SAMPLE_ORDERS);
-        return INITIAL_SAMPLE_ORDERS;
+        await this.saveInitialOrders([]);
+        return [];
       }
-      return JSON.parse(stored);
+      const parsed: ProductionOrder[] = JSON.parse(stored);
+      // Clean any legacy mock sample orders if present
+      const cleanOrders = parsed.filter(o => !o.id.startsWith('op-sample-'));
+      if (cleanOrders.length !== parsed.length) {
+        await this.saveInitialOrders(cleanOrders);
+      }
+      return cleanOrders;
     } catch (e) {
       console.error('Error reading orders from localStorage:', e);
-      return INITIAL_SAMPLE_ORDERS;
+      return [];
     }
   }
 
@@ -201,6 +206,15 @@ export class LocalStorageService implements IStorageService {
     if (data.selectedCalculatorIds && Array.isArray(data.selectedCalculatorIds)) {
       await this.saveCalculatorSelection(data.selectedCalculatorIds);
     }
+  }
+
+  async clearAllDataForProduction(): Promise<void> {
+    if (!this.isClient()) return;
+    localStorage.setItem(STORAGE_KEYS.OPERATIONS, JSON.stringify(DEFAULT_OPERATIONS));
+    localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify([]));
+    localStorage.setItem(STORAGE_KEYS.TIME_STUDIES, JSON.stringify([]));
+    const defaultIds = DEFAULT_OPERATIONS.filter(o => o.isDefault).map(o => o.id);
+    localStorage.setItem(STORAGE_KEYS.CALCULATOR_SELECTION, JSON.stringify(defaultIds));
   }
 }
 

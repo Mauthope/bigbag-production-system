@@ -11,7 +11,8 @@ import {
   RotateCcw,
   CheckCircle2,
   ExternalLink,
-  Code
+  Code,
+  Trash2
 } from 'lucide-react';
 
 interface ExportImportModalProps {
@@ -20,7 +21,7 @@ interface ExportImportModalProps {
 }
 
 export const ExportImportModal: React.FC<ExportImportModalProps> = ({ isOpen, onClose }) => {
-  const { exportData, importData, orders, resetOperationsToDefault, showToast } = useProduction();
+  const { exportData, importData, orders, resetOperationsToDefault, clearAllDataForProduction, showToast } = useProduction();
   const [activeTab, setActiveTab] = useState<'backup' | 'csv' | 'supabase'>('backup');
   const [importJsonText, setImportJsonText] = useState('');
 
@@ -254,17 +255,48 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({ isOpen, on
                 )}
               </div>
 
-              <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between">
-                <span className="text-xs text-slate-500">
-                  Deseja resetar apenas os tempos padrão para os valores de fábrica?
-                </span>
-                <button
-                  onClick={resetOperationsToDefault}
-                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-amber-400 hover:bg-amber-950/30 border border-amber-900/40 flex items-center gap-1.5"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  Restaurar Padrões Originais
-                </button>
+              {/* Reset Section */}
+              <div className="pt-2 border-t border-slate-800/80 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl bg-slate-950/40 border border-slate-800/80">
+                  <div>
+                    <span className="text-xs font-semibold text-slate-300 block">
+                      Restaurar Tempos Padrão de Fábrica
+                    </span>
+                    <span className="text-[11px] text-slate-500">
+                      Restaura o catálogo de operações e tempos para os valores padrão sem apagar OPs.
+                    </span>
+                  </div>
+                  <button
+                    onClick={resetOperationsToDefault}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium text-amber-400 hover:bg-amber-950/30 border border-amber-900/40 flex items-center gap-1.5 shrink-0 self-start sm:self-auto"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    Restaurar Padrões
+                  </button>
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl bg-rose-950/20 border border-rose-900/40">
+                  <div>
+                    <span className="text-xs font-bold text-rose-300 block">
+                      🧹 Limpar Banco de Dados (Modo Produção Real)
+                    </span>
+                    <span className="text-[11px] text-slate-400">
+                      Remove todas as OPs de teste e estudos de cronoanálise, deixando o sistema 100% limpo para apontamento real.
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (window.confirm('Tem certeza que deseja limpar todos os dados e iniciar o modo de Produção Real? Esta ação apagará todas as OPs de teste.')) {
+                        clearAllDataForProduction();
+                        onClose();
+                      }
+                    }}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold text-rose-300 hover:text-white bg-rose-900/30 hover:bg-rose-800 border border-rose-700/50 flex items-center gap-1.5 shrink-0 self-start sm:self-auto transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Limpar Tudo para Produção
+                  </button>
+                </div>
               </div>
             </div>
           )}

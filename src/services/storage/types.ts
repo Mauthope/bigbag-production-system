@@ -36,4 +36,5 @@ export interface IStorageService {
   // Backup & Restore
   exportAllData(): Promise<StorageData>;
   importAllData(data: StorageData): Promise<void>;
+  clearAllDataForProduction?(): Promise<void>;
 }
