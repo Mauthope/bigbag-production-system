@@ -10,7 +10,6 @@ import {
   Minus,
   Calendar,
   Sparkles,
-  Plus,
   Trash2,
   Clock,
   Award,
@@ -42,12 +41,6 @@ export const TimeEvolutionModal: React.FC<TimeEvolutionModalProps> = ({
   onClose
 }) => {
   const { categoriesConfig, updateOperationHistory, showToast } = useProduction();
-
-  // Form to add a historical record
-  const [isAddingEntry, setIsAddingEntry] = useState(false);
-  const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0]);
-  const [newTime, setNewTime] = useState<number>(operation?.time || 1.0);
-  const [newNotes, setNewNotes] = useState('');
 
   // Extract history entries or create synthetic baseline
   const historyEntries: OperationTimeHistoryEntry[] = useMemo(() => {
@@ -111,30 +104,6 @@ export const TimeEvolutionModal: React.FC<TimeEvolutionModalProps> = ({
     key: operation.category,
     title: operation.category,
     colorHex: '#06b6d4'
-  };
-
-  const handleAddHistoricalPoint = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newTime <= 0) {
-      showToast('Informe um tempo válido em minutos.', 'error');
-      return;
-    }
-
-    const entry: OperationTimeHistoryEntry = {
-      id: `hist-${Date.now()}`,
-      operationId: operation.id,
-      time: Number(newTime),
-      date: newDate,
-      notes: newNotes.trim() || 'Ajuste de melhoria Kaizen',
-      source: 'manual'
-    };
-
-    const updatedHistory = [...historyEntries, entry];
-    await updateOperationHistory(operation.id, updatedHistory);
-
-    setNewNotes('');
-    setIsAddingEntry(false);
-    showToast('Novo marco histórico registrado com sucesso!', 'success');
   };
 
   const handleDeleteHistoryEntry = async (entryId: string) => {
@@ -268,63 +237,7 @@ export const TimeEvolutionModal: React.FC<TimeEvolutionModalProps> = ({
                   Acompanhe a trajetória de melhorias e comprovações de redução do ciclo
                 </p>
               </div>
-
-              <button
-                onClick={() => setIsAddingEntry(!isAddingEntry)}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 text-xs font-semibold transition-colors"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Registrar Marco</span>
-              </button>
             </div>
-
-            {/* New Historical Entry Drawer */}
-            {isAddingEntry && (
-              <form onSubmit={handleAddHistoricalPoint} className="mb-4 p-3.5 rounded-xl bg-slate-900 border border-cyan-500/40 flex flex-col sm:flex-row items-center gap-3 animate-in fade-in">
-                <div className="w-full sm:w-36">
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Data da Medição</label>
-                  <input
-                    type="date"
-                    required
-                    value={newDate}
-                    onChange={e => setNewDate(e.target.value)}
-                    className="w-full px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white"
-                  />
-                </div>
-
-                <div className="w-full sm:w-32">
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Novo Tempo (min)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    required
-                    value={newTime}
-                    onChange={e => setNewTime(parseFloat(e.target.value) || 0)}
-                    className="w-full px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white font-mono font-bold"
-                  />
-                </div>
-
-                <div className="flex-1 w-full">
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Justificativa / Melhoria Realizada</label>
-                  <input
-                    type="text"
-                    value={newNotes}
-                    onChange={e => setNewNotes(e.target.value)}
-                    placeholder="Ex: Kaizen: Novo gabarito de alça reduziu 25s..."
-                    className="w-full px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500"
-                  />
-                </div>
-
-                <div className="pt-4 sm:pt-0 w-full sm:w-auto">
-                  <button
-                    type="submit"
-                    className="w-full sm:w-auto px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition-colors"
-                  >
-                    Salvar
-                  </button>
-                </div>
-              </form>
-            )}
 
             {/* Recharts Area Chart */}
             <div className="h-64 w-full">
