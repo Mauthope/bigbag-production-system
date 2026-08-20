@@ -91,6 +91,9 @@ export default function CalculatorPage() {
         </div>
       </div>
 
+      {/* Fixed / Sticky Top Summary & ER Bar */}
+      <SummaryPanel />
+
       {/* Main Kanban Grid */}
       <main className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-5">
         {categories.map(config => {
@@ -109,9 +112,6 @@ export default function CalculatorPage() {
           );
         })}
       </main>
-
-      {/* Bottom Summary Bar */}
-      <SummaryPanel />
 
     </div>
   );
