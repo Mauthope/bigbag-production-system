@@ -30,6 +30,12 @@ export interface ComponentCategoryConfig {
   orderIndex?: number;
 }
 
+export interface CellProductionConfig {
+  peopleOne: number;      // Nº de pessoas/operadores na célula para modelo One (padrão: 8.5)
+  peopleTravado: number;  // Nº de pessoas/operadores na célula para modelo Travado (padrão: 11.0)
+  shiftHours: number;     // Horas produtivas por dia/turno (padrão: 8.5h)
+}
+
 
 // ==============================================================================
 // LEAN MICRO-OPERATIONS & TIME STUDY TYPES

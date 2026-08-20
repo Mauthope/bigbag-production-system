@@ -6,9 +6,10 @@ import {
   ComponentCategoryConfig,
   OperationItem,
   TimeStudy,
-  OperationTimeHistoryEntry
+  OperationTimeHistoryEntry,
+  CellProductionConfig
 } from '@/types/production';
-import { CATEGORIES_CONFIG, DEFAULT_CATEGORIES, DEFAULT_OPERATIONS } from '@/data/defaultData';
+import { CATEGORIES_CONFIG, DEFAULT_CATEGORIES, DEFAULT_OPERATIONS, DEFAULT_CELL_CONFIG } from '@/data/defaultData';
 import { localStorageService } from '@/services/storage/localStorageService';
 import { StorageData } from '@/services/storage/types';
 
@@ -26,6 +27,11 @@ interface ProductionContextType {
   updateCategory: (key: string, updates: Partial<ComponentCategoryConfig>) => Promise<void>;
   deleteCategory: (key: string) => Promise<void>;
   resetCategoriesToDefault: () => Promise<void>;
+
+  // Cell & Headcount Config (Pessoas nas células One e Travado)
+  cellConfig: CellProductionConfig;
+  updateCellConfig: (updates: Partial<CellProductionConfig>) => Promise<void>;
+  resetCellConfig: () => Promise<void>;
 
   // Operations Catalog
   operations: OperationItem[];
@@ -72,6 +78,7 @@ const ProductionContext = createContext<ProductionContextType | undefined>(undef
 
 export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [categories, setCategories] = useState<ComponentCategoryConfig[]>(DEFAULT_CATEGORIES);
+  const [cellConfig, setCellConfig] = useState<CellProductionConfig>(DEFAULT_CELL_CONFIG);
   const [operations, setOperations] = useState<OperationItem[]>(DEFAULT_OPERATIONS);
   const [timeStudies, setTimeStudies] = useState<TimeStudy[]>([]);
   const [selectedOperationIds, setSelectedOperationIds] = useState<string[]>([]);
@@ -96,16 +103,18 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   useEffect(() => {
     async function init() {
       try {
-        const [loadedCats, loadedOps, loadedStudies, loadedSelection] = await Promise.all([
+        const [loadedCats, loadedOps, loadedStudies, loadedSelection, loadedCell] = await Promise.all([
           localStorageService.getCategories(),
           localStorageService.getOperations(),
           localStorageService.getTimeStudies(),
-          localStorageService.getCalculatorSelection()
+          localStorageService.getCalculatorSelection(),
+          localStorageService.getCellConfig ? localStorageService.getCellConfig() : Promise.resolve(DEFAULT_CELL_CONFIG)
         ]);
         setCategories(loadedCats);
         setOperations(loadedOps);
         setTimeStudies(loadedStudies);
         setSelectedOperationIds(loadedSelection);
+        if (loadedCell) setCellConfig(loadedCell);
       } catch (err) {
         console.error('Error loading initial state:', err);
       } finally {
@@ -417,6 +426,25 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return res.trim();
   }, [calculatorTotalMinutes]);
 
+  const updateCellConfig = useCallback(async (updates: Partial<CellProductionConfig>) => {
+    setCellConfig(prev => {
+      const updated = { ...prev, ...updates };
+      if (localStorageService.saveCellConfig) {
+        localStorageService.saveCellConfig(updated);
+      }
+      return updated;
+    });
+    showToast('Configuração da célula atualizada!', 'success');
+  }, [showToast]);
+
+  const resetCellConfig = useCallback(async () => {
+    setCellConfig(DEFAULT_CELL_CONFIG);
+    if (localStorageService.saveCellConfig) {
+      await localStorageService.saveCellConfig(DEFAULT_CELL_CONFIG);
+    }
+    showToast('Pessoas na célula redefinidas para o padrão (8.5 One / 11.0 Travado).', 'info');
+  }, [showToast]);
+
   return (
     <ProductionContext.Provider
       value={{
@@ -426,6 +454,9 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         updateCategory,
         deleteCategory,
         resetCategoriesToDefault,
+        cellConfig,
+        updateCellConfig,
+        resetCellConfig,
         operations,
         isLoading,
         updateOperationTime,

@@ -1,4 +1,10 @@
-import { ComponentCategoryConfig, ComponentCategoryKey, OperationItem } from '../types/production';
+import { ComponentCategoryConfig, ComponentCategoryKey, OperationItem, CellProductionConfig } from '../types/production';
+
+export const DEFAULT_CELL_CONFIG: CellProductionConfig = {
+  peopleOne: 8.5,
+  peopleTravado: 11.0,
+  shiftHours: 8.5
+};
 
 export const DEFAULT_CATEGORIES: ComponentCategoryConfig[] = [
   {

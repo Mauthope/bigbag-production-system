@@ -1,10 +1,11 @@
-import { ComponentCategoryConfig, OperationItem, TimeStudy } from '@/types/production';
+import { ComponentCategoryConfig, OperationItem, TimeStudy, CellProductionConfig } from '@/types/production';
 
 export interface StorageData {
   categories?: ComponentCategoryConfig[];
   operations: OperationItem[];
   timeStudies?: TimeStudy[];
   selectedCalculatorIds: string[];
+  cellConfig?: CellProductionConfig;
   lastUpdated: string;
   version: string;
 }
@@ -15,6 +16,10 @@ export interface IStorageService {
   getCategories(): Promise<ComponentCategoryConfig[]>;
   saveCategories(categories: ComponentCategoryConfig[]): Promise<void>;
   resetCategories?(): Promise<ComponentCategoryConfig[]>;
+
+  // Cell & Headcount Config
+  getCellConfig?(): Promise<CellProductionConfig>;
+  saveCellConfig?(config: CellProductionConfig): Promise<void>;
 
   // Operations
   getOperations(): Promise<OperationItem[]>;

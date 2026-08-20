@@ -2,9 +2,10 @@
 
 import React, { useState } from 'react';
 import { useProduction } from '@/context/ProductionContext';
-import { Clock, Zap, Boxes, Table, FileText } from 'lucide-react';
+import { Clock, Zap, Boxes, Table, FileText, Users, SlidersHorizontal } from 'lucide-react';
 import { ReferenceTimesModal } from './ReferenceTimesModal';
 import { CalculationMemoryModal } from './CalculationMemoryModal';
+import { CellConfigModal } from './CellConfigModal';
 
 interface SummaryPanelProps {}
 
@@ -12,17 +13,23 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = () => {
   const {
     calculatorTotalMinutes,
     calculatorReadableTime,
-    selectedOperationIds
+    selectedOperationIds,
+    cellConfig
   } = useProduction();
 
   const [bagType, setBagType] = useState<'one' | 'travado'>('one');
   const [isReferenceModalOpen, setIsReferenceModalOpen] = useState(false);
   const [isCalculationMemoryOpen, setIsCalculationMemoryOpen] = useState(false);
+  const [isCellConfigOpen, setIsCellConfigOpen] = useState(false);
+
+  const peopleOne = cellConfig?.peopleOne ?? 8.5;
+  const peopleTravado = cellConfig?.peopleTravado ?? 11.0;
+  const shiftHours = cellConfig?.shiftHours ?? 8.5;
 
   const totalTime = calculatorTotalMinutes;
-  const constant = bagType === 'one' ? 8.5 : 11;
-  const er = totalTime > 0 ? (60 / totalTime) * constant : 0;
-  const dailyProduction = er * 8.5;
+  const currentPeople = bagType === 'one' ? peopleOne : peopleTravado;
+  const er = totalTime > 0 ? (60 / totalTime) * currentPeople : 0;
+  const dailyProduction = er * shiftHours;
 
   return (
     <>
@@ -66,7 +73,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = () => {
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 truncate">
-                    ER ({bagType === 'one' ? 'One × 8.5' : 'Travado × 11'})
+                    ER ({bagType === 'one' ? `One × ${currentPeople.toFixed(1).replace('.', ',')}p` : `Travado × ${currentPeople.toFixed(1).replace('.', ',')}p`})
                   </span>
                 </div>
                 <div className="flex items-baseline gap-1 mt-0.5">
@@ -77,20 +84,20 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = () => {
                     (~{Math.round(er)})
                   </span>
                   <span className="text-[10px] text-slate-500 ml-1 font-mono">
-                    (60÷T×{constant})
+                    (60÷T×{currentPeople.toFixed(1).replace('.', ',')})
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Card 3: Produção do Dia (ER × 8,50) */}
+            {/* Card 3: Produção do Dia (ER × Jornada) */}
             <div className="p-3 rounded-xl bg-slate-950/70 border border-emerald-500/20 flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
                 <Boxes className="w-5 h-5" />
               </div>
               <div className="min-w-0">
                 <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block truncate">
-                  Produção / Dia (ER × 8,50)
+                  Produção / Dia (ER × {shiftHours.toFixed(1).replace('.', ',')}h)
                 </span>
                 <div className="flex items-baseline gap-1 mt-0.5">
                   <span className="text-xl sm:text-2xl font-extrabold text-emerald-300 font-mono">
@@ -109,36 +116,52 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = () => {
           {/* Right Controls: Type Selector & Action Buttons */}
           <div className="w-full xl:w-auto shrink-0 flex flex-col sm:flex-row xl:flex-col 2xl:flex-row items-stretch sm:items-center xl:items-stretch 2xl:items-center gap-2.5">
             
-            {/* Bag Type Selector: One vs Travado */}
-            <div className="flex items-center p-1 rounded-xl bg-slate-950/90 border border-slate-800 shadow-inner justify-center">
-              <button
-                type="button"
-                onClick={() => setBagType('one')}
-                className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                  bagType === 'one'
-                    ? 'bg-gradient-to-r from-cyan-500 to-teal-500 text-slate-950 shadow-md shadow-cyan-500/20'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <span>One</span>
-                <span className={`text-[10px] px-1 py-0.2 rounded font-mono ${
-                  bagType === 'one' ? 'bg-slate-950/30 text-slate-950' : 'bg-slate-900 text-slate-400'
-                }`}>8.5</span>
-              </button>
+            {/* Bag Type Selector: One vs Travado + Quick Adjust Button */}
+            <div className="flex items-center gap-1.5">
+              <div className="flex items-center p-1 rounded-xl bg-slate-950/90 border border-slate-800 shadow-inner justify-center flex-1">
+                <button
+                  type="button"
+                  onClick={() => setBagType('one')}
+                  className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                    bagType === 'one'
+                      ? 'bg-gradient-to-r from-cyan-500 to-teal-500 text-slate-950 shadow-md shadow-cyan-500/20'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <span>One</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono font-bold ${
+                    bagType === 'one' ? 'bg-slate-950/30 text-slate-950' : 'bg-slate-900 text-cyan-400 border border-slate-800'
+                  }`}>
+                    {peopleOne.toFixed(1).replace('.', ',')}p
+                  </span>
+                </button>
 
+                <button
+                  type="button"
+                  onClick={() => setBagType('travado')}
+                  className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                    bagType === 'travado'
+                      ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 shadow-md shadow-amber-500/20'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <span>Travado</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono font-bold ${
+                    bagType === 'travado' ? 'bg-slate-950/30 text-slate-950' : 'bg-slate-900 text-amber-400 border border-slate-800'
+                  }`}>
+                    {peopleTravado.toFixed(1).replace('.', ',')}p
+                  </span>
+                </button>
+              </div>
+
+              {/* Cell People Sizing Trigger Button */}
               <button
                 type="button"
-                onClick={() => setBagType('travado')}
-                className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                  bagType === 'travado'
-                    ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 shadow-md shadow-amber-500/20'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
+                onClick={() => setIsCellConfigOpen(true)}
+                className="p-2 rounded-xl bg-slate-950/90 hover:bg-slate-800 text-slate-400 hover:text-cyan-300 border border-slate-800 hover:border-cyan-500/40 transition-colors cursor-pointer shrink-0"
+                title="Configurar número de operadores/pessoas nas células e horas do turno"
               >
-                <span>Travado</span>
-                <span className={`text-[10px] px-1 py-0.2 rounded font-mono ${
-                  bagType === 'travado' ? 'bg-slate-950/30 text-slate-950' : 'bg-slate-900 text-slate-400'
-                }`}>11</span>
+                <Users className="w-4 h-4" />
               </button>
             </div>
 
@@ -180,6 +203,12 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = () => {
       <CalculationMemoryModal
         isOpen={isCalculationMemoryOpen}
         onClose={() => setIsCalculationMemoryOpen(false)}
+      />
+
+      {/* Cell Sizing / Headcount Config Modal */}
+      <CellConfigModal
+        isOpen={isCellConfigOpen}
+        onClose={() => setIsCellConfigOpen(false)}
       />
     </>
   );

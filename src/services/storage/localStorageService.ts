@@ -1,5 +1,5 @@
-import { DEFAULT_CATEGORIES, DEFAULT_OPERATIONS } from '@/data/defaultData';
-import { ComponentCategoryConfig, OperationItem, TimeStudy } from '@/types/production';
+import { DEFAULT_CATEGORIES, DEFAULT_OPERATIONS, DEFAULT_CELL_CONFIG } from '@/data/defaultData';
+import { ComponentCategoryConfig, OperationItem, TimeStudy, CellProductionConfig } from '@/types/production';
 import { IStorageService, StorageData } from './types';
 
 const STORAGE_KEYS = {
@@ -7,6 +7,7 @@ const STORAGE_KEYS = {
   OPERATIONS: 'bigbag_production_operations_v1',
   TIME_STUDIES: 'bigbag_production_time_studies_v1',
   CALCULATOR_SELECTION: 'bigbag_calculator_selection_v1',
+  CELL_CONFIG: 'bigbag_cell_config_v1',
   DATA_VERSION: '2.0.0'
 };
 
@@ -148,18 +149,41 @@ export class LocalStorageService implements IStorageService {
     localStorage.setItem(STORAGE_KEYS.CALCULATOR_SELECTION, JSON.stringify(selectedIds));
   }
 
+  // Cell & Headcount Config
+  async getCellConfig(): Promise<CellProductionConfig> {
+    if (!this.isClient()) return DEFAULT_CELL_CONFIG;
+    try {
+      const stored = localStorage.getItem(STORAGE_KEYS.CELL_CONFIG);
+      if (!stored) {
+        await this.saveCellConfig(DEFAULT_CELL_CONFIG);
+        return DEFAULT_CELL_CONFIG;
+      }
+      return { ...DEFAULT_CELL_CONFIG, ...JSON.parse(stored) };
+    } catch (e) {
+      console.error('Error reading cell config from localStorage:', e);
+      return DEFAULT_CELL_CONFIG;
+    }
+  }
+
+  async saveCellConfig(config: CellProductionConfig): Promise<void> {
+    if (!this.isClient()) return;
+    localStorage.setItem(STORAGE_KEYS.CELL_CONFIG, JSON.stringify(config));
+  }
+
   // Backup & Restore
   async exportAllData(): Promise<StorageData> {
     const categories = await this.getCategories();
     const operations = await this.getOperations();
     const timeStudies = await this.getTimeStudies();
     const selectedCalculatorIds = await this.getCalculatorSelection();
+    const cellConfig = await this.getCellConfig();
 
     return {
       categories,
       operations,
       timeStudies,
       selectedCalculatorIds,
+      cellConfig,
       lastUpdated: new Date().toISOString(),
       version: STORAGE_KEYS.DATA_VERSION
     };
@@ -178,6 +202,9 @@ export class LocalStorageService implements IStorageService {
     }
     if (data.selectedCalculatorIds && Array.isArray(data.selectedCalculatorIds)) {
       await this.saveCalculatorSelection(data.selectedCalculatorIds);
+    }
+    if (data.cellConfig && typeof data.cellConfig === 'object') {
+      await this.saveCellConfig(data.cellConfig);
     }
   }
 
