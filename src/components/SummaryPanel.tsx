@@ -2,8 +2,9 @@
 
 import React, { useState } from 'react';
 import { useProduction } from '@/context/ProductionContext';
-import { Clock, Zap, Boxes, Table, Sparkles } from 'lucide-react';
+import { Clock, Zap, Boxes, Table, FileText } from 'lucide-react';
 import { ReferenceTimesModal } from './ReferenceTimesModal';
+import { CalculationMemoryModal } from './CalculationMemoryModal';
 
 interface SummaryPanelProps {}
 
@@ -16,6 +17,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = () => {
 
   const [bagType, setBagType] = useState<'one' | 'travado'>('one');
   const [isReferenceModalOpen, setIsReferenceModalOpen] = useState(false);
+  const [isCalculationMemoryOpen, setIsCalculationMemoryOpen] = useState(false);
 
   const totalTime = calculatorTotalMinutes;
   const constant = bagType === 'one' ? 8.5 : 11;
@@ -104,15 +106,15 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = () => {
 
           </div>
 
-          {/* Right Controls: Type Selector & Table Button */}
-          <div className="w-full xl:w-auto shrink-0 flex flex-wrap sm:flex-nowrap items-center gap-3">
+          {/* Right Controls: Type Selector & Action Buttons */}
+          <div className="w-full xl:w-auto shrink-0 flex flex-col sm:flex-row xl:flex-col 2xl:flex-row items-stretch sm:items-center xl:items-stretch 2xl:items-center gap-2.5">
             
             {/* Bag Type Selector: One vs Travado */}
-            <div className="flex items-center p-1 rounded-xl bg-slate-950/90 border border-slate-800 shadow-inner">
+            <div className="flex items-center p-1 rounded-xl bg-slate-950/90 border border-slate-800 shadow-inner justify-center">
               <button
                 type="button"
                 onClick={() => setBagType('one')}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                   bagType === 'one'
                     ? 'bg-gradient-to-r from-cyan-500 to-teal-500 text-slate-950 shadow-md shadow-cyan-500/20'
                     : 'text-slate-400 hover:text-slate-200'
@@ -127,7 +129,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = () => {
               <button
                 type="button"
                 onClick={() => setBagType('travado')}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                   bagType === 'travado'
                     ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 shadow-md shadow-amber-500/20'
                     : 'text-slate-400 hover:text-slate-200'
@@ -140,16 +142,28 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = () => {
               </button>
             </div>
 
-            {/* Open Reference Table Button */}
-            <button
-              type="button"
-              onClick={() => setIsReferenceModalOpen(true)}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-cyan-300 hover:text-cyan-200 text-xs font-bold border border-cyan-500/30 hover:border-cyan-500/50 transition-all shadow-md active:scale-95 cursor-pointer whitespace-nowrap"
-              title="Exibir tabela de tempos padrão e valores de ER de referência dos modelos de Big Bag"
-            >
-              <Table className="w-4 h-4 text-cyan-400" />
-              <span>Exibir Tabela de Tempos</span>
-            </button>
+            {/* Action Buttons Column */}
+            <div className="flex flex-col gap-1.5">
+              <button
+                type="button"
+                onClick={() => setIsReferenceModalOpen(true)}
+                className="flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-cyan-300 hover:text-cyan-200 text-xs font-bold border border-cyan-500/30 hover:border-cyan-500/50 transition-all shadow-sm active:scale-95 cursor-pointer whitespace-nowrap"
+                title="Exibir tabela de tempos padrão e valores de ER de referência dos modelos de Big Bag"
+              >
+                <Table className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Exibir Tabela de Tempos</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsCalculationMemoryOpen(true)}
+                className="flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-amber-300 hover:text-amber-200 text-xs font-bold border border-amber-500/30 hover:border-amber-500/50 transition-all shadow-sm active:scale-95 cursor-pointer whitespace-nowrap"
+                title="Ver fórmulas matemáticas, constantes industriais e memorial de cálculo"
+              >
+                <FileText className="w-3.5 h-3.5 text-amber-400" />
+                <span>Memorial de Cálculo</span>
+              </button>
+            </div>
 
           </div>
 
@@ -160,6 +174,12 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = () => {
       <ReferenceTimesModal
         isOpen={isReferenceModalOpen}
         onClose={() => setIsReferenceModalOpen(false)}
+      />
+
+      {/* Calculation Memory Modal */}
+      <CalculationMemoryModal
+        isOpen={isCalculationMemoryOpen}
+        onClose={() => setIsCalculationMemoryOpen(false)}
       />
     </>
   );
