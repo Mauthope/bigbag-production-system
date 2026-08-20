@@ -1,14 +1,13 @@
-import { DEFAULT_CATEGORIES, DEFAULT_OPERATIONS, INITIAL_SAMPLE_ORDERS } from '@/data/defaultData';
-import { ComponentCategoryConfig, OperationItem, ProductionOrder, TimeStudy } from '@/types/production';
+import { DEFAULT_CATEGORIES, DEFAULT_OPERATIONS } from '@/data/defaultData';
+import { ComponentCategoryConfig, OperationItem, TimeStudy } from '@/types/production';
 import { IStorageService, StorageData } from './types';
 
 const STORAGE_KEYS = {
   CATEGORIES: 'bigbag_production_categories_v1',
   OPERATIONS: 'bigbag_production_operations_v1',
-  ORDERS: 'bigbag_production_orders_v1',
   TIME_STUDIES: 'bigbag_production_time_studies_v1',
   CALCULATOR_SELECTION: 'bigbag_calculator_selection_v1',
-  DATA_VERSION: '1.2.0'
+  DATA_VERSION: '2.0.0'
 };
 
 export class LocalStorageService implements IStorageService {
@@ -86,65 +85,6 @@ export class LocalStorageService implements IStorageService {
     return DEFAULT_OPERATIONS;
   }
 
-  // Production Orders (OP)
-  async getOrders(): Promise<ProductionOrder[]> {
-    if (!this.isClient()) return INITIAL_SAMPLE_ORDERS;
-    try {
-      const stored = localStorage.getItem(STORAGE_KEYS.ORDERS);
-      if (!stored) {
-        await this.saveInitialOrders(INITIAL_SAMPLE_ORDERS);
-        return INITIAL_SAMPLE_ORDERS;
-      }
-      const parsed: ProductionOrder[] = JSON.parse(stored);
-      // Clean any legacy mock sample orders if present
-      const cleanOrders = parsed.filter(o => !o.id.startsWith('op-sample-'));
-      if (cleanOrders.length === 0 && INITIAL_SAMPLE_ORDERS.length > 0) {
-        await this.saveInitialOrders(INITIAL_SAMPLE_ORDERS);
-        return INITIAL_SAMPLE_ORDERS;
-      }
-      if (cleanOrders.length !== parsed.length) {
-        await this.saveInitialOrders(cleanOrders);
-      }
-      return cleanOrders;
-    } catch (e) {
-      console.error('Error reading orders from localStorage:', e);
-      return INITIAL_SAMPLE_ORDERS;
-    }
-  }
-
-  private async saveInitialOrders(orders: ProductionOrder[]): Promise<void> {
-    if (!this.isClient()) return;
-    localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
-  }
-
-  async getOrderById(id: string): Promise<ProductionOrder | null> {
-    const orders = await this.getOrders();
-    return orders.find(o => o.id === id) || null;
-  }
-
-  async saveOrder(order: ProductionOrder): Promise<void> {
-    if (!this.isClient()) return;
-    const orders = await this.getOrders();
-    const index = orders.findIndex(o => o.id === order.id);
-    if (index >= 0) {
-      orders[index] = { ...order, updatedAt: new Date().toISOString() };
-    } else {
-      orders.unshift({
-        ...order,
-        createdAt: order.createdAt || new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      });
-    }
-    localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
-  }
-
-  async deleteOrder(id: string): Promise<void> {
-    if (!this.isClient()) return;
-    const orders = await this.getOrders();
-    const filtered = orders.filter(o => o.id !== id);
-    localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(filtered));
-  }
-
   // Time Studies (Cronoanálise Lean)
   async getTimeStudies(): Promise<TimeStudy[]> {
     if (!this.isClient()) return [];
@@ -212,14 +152,12 @@ export class LocalStorageService implements IStorageService {
   async exportAllData(): Promise<StorageData> {
     const categories = await this.getCategories();
     const operations = await this.getOperations();
-    const orders = await this.getOrders();
     const timeStudies = await this.getTimeStudies();
     const selectedCalculatorIds = await this.getCalculatorSelection();
 
     return {
       categories,
       operations,
-      orders,
       timeStudies,
       selectedCalculatorIds,
       lastUpdated: new Date().toISOString(),
@@ -235,9 +173,6 @@ export class LocalStorageService implements IStorageService {
     if (data.operations && Array.isArray(data.operations)) {
       await this.saveOperations(data.operations);
     }
-    if (data.orders && Array.isArray(data.orders)) {
-      localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(data.orders));
-    }
     if (data.timeStudies && Array.isArray(data.timeStudies)) {
       localStorage.setItem(STORAGE_KEYS.TIME_STUDIES, JSON.stringify(data.timeStudies));
     }
@@ -249,7 +184,6 @@ export class LocalStorageService implements IStorageService {
   async clearAllDataForProduction(): Promise<void> {
     if (!this.isClient()) return;
     localStorage.setItem(STORAGE_KEYS.OPERATIONS, JSON.stringify(DEFAULT_OPERATIONS));
-    localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify([]));
     localStorage.setItem(STORAGE_KEYS.TIME_STUDIES, JSON.stringify([]));
     const defaultIds = DEFAULT_OPERATIONS.filter(o => o.isDefault).map(o => o.id);
     localStorage.setItem(STORAGE_KEYS.CALCULATOR_SELECTION, JSON.stringify(defaultIds));

@@ -20,7 +20,7 @@ interface ExportImportModalProps {
 }
 
 export const ExportImportModal: React.FC<ExportImportModalProps> = ({ isOpen, onClose }) => {
-  const { exportData, importData, orders, clearAllDataForProduction, showToast } = useProduction();
+  const { exportData, importData, operations, categories, clearAllDataForProduction, showToast } = useProduction();
   const [activeTab, setActiveTab] = useState<'backup' | 'csv' | 'supabase'>('backup');
   const [importJsonText, setImportJsonText] = useState('');
 
@@ -33,7 +33,7 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({ isOpen, on
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `backup_bigbag_producao_${new Date().toISOString().split('T')[0]}.json`;
+      link.download = `backup_bigbag_parametros_${new Date().toISOString().split('T')[0]}.json`;
       link.click();
       URL.revokeObjectURL(url);
       showToast('Backup JSON baixado com sucesso!', 'success');
@@ -44,48 +44,27 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({ isOpen, on
 
   const handleExportCSV = () => {
     try {
-      if (orders.length === 0) {
-        showToast('Nenhuma OP cadastrada para exportar.', 'info');
+      if (operations.length === 0) {
+        showToast('Nenhuma operação cadastrada para exportar.', 'info');
         return;
       }
 
       const headers = [
-        'Numero_OP',
-        'Cliente',
-        'Descricao_Bag',
-        'Qtd_Planejada',
-        'Qtd_Produzida',
-        'Tempo_Padrao_Unit_Min',
-        'Tempo_Padrao_Total_Min',
-        'Tempo_Real_Total_Min',
-        'Eficiencia_Pct',
-        'Status',
-        'Operador',
-        'Turno',
-        'Data_Criacao'
+        'Bloco_Componente',
+        'Nome_Operacao',
+        'Tempo_Padrao_Min',
+        'Tempo_Padrao_Seg',
+        'Tipo_Operacao'
       ];
 
-      const rows = orders.map(o => {
-        const stdTotal = (o.standardTimePerBag * o.producedQuantity).toFixed(2);
-        const actualTotal = (o.actualTimeTotal || 0).toFixed(2);
-        const eff = o.actualTimeTotal && o.actualTimeTotal > 0
-          ? ((o.standardTimePerBag * o.producedQuantity) / o.actualTimeTotal * 100).toFixed(1)
-          : '100.0';
-
+      const rows = operations.map(op => {
+        const cat = categories.find(c => c.key === op.category)?.title || op.category;
         return [
-          `"${o.opNumber}"`,
-          `"${o.client}"`,
-          `"${o.modelDescription}"`,
-          o.targetQuantity,
-          o.producedQuantity,
-          o.standardTimePerBag.toFixed(2),
-          stdTotal,
-          actualTotal,
-          eff,
-          o.status,
-          `"${o.operatorName || ''}"`,
-          `"${o.shift || ''}"`,
-          `"${o.createdAt}"`
+          `"${cat}"`,
+          `"${op.name}"`,
+          op.time.toFixed(2).replace('.', ','),
+          (op.time * 60).toFixed(0),
+          op.isDefault ? 'Padrão de Fábrica' : 'Opcional'
         ].join(';');
       });
 
@@ -94,10 +73,10 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({ isOpen, on
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `ordens_producao_${new Date().toISOString().split('T')[0]}.csv`;
+      link.download = `catalogo_tempos_padrao_${new Date().toISOString().split('T')[0]}.csv`;
       link.click();
       URL.revokeObjectURL(url);
-      showToast('Relatório CSV exportado com sucesso!', 'success');
+      showToast('Catálogo de tempos exportado em CSV com sucesso!', 'success');
     } catch (e) {
       showToast('Erro ao exportar CSV.', 'error');
     }
@@ -285,17 +264,17 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({ isOpen, on
           {activeTab === 'csv' && (
             <div className="space-y-4">
               <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-3">
-                <h3 className="text-sm font-semibold text-white">Exportar OPs para Excel / CSV</h3>
+                <h3 className="text-sm font-semibold text-white">Exportar Catálogo de Tempos para Excel / CSV</h3>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  Exporta todas as Ordens de Produção cadastradas com quantidade planejada, tempos padrão, tempos reais apontados, eficiência em porcentagem (%) e status.
+                  Exporta a tabela completa de componentes, operações e tempos padrão de costura em formato compatível com Excel e Google Planilhas.
                 </p>
                 <div className="pt-2">
                   <button
                     onClick={handleExportCSV}
-                    className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md flex items-center gap-2"
+                    className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md flex items-center gap-2 cursor-pointer"
                   >
                     <FileSpreadsheet className="w-4 h-4" />
-                    Baixar Relatório em Planilha (.csv)
+                    Baixar Catálogo em Planilha (.csv)
                   </button>
                 </div>
               </div>

@@ -4,11 +4,9 @@ import React from 'react';
 import { useProduction } from '@/context/ProductionContext';
 import { Copy, PlusCircle, Clock, Sparkles } from 'lucide-react';
 
-interface SummaryPanelProps {
-  onOpenNewOrderModal: () => void;
-}
+interface SummaryPanelProps {}
 
-export const SummaryPanel: React.FC<SummaryPanelProps> = ({ onOpenNewOrderModal }) => {
+export const SummaryPanel: React.FC<SummaryPanelProps> = () => {
   const {
     calculatorTotalMinutes,
     calculatorReadableTime,
@@ -97,19 +95,11 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({ onOpenNewOrderModal 
         <div className="flex items-center gap-2.5 w-full sm:w-auto">
           <button
             onClick={handleCopySummary}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-semibold border border-slate-700 hover:border-slate-600 transition-all shadow-md active:scale-95"
-            title="Copiar texto formatado"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-cyan-500 via-teal-500 to-emerald-500 hover:from-cyan-400 hover:via-teal-400 hover:to-emerald-400 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/25 transition-all active:scale-95 cursor-pointer"
+            title="Copiar texto técnico formatado"
           >
-            <Copy className="w-4 h-4 text-cyan-400" />
-            <span>Copiar Resumo</span>
-          </button>
-
-          <button
-            onClick={onOpenNewOrderModal}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 via-teal-500 to-emerald-500 hover:from-cyan-400 hover:via-teal-400 hover:to-emerald-400 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/25 transition-all active:scale-95"
-          >
-            <PlusCircle className="w-4 h-4 text-slate-950 stroke-[2.5]" />
-            <span>Criar OP com este Bag</span>
+            <Copy className="w-4 h-4 text-slate-950 stroke-[2.5]" />
+            <span>Copiar Resumo Técnico</span>
           </button>
         </div>
 

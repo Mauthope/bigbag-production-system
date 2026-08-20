@@ -1,9 +1,8 @@
-import { ComponentCategoryConfig, OperationItem, ProductionOrder, TimeStudy } from '@/types/production';
+import { ComponentCategoryConfig, OperationItem, TimeStudy } from '@/types/production';
 
 export interface StorageData {
-  operations: OperationItem[];
-  orders: ProductionOrder[];
   categories?: ComponentCategoryConfig[];
+  operations: OperationItem[];
   timeStudies?: TimeStudy[];
   selectedCalculatorIds: string[];
   lastUpdated: string;
@@ -22,12 +21,6 @@ export interface IStorageService {
   saveOperations(operations: OperationItem[]): Promise<void>;
   updateOperation(operation: OperationItem): Promise<void>;
   resetOperations(): Promise<OperationItem[]>;
-
-  // Production Orders (OP)
-  getOrders(): Promise<ProductionOrder[]>;
-  getOrderById(id: string): Promise<ProductionOrder | null>;
-  saveOrder(order: ProductionOrder): Promise<void>;
-  deleteOrder(id: string): Promise<void>;
 
   // Time Studies (Cronoanálise Lean)
   getTimeStudies(): Promise<TimeStudy[]>;

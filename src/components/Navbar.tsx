@@ -23,31 +23,15 @@ import { ExportImportModal } from './ExportImportModal';
 
 export const Navbar: React.FC = () => {
   const pathname = usePathname();
-  const { orders } = useProduction();
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const inProgressCount = orders.filter(o => o.status === 'em_producao').length;
-
   const navItems = [
     {
-      label: 'Calculadora',
+      label: 'Calculadora de Tempo',
       shortLabel: 'Calculadora',
       href: '/',
       icon: <Calculator className="w-4 h-4" />
-    },
-    {
-      label: 'Ordens de Produção (OP)',
-      shortLabel: 'Ordens (OP)',
-      href: '/orders',
-      icon: <ClipboardList className="w-4 h-4" />,
-      badge: inProgressCount > 0 ? `${inProgressCount}` : undefined
-    },
-    {
-      label: 'Dashboard de Eficiência',
-      shortLabel: 'Dashboard',
-      href: '/dashboard',
-      icon: <BarChart3 className="w-4 h-4" />
     },
     {
       label: 'Tempos & Parâmetros',
@@ -109,11 +93,6 @@ export const Navbar: React.FC = () => {
                     {item.icon}
                     <span className="hidden xl:inline whitespace-nowrap">{item.label}</span>
                     <span className="xl:hidden whitespace-nowrap">{item.shortLabel}</span>
-                    {item.badge && (
-                      <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                        {item.badge}
-                      </span>
-                    )}
                   </Link>
                 );
               })}
@@ -123,7 +102,7 @@ export const Navbar: React.FC = () => {
             <div className="hidden xl:flex items-center gap-2 shrink-0">
               <button
                 onClick={() => setIsExportModalOpen(true)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white bg-slate-900 border border-slate-700/60 hover:border-slate-600 transition-colors"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white bg-slate-900 border border-slate-700/60 hover:border-slate-600 transition-colors cursor-pointer"
                 title="Backup e Migração de Dados"
               >
                 <Download className="w-3.5 h-3.5 text-cyan-400" />
@@ -179,11 +158,6 @@ export const Navbar: React.FC = () => {
                     {item.icon}
                     <span>{item.label}</span>
                   </div>
-                  {item.badge && (
-                    <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300">
-                      {item.badge}
-                    </span>
-                  )}
                 </Link>
               );
             })}

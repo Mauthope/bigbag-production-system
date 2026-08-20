@@ -1,5 +1,5 @@
 import { DEFAULT_CATEGORIES } from '@/data/defaultData';
-import { ComponentCategoryConfig, OperationItem, ProductionOrder, TimeStudy } from '@/types/production';
+import { ComponentCategoryConfig, OperationItem, TimeStudy } from '@/types/production';
 import { IStorageService, StorageData } from './types';
 
 /**
@@ -56,25 +56,6 @@ export class SupabaseStorageService implements IStorageService {
     return [];
   }
 
-  // Production Orders (OP)
-  async getOrders(): Promise<ProductionOrder[]> {
-    if (!this.isConfigured()) return [];
-    return [];
-  }
-
-  async getOrderById(id: string): Promise<ProductionOrder | null> {
-    if (!this.isConfigured()) return null;
-    return null;
-  }
-
-  async saveOrder(order: ProductionOrder): Promise<void> {
-    if (!this.isConfigured()) return;
-  }
-
-  async deleteOrder(id: string): Promise<void> {
-    if (!this.isConfigured()) return;
-  }
-
   // Time Studies (Cronoanálise Lean)
   async getTimeStudies(): Promise<TimeStudy[]> {
     if (!this.isConfigured()) return [];
@@ -105,26 +86,22 @@ export class SupabaseStorageService implements IStorageService {
 
   // Backup & Restore
   async exportAllData(): Promise<StorageData> {
+    const categories = await this.getCategories();
     const operations = await this.getOperations();
-    const orders = await this.getOrders();
     const timeStudies = await this.getTimeStudies();
     return {
+      categories,
       operations,
-      orders,
       timeStudies,
       selectedCalculatorIds: [],
       lastUpdated: new Date().toISOString(),
-      version: '1.1.0-supabase'
+      version: '2.0.0-supabase'
     };
   }
 
   async importAllData(data: StorageData): Promise<void> {
+    if (data.categories) await this.saveCategories(data.categories);
     if (data.operations) await this.saveOperations(data.operations);
-    if (data.orders) {
-      for (const order of data.orders) {
-        await this.saveOrder(order);
-      }
-    }
     if (data.timeStudies) {
       for (const study of data.timeStudies) {
         await this.saveTimeStudy(study);

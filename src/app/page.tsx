@@ -1,19 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useProduction } from '@/context/ProductionContext';
-import { ComponentCategoryKey } from '@/types/production';
 import { KanbanColumn } from '@/components/KanbanColumn';
 import { SummaryPanel } from '@/components/SummaryPanel';
-import { NewOrderModal } from '@/components/NewOrderModal';
 import {
   RotateCcw,
   CheckSquare,
   Square,
-  Sparkles,
-  Sliders,
-  Layers,
-  ArrowRight
+  Sliders
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -29,8 +24,6 @@ export default function CalculatorPage() {
     categoryTotals,
     isLoading
   } = useProduction();
-
-  const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState(false);
 
   if (isLoading) {
     return (
@@ -64,7 +57,7 @@ export default function CalculatorPage() {
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={resetToStandardOperations}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-cyan-300 border border-cyan-500/30 text-xs font-semibold transition-all hover:scale-[1.02] shadow-sm"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-cyan-300 border border-cyan-500/30 text-xs font-semibold transition-all hover:scale-[1.02] shadow-sm cursor-pointer"
             title="Marca apenas as operações padrão de cada componente"
           >
             <RotateCcw className="w-3.5 h-3.5 text-cyan-400" />
@@ -73,7 +66,7 @@ export default function CalculatorPage() {
 
           <button
             onClick={selectAllOperations}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/60 text-xs font-medium transition-colors"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/60 text-xs font-medium transition-colors cursor-pointer"
           >
             <CheckSquare className="w-3.5 h-3.5 text-emerald-400" />
             <span>Marcar Todos</span>
@@ -81,7 +74,7 @@ export default function CalculatorPage() {
 
           <button
             onClick={clearAllOperations}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/60 text-xs font-medium transition-colors"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/60 text-xs font-medium transition-colors cursor-pointer"
           >
             <Square className="w-3.5 h-3.5 text-slate-400" />
             <span>Limpar Todos</span>
@@ -89,7 +82,7 @@ export default function CalculatorPage() {
 
           <Link
             href="/settings"
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/60 text-xs font-medium transition-colors ml-1"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/60 text-xs font-medium transition-colors ml-1 cursor-pointer"
             title="Editar tempos padrão no painel de parâmetros"
           >
             <Sliders className="w-3.5 h-3.5 text-amber-400" />
@@ -118,15 +111,7 @@ export default function CalculatorPage() {
       </main>
 
       {/* Bottom Summary Bar */}
-      <SummaryPanel
-        onOpenNewOrderModal={() => setIsNewOrderModalOpen(true)}
-      />
-
-      {/* New Order Modal */}
-      <NewOrderModal
-        isOpen={isNewOrderModalOpen}
-        onClose={() => setIsNewOrderModalOpen(false)}
-      />
+      <SummaryPanel />
 
     </div>
   );

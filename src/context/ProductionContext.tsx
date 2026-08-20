@@ -5,9 +5,6 @@ import {
   ComponentCategoryKey,
   ComponentCategoryConfig,
   OperationItem,
-  ProductionOrder,
-  DashboardMetrics,
-  ComponentEfficiencyStat,
   TimeStudy,
   OperationTimeHistoryEntry
 } from '@/types/production';
@@ -22,7 +19,7 @@ interface ToastState {
 }
 
 interface ProductionContextType {
-  // Config & Operations
+  // Config & Categories
   categories: ComponentCategoryConfig[];
   categoriesConfig: Record<string, ComponentCategoryConfig>;
   addCategory: (category: Omit<ComponentCategoryConfig, 'key'> & { key?: string }) => Promise<void>;
@@ -30,6 +27,7 @@ interface ProductionContextType {
   deleteCategory: (key: string) => Promise<void>;
   resetCategoriesToDefault: () => Promise<void>;
 
+  // Operations Catalog
   operations: OperationItem[];
   isLoading: boolean;
   updateOperationTime: (
@@ -44,7 +42,7 @@ interface ProductionContextType {
   deleteOperation: (id: string) => Promise<void>;
   resetOperationsToDefault: () => Promise<void>;
 
-  // Calculator State
+  // Calculator State & Totals
   selectedOperationIds: string[];
   toggleOperation: (id: string) => void;
   selectAllOperations: () => void;
@@ -54,30 +52,13 @@ interface ProductionContextType {
   calculatorReadableTime: string;
   categoryTotals: Record<string, { totalTime: number; selectedCount: number; totalCount: number }>;
 
-  // Production Orders (OP)
-  orders: ProductionOrder[];
-  addOrder: (orderData: Omit<ProductionOrder, 'id' | 'createdAt' | 'updatedAt'>) => Promise<ProductionOrder>;
-  updateOrder: (order: ProductionOrder) => Promise<void>;
-  deleteOrder: (id: string) => Promise<void>;
-  recordOrderTime: (
-    orderId: string,
-    actualTimeTotal: number,
-    componentTimes?: Record<ComponentCategoryKey, number>,
-    producedQuantity?: number,
-    notes?: string
-  ) => Promise<void>;
-
   // Time Studies (Cronoanálise Lean)
   timeStudies: TimeStudy[];
   getTimeStudy: (operationId: string) => TimeStudy | undefined;
   saveTimeStudyAndApply: (study: TimeStudy, applyToCatalog?: boolean) => Promise<void>;
   deleteTimeStudy: (id: string) => Promise<void>;
 
-  // Metrics & Efficiency
-  metrics: DashboardMetrics;
-  componentStats: ComponentEfficiencyStat[];
-
-  // Export / Import
+  // Backup & Restore
   exportData: () => Promise<StorageData>;
   importData: (data: StorageData) => Promise<void>;
   clearAllDataForProduction: () => Promise<void>;
@@ -92,7 +73,6 @@ const ProductionContext = createContext<ProductionContextType | undefined>(undef
 export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [categories, setCategories] = useState<ComponentCategoryConfig[]>(DEFAULT_CATEGORIES);
   const [operations, setOperations] = useState<OperationItem[]>(DEFAULT_OPERATIONS);
-  const [orders, setOrders] = useState<ProductionOrder[]>([]);
   const [timeStudies, setTimeStudies] = useState<TimeStudy[]>([]);
   const [selectedOperationIds, setSelectedOperationIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -116,16 +96,14 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   useEffect(() => {
     async function init() {
       try {
-        const [loadedCats, loadedOps, loadedOrders, loadedStudies, loadedSelection] = await Promise.all([
+        const [loadedCats, loadedOps, loadedStudies, loadedSelection] = await Promise.all([
           localStorageService.getCategories(),
           localStorageService.getOperations(),
-          localStorageService.getOrders(),
           localStorageService.getTimeStudies(),
           localStorageService.getCalculatorSelection()
         ]);
         setCategories(loadedCats);
         setOperations(loadedOps);
-        setOrders(loadedOrders);
         setTimeStudies(loadedStudies);
         setSelectedOperationIds(loadedSelection);
       } catch (err) {
@@ -177,9 +155,11 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, [categories, operations, showToast]);
 
   const resetCategoriesToDefault = useCallback(async () => {
-    const defs = await localStorageService.resetCategories();
-    setCategories(defs);
-    showToast('Blocos restaurados para a lista de fábrica!', 'success');
+    if (localStorageService.resetCategories) {
+      const defs = await localStorageService.resetCategories();
+      setCategories(defs);
+      showToast('Blocos restaurados para a lista de fábrica!', 'success');
+    }
   }, [showToast]);
 
   // Calculator Toggles
@@ -366,60 +346,6 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     showToast('Estudo de tempos removido!', 'info');
   }, [showToast]);
 
-  // Orders Management (OP)
-  const addOrder = useCallback(async (orderData: Omit<ProductionOrder, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const now = new Date().toISOString();
-    const newOrder: ProductionOrder = {
-      ...orderData,
-      id: `op-${Date.now()}`,
-      createdAt: now,
-      updatedAt: now
-    };
-    await localStorageService.saveOrder(newOrder);
-    setOrders(prev => [newOrder, ...prev]);
-    showToast(`Ordem de Produção ${newOrder.opNumber} criada com sucesso!`, 'success');
-    return newOrder;
-  }, [showToast]);
-
-  const updateOrder = useCallback(async (order: ProductionOrder) => {
-    await localStorageService.saveOrder(order);
-    setOrders(prev => prev.map(o => (o.id === order.id ? order : o)));
-    showToast(`OP ${order.opNumber} atualizada com sucesso!`, 'success');
-  }, [showToast]);
-
-  const deleteOrder = useCallback(async (id: string) => {
-    await localStorageService.deleteOrder(id);
-    setOrders(prev => prev.filter(o => o.id !== id));
-    showToast('Ordem de Produção removida!', 'info');
-  }, [showToast]);
-
-  const recordOrderTime = useCallback(async (
-    orderId: string,
-    actualTimeTotal: number,
-    componentTimes?: Record<ComponentCategoryKey, number>,
-    producedQuantity?: number,
-    notes?: string
-  ) => {
-    const current = orders.find(o => o.id === orderId);
-    if (!current) return;
-
-    const completed = (producedQuantity ?? current.producedQuantity) >= current.targetQuantity;
-    const updated: ProductionOrder = {
-      ...current,
-      actualTimeTotal,
-      componentTimes: componentTimes || current.componentTimes,
-      producedQuantity: producedQuantity !== undefined ? producedQuantity : current.producedQuantity,
-      status: completed ? 'concluida' : 'em_producao',
-      notes: notes !== undefined ? notes : current.notes,
-      updatedAt: new Date().toISOString(),
-      completedAt: completed ? new Date().toISOString() : current.completedAt
-    };
-
-    await localStorageService.saveOrder(updated);
-    setOrders(prev => prev.map(o => (o.id === orderId ? updated : o)));
-    showToast(`Apontamento da OP ${updated.opNumber} registrado!`, 'success');
-  }, [orders, showToast]);
-
   // Export / Import
   const exportData = useCallback(async () => {
     return await localStorageService.exportAllData();
@@ -427,16 +353,14 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const importData = useCallback(async (data: StorageData) => {
     await localStorageService.importAllData(data);
-    const [loadedCats, loadedOps, loadedOrders, loadedStudies, loadedSelection] = await Promise.all([
+    const [loadedCats, loadedOps, loadedStudies, loadedSelection] = await Promise.all([
       localStorageService.getCategories(),
       localStorageService.getOperations(),
-      localStorageService.getOrders(),
       localStorageService.getTimeStudies(),
       localStorageService.getCalculatorSelection()
     ]);
     setCategories(loadedCats);
     setOperations(loadedOps);
-    setOrders(loadedOrders);
     setTimeStudies(loadedStudies);
     setSelectedOperationIds(loadedSelection);
     showToast('Dados importados com sucesso!', 'success');
@@ -447,11 +371,10 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       await localStorageService.clearAllDataForProduction();
     }
     setOperations(DEFAULT_OPERATIONS);
-    setOrders([]);
     setTimeStudies([]);
     const defaultIds = DEFAULT_OPERATIONS.filter(o => o.isDefault).map(o => o.id);
     setSelectedOperationIds(defaultIds);
-    showToast('Banco de dados 100% limpo! Pronto para produção real.', 'success');
+    showToast('Banco de dados limpo! Pronto para uso.', 'success');
   }, [showToast]);
 
   // Calculator Totals Computation
@@ -494,86 +417,6 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return res.trim();
   }, [calculatorTotalMinutes]);
 
-  // Global Metrics Computation
-  const metrics: DashboardMetrics = useMemo(() => {
-    const totalOrders = orders.length;
-    const completedOrders = orders.filter(o => o.status === 'concluida').length;
-    const inProgressOrders = orders.filter(o => o.status === 'em_producao').length;
-    const plannedOrders = orders.filter(o => o.status === 'planejada').length;
-
-    let totalPlannedUnits = 0;
-    let totalProducedUnits = 0;
-    let globalStandardMinutes = 0;
-    let globalActualMinutes = 0;
-
-    orders.forEach(order => {
-      totalPlannedUnits += order.targetQuantity;
-      totalProducedUnits += order.producedQuantity;
-
-      const stdForProduced = (order.standardTimePerBag || 0) * (order.producedQuantity || 0);
-      globalStandardMinutes += stdForProduced;
-
-      if (order.actualTimeTotal && order.actualTimeTotal > 0) {
-        globalActualMinutes += order.actualTimeTotal;
-      }
-    });
-
-    const globalEfficiency =
-      globalActualMinutes > 0 ? (globalStandardMinutes / globalActualMinutes) * 100 : 100;
-
-    return {
-      totalOrders,
-      completedOrders,
-      inProgressOrders,
-      plannedOrders,
-      totalPlannedUnits,
-      totalProducedUnits,
-      globalStandardMinutes,
-      globalActualMinutes,
-      globalEfficiency
-    };
-  }, [orders]);
-
-  // Component Efficiency Statistics for Dashboard
-  const componentStats: ComponentEfficiencyStat[] = useMemo(() => {
-    return categories.map(cat => {
-      let standardMinutes = 0;
-      let actualMinutes = 0;
-      let countUsage = 0;
-
-      orders.forEach(order => {
-        const catOps = operations.filter(
-          op => op.category === cat.key && order.selectedOperationIds.includes(op.id)
-        );
-        const catStdTimePerBag = catOps.reduce((sum, op) => sum + op.time, 0);
-        const totalCatStd = catStdTimePerBag * (order.producedQuantity || 0);
-
-        if (totalCatStd > 0) {
-          standardMinutes += totalCatStd;
-          countUsage += order.producedQuantity || 0;
-        }
-
-        if (order.componentTimes && order.componentTimes[cat.key]) {
-          actualMinutes += order.componentTimes[cat.key] || 0;
-        }
-      });
-
-      const effectiveActual = actualMinutes > 0 ? actualMinutes : standardMinutes;
-      const efficiency =
-        effectiveActual > 0 ? (standardMinutes / effectiveActual) * 100 : 100;
-
-      return {
-        category: cat.key,
-        title: cat.title,
-        colorHex: cat.colorHex,
-        standardMinutes,
-        actualMinutes: effectiveActual,
-        efficiency,
-        countUsage
-      };
-    });
-  }, [categories, orders, operations]);
-
   return (
     <ProductionContext.Provider
       value={{
@@ -599,17 +442,10 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         calculatorTotalMinutes,
         calculatorReadableTime,
         categoryTotals,
-        orders,
-        addOrder,
-        updateOrder,
-        deleteOrder,
-        recordOrderTime,
         timeStudies,
         getTimeStudy,
         saveTimeStudyAndApply,
         deleteTimeStudy,
-        metrics,
-        componentStats,
         exportData,
         importData,
         clearAllDataForProduction,
