@@ -7,6 +7,7 @@ import { TimeStudyModal } from '@/components/TimeStudyModal';
 import { TimeEvolutionModal } from '@/components/TimeEvolutionModal';
 import { ExportImportModal } from '@/components/ExportImportModal';
 import { CategoryManagerModal } from '@/components/CategoryManagerModal';
+import { EditOperationModal } from '@/components/EditOperationModal';
 import { Sparkline } from '@/components/Sparkline';
 import {
   Sliders,
@@ -52,6 +53,7 @@ export default function SettingsPage() {
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [selectedOpForTimeStudy, setSelectedOpForTimeStudy] = useState<OperationItem | null>(null);
   const [selectedOpForHistory, setSelectedOpForHistory] = useState<OperationItem | null>(null);
+  const [selectedOpForEdit, setSelectedOpForEdit] = useState<OperationItem | null>(null);
 
   // Inline Rename State
   const [editingOpNameId, setEditingOpNameId] = useState<string | null>(null);
@@ -490,14 +492,22 @@ export default function SettingsPage() {
 
                     {/* Actions */}
                     <td className="py-3 px-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => setSelectedOpForEdit(op)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-cyan-300 hover:bg-cyan-950/50 border border-transparent hover:border-cyan-500/30 transition-all cursor-pointer"
+                          title="Editar operação (nome, componente, tempo padrão e padrão/opcional)"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+
                         <button
                           onClick={() => {
                             if (window.confirm(`Tem certeza que deseja excluir a operação "${op.name}" do catálogo?`)) {
                               deleteOperation(op.id);
                             }
                           }}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 transition-colors"
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 border border-transparent hover:border-rose-500/30 transition-all cursor-pointer"
                           title="Excluir operação do catálogo"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -511,6 +521,13 @@ export default function SettingsPage() {
           </table>
         </div>
       </div>
+
+      {/* Edit Operation Modal */}
+      <EditOperationModal
+        operation={selectedOpForEdit}
+        isOpen={Boolean(selectedOpForEdit)}
+        onClose={() => setSelectedOpForEdit(null)}
+      />
 
       {/* Time Study Modal */}
       <TimeStudyModal
