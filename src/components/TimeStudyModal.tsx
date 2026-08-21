@@ -984,49 +984,71 @@ export const TimeStudyModal: React.FC<TimeStudyModalProps> = ({
           </div>
         )}
 
-        {/* Tab Navigation */}
-        <div className="flex items-center justify-between px-4 sm:px-6 pt-2 border-b border-slate-800 bg-slate-950/40 overflow-x-auto custom-scrollbar gap-4">
-          <div className="flex gap-2 shrink-0">
+        {/* Prominent Segmented Tab Navigation */}
+        <div className="px-4 sm:px-6 py-3 border-b border-slate-800 bg-slate-950/75 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shrink-0">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 custom-scrollbar">
             <button
+              type="button"
               onClick={() => setActiveTab('flow')}
-              className={`pb-3 px-3 text-xs font-bold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer shadow-sm ${
                 activeTab === 'flow'
-                  ? 'border-cyan-400 text-cyan-300'
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
+                  ? 'bg-gradient-to-r from-cyan-500/25 to-teal-500/25 text-cyan-300 border border-cyan-500/60 shadow-cyan-950/50'
+                  : 'bg-slate-900/90 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-800'
               }`}
             >
-              <ListOrdered className="w-4 h-4" />
-              Micro-etapas & Cronômetros ({microOperations.length})
+              <ListOrdered className={`w-4 h-4 ${activeTab === 'flow' ? 'text-cyan-400' : 'text-slate-400'}`} />
+              <span>Micro-etapas & Cronômetros</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                activeTab === 'flow'
+                  ? 'bg-cyan-500/30 text-cyan-200 border border-cyan-400/40'
+                  : 'bg-slate-800 text-slate-400'
+              }`}>
+                {microOperations.length}
+              </span>
             </button>
+
             <button
+              type="button"
               onClick={() => setActiveTab('stats')}
-              className={`pb-3 px-3 text-xs font-bold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer shadow-sm ${
                 activeTab === 'stats'
-                  ? 'border-amber-400 text-amber-300'
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
+                  ? 'bg-gradient-to-r from-amber-500/25 to-orange-500/25 text-amber-300 border border-amber-500/60 shadow-amber-950/50'
+                  : 'bg-slate-900/90 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-800'
               }`}
             >
-              <Gauge className="w-4 h-4" />
-              Diagnóstico & Memorial (N&apos;)
+              <Gauge className={`w-4 h-4 ${activeTab === 'stats' ? 'text-amber-400' : 'text-slate-400'}`} />
+              <span>Diagnóstico & Memorial (N&apos;)</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                activeTab === 'stats'
+                  ? 'bg-amber-500/30 text-amber-200 border border-amber-400/40'
+                  : 'bg-slate-800 text-slate-400'
+              }`}>
+                {totalStats.isStatisticallyValid ? 'Válido' : 'Calcular'}
+              </span>
             </button>
+
             <button
+              type="button"
               onClick={() => setActiveTab('charts')}
-              className={`pb-3 px-3 text-xs font-bold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer shadow-sm ${
                 activeTab === 'charts'
-                  ? 'border-emerald-400 text-emerald-300'
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
+                  ? 'bg-gradient-to-r from-emerald-500/25 to-teal-500/25 text-emerald-300 border border-emerald-500/60 shadow-emerald-950/50'
+                  : 'bg-slate-900/90 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-800'
               }`}
             >
-              <BarChart3 className="w-4 h-4" />
-              Gargalos & Kaizen
+              <BarChart3 className={`w-4 h-4 ${activeTab === 'charts' ? 'text-emerald-400' : 'text-slate-400'}`} />
+              <span>Gargalos & Kaizen</span>
             </button>
           </div>
 
           {/* Top Time Sum Pill */}
-          <div className="hidden lg:flex items-center gap-2 pb-2 shrink-0">
-            <span className="text-[10px] text-slate-400 uppercase font-bold">Tempo Padrão (∑):</span>
-            <span className="px-2.5 py-0.5 rounded-lg bg-emerald-950/60 text-emerald-300 border border-emerald-500/40 text-xs font-mono font-bold">
-              {totalStats.totalStandardTimeMinutes.toFixed(2)} min ({totalStats.totalStandardTimeSeconds.toFixed(0)}s)
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 shrink-0 self-end sm:self-center">
+            <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Tempo Padrão (∑):</span>
+            <span className="text-xs font-mono font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300">
+              {totalStats.totalStandardTimeMinutes.toFixed(2).replace('.', ',')} min
+            </span>
+            <span className="text-[10px] font-mono text-slate-400">
+              ({totalStats.totalStandardTimeSeconds.toFixed(0)}s)
             </span>
           </div>
         </div>
