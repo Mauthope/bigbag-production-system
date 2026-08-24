@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useProduction } from '@/context/ProductionContext';
+import { CELL_MODELS_DEFINITIONS } from '@/data/defaultData';
+import { CellProductionConfig } from '@/types/production';
 import { X, Users, Clock, RotateCcw, Check, Zap, Info } from 'lucide-react';
 
 interface CellConfigModalProps {
@@ -12,15 +14,23 @@ interface CellConfigModalProps {
 export const CellConfigModal: React.FC<CellConfigModalProps> = ({ isOpen, onClose }) => {
   const { cellConfig, updateCellConfig, resetCellConfig, showToast } = useProduction();
 
-  const [peopleOne, setPeopleOne] = useState<number>(cellConfig.peopleOne || 8.5);
-  const [peopleTravado, setPeopleTravado] = useState<number>(cellConfig.peopleTravado || 11.0);
-  const [shiftHours, setShiftHours] = useState<number>(cellConfig.shiftHours || 8.5);
+  const [peopleOne, setPeopleOne] = useState<number>(cellConfig.peopleOne ?? 8.5);
+  const [peopleTravado, setPeopleTravado] = useState<number>(cellConfig.peopleTravado ?? 11.0);
+  const [peopleSalaLimpa, setPeopleSalaLimpa] = useState<number>(cellConfig.peopleSalaLimpa ?? 8.5);
+  const [peopleMulti, setPeopleMulti] = useState<number>(cellConfig.peopleMulti ?? 8.5);
+  const [peopleFertilizante, setPeopleFertilizante] = useState<number>(cellConfig.peopleFertilizante ?? 8.5);
+  const [peopleFertilizanteLiner, setPeopleFertilizanteLiner] = useState<number>(cellConfig.peopleFertilizanteLiner ?? 8.5);
+  const [shiftHours, setShiftHours] = useState<number>(cellConfig.shiftHours ?? 8.5);
 
   useEffect(() => {
     if (isOpen) {
-      setPeopleOne(cellConfig.peopleOne || 8.5);
-      setPeopleTravado(cellConfig.peopleTravado || 11.0);
-      setShiftHours(cellConfig.shiftHours || 8.5);
+      setPeopleOne(cellConfig.peopleOne ?? 8.5);
+      setPeopleTravado(cellConfig.peopleTravado ?? 11.0);
+      setPeopleSalaLimpa(cellConfig.peopleSalaLimpa ?? 8.5);
+      setPeopleMulti(cellConfig.peopleMulti ?? 8.5);
+      setPeopleFertilizante(cellConfig.peopleFertilizante ?? 8.5);
+      setPeopleFertilizanteLiner(cellConfig.peopleFertilizanteLiner ?? 8.5);
+      setShiftHours(cellConfig.shiftHours ?? 8.5);
     }
   }, [isOpen, cellConfig]);
 
@@ -28,31 +38,104 @@ export const CellConfigModal: React.FC<CellConfigModalProps> = ({ isOpen, onClos
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (peopleOne <= 0 || peopleTravado <= 0 || shiftHours <= 0) {
-      showToast('Os valores devem ser maiores que zero.', 'error');
+    if (
+      peopleOne <= 0 ||
+      peopleTravado <= 0 ||
+      peopleSalaLimpa <= 0 ||
+      peopleMulti <= 0 ||
+      peopleFertilizante <= 0 ||
+      peopleFertilizanteLiner <= 0 ||
+      shiftHours <= 0
+    ) {
+      showToast('Todos os valores devem ser maiores que zero.', 'error');
       return;
     }
     await updateCellConfig({
       peopleOne,
       peopleTravado,
+      peopleSalaLimpa,
+      peopleMulti,
+      peopleFertilizante,
+      peopleFertilizanteLiner,
       shiftHours
     });
     onClose();
   };
 
   const handleReset = async () => {
-    if (window.confirm('Deseja redefinir o dimensionamento da célula para os padrões de fábrica (8,5 One / 11,0 Travado / 8,5h)?')) {
+    if (window.confirm('Deseja redefinir o dimensionamento da célula para os padrões de fábrica de todos os modelos?')) {
       await resetCellConfig();
       setPeopleOne(8.5);
       setPeopleTravado(11.0);
+      setPeopleSalaLimpa(8.5);
+      setPeopleMulti(8.5);
+      setPeopleFertilizante(8.5);
+      setPeopleFertilizanteLiner(8.5);
       setShiftHours(8.5);
       onClose();
     }
   };
 
+  const modelsList = [
+    {
+      id: 'one',
+      name: 'Modelo One',
+      val: peopleOne,
+      setVal: setPeopleOne,
+      defaultVal: 8.5,
+      desc: 'Montagem direta de Big Bags e Slings convencionais.',
+      badge: 'text-cyan-400'
+    },
+    {
+      id: 'travado',
+      name: 'Modelo Travado',
+      val: peopleTravado,
+      setVal: setPeopleTravado,
+      defaultVal: 11.0,
+      desc: 'Modelos estruturados com travas internas (baffles).',
+      badge: 'text-amber-400'
+    },
+    {
+      id: 'sala_limpa',
+      name: 'Modelo Sala Limpa',
+      val: peopleSalaLimpa,
+      setVal: setPeopleSalaLimpa,
+      defaultVal: 8.5,
+      desc: 'Ambiente controlado alimentício / farmacêutico.',
+      badge: 'text-emerald-400'
+    },
+    {
+      id: 'multi',
+      name: 'Modelo Multi',
+      val: peopleMulti,
+      setVal: setPeopleMulti,
+      defaultVal: 8.5,
+      desc: 'Células multifuncionais e montagens compostas.',
+      badge: 'text-purple-400'
+    },
+    {
+      id: 'fertilizante',
+      name: 'Modelo Fertilizante',
+      val: peopleFertilizante,
+      setVal: setPeopleFertilizante,
+      defaultVal: 8.5,
+      desc: 'Big Bags reforçados para fertilizantes e granéis pesados.',
+      badge: 'text-lime-400'
+    },
+    {
+      id: 'fertilizante_liner',
+      name: 'Modelo Fertilizante c/ Liner',
+      val: peopleFertilizanteLiner,
+      setVal: setPeopleFertilizanteLiner,
+      defaultVal: 8.5,
+      desc: 'Big Bags de fertilizantes com inserção e fixação de liner.',
+      badge: 'text-blue-400'
+    }
+  ];
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in">
-      <div className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="relative w-full max-w-xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/80">
@@ -65,7 +148,7 @@ export const CellConfigModal: React.FC<CellConfigModalProps> = ({ isOpen, onClos
                 Dimensionamento da Célula de Costura
               </h2>
               <p className="text-xs text-slate-400">
-                Ajuste o número de operadores por célula e as horas diárias
+                Ajuste o número de operadores por célula para cada tipo de modelo
               </p>
             </div>
           </div>
@@ -79,89 +162,63 @@ export const CellConfigModal: React.FC<CellConfigModalProps> = ({ isOpen, onClos
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSave} className="p-6 overflow-y-auto space-y-5">
+        <form onSubmit={handleSave} className="p-6 overflow-y-auto space-y-4">
           
           <div className="p-3 rounded-xl bg-cyan-950/30 border border-cyan-800/40 text-xs text-cyan-200 flex items-start gap-2.5">
             <Info className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
             <span>
-              O <strong>número de pessoas</strong> é a constante que multiplica o ritmo unitário horário <code className="bg-slate-950 px-1 py-0.5 rounded font-mono text-cyan-300">60 ÷ T</code> para determinar a <strong>Estimativa de Ritmo (ER)</strong> da célula.
+              O <strong>número de pessoas</strong> é a constante que multiplica o ritmo unitário horário <code className="bg-slate-950 px-1 py-0.5 rounded font-mono text-cyan-300">60 ÷ T</code> para determinar a <strong>Estimativa de Ritmo (ER)</strong> da célula em cada tipo de produção.
             </span>
           </div>
 
-          {/* Input 1: Pessoas na Célula One */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center justify-between">
-              <span>Pessoas na Célula - Modelo One</span>
-              <span className="text-[11px] font-mono text-cyan-400 font-normal">(Padrão: 8,5)</span>
-            </label>
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0.5"
-                  max="100"
-                  value={peopleOne}
-                  onChange={e => setPeopleOne(parseFloat(e.target.value) || 0)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white font-mono text-sm focus:outline-none focus:border-cyan-500 transition-colors"
-                  required
-                />
-                <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-400">
-                  operadores
-                </span>
+          {/* Grid of 6 Models */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+            {modelsList.map(m => (
+              <div key={m.id} className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-300">
+                    {m.name}
+                  </label>
+                  <span className={`text-[10px] font-mono font-bold ${m.badge}`}>
+                    (Padrão: {m.defaultVal.toFixed(1).replace('.', ',')})
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0.5"
+                      max="100"
+                      value={m.val}
+                      onChange={e => m.setVal(parseFloat(e.target.value) || 0)}
+                      className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono text-xs focus:outline-none focus:border-cyan-500 transition-colors"
+                      required
+                    />
+                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] font-medium text-slate-400">
+                      pess.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => m.setVal(m.defaultVal)}
+                    className="px-2 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold border border-slate-700 cursor-pointer"
+                    title={`Redefinir para ${m.defaultVal}`}
+                  >
+                    {m.defaultVal.toFixed(1).replace('.', ',')}
+                  </button>
+                </div>
+
+                <p className="text-[10px] text-slate-400 leading-tight">
+                  {m.desc}
+                </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setPeopleOne(8.5)}
-                className="px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700"
-                title="Redefinir para 8.5"
-              >
-                8.5
-              </button>
-            </div>
-            <p className="text-[11px] text-slate-400">
-              Constante multiplicadora do cálculo de ER para o modelo One.
-            </p>
+            ))}
           </div>
 
-          {/* Input 2: Pessoas na Célula Travado */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center justify-between">
-              <span>Pessoas na Célula - Modelo Travado</span>
-              <span className="text-[11px] font-mono text-amber-400 font-normal">(Padrão: 11,0)</span>
-            </label>
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0.5"
-                  max="100"
-                  value={peopleTravado}
-                  onChange={e => setPeopleTravado(parseFloat(e.target.value) || 0)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white font-mono text-sm focus:outline-none focus:border-amber-500 transition-colors"
-                  required
-                />
-                <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-400">
-                  operadores
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setPeopleTravado(11.0)}
-                className="px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700"
-                title="Redefinir para 11.0"
-              >
-                11.0
-              </button>
-            </div>
-            <p className="text-[11px] text-slate-400">
-              Constante multiplicadora do cálculo de ER para o modelo Travado.
-            </p>
-          </div>
-
-          {/* Input 3: Horas por Dia/Turno */}
-          <div className="space-y-1.5">
+          {/* Shift Hours Input */}
+          <div className="p-3.5 rounded-xl bg-slate-950/70 border border-emerald-500/20 space-y-1.5">
             <label className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center justify-between">
               <span>Jornada de Trabalho Útil Diária</span>
               <span className="text-[11px] font-mono text-emerald-400 font-normal">(Padrão: 8,5h)</span>
@@ -174,7 +231,7 @@ export const CellConfigModal: React.FC<CellConfigModalProps> = ({ isOpen, onClos
                 max="24"
                 value={shiftHours}
                 onChange={e => setShiftHours(parseFloat(e.target.value) || 0)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white font-mono text-sm focus:outline-none focus:border-emerald-500 transition-colors"
+                className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white font-mono text-xs focus:outline-none focus:border-emerald-500 transition-colors"
                 required
               />
               <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-400">

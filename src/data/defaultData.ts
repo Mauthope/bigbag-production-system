@@ -1,8 +1,75 @@
-import { ComponentCategoryConfig, ComponentCategoryKey, OperationItem, CellProductionConfig } from '../types/production';
+import { ComponentCategoryConfig, ComponentCategoryKey, OperationItem, CellProductionConfig, CellModelDefinition } from '../types/production';
+
+export const CELL_MODELS_DEFINITIONS: CellModelDefinition[] = [
+  {
+    id: 'one',
+    name: 'One',
+    shortName: 'One',
+    configKey: 'peopleOne',
+    defaultPeople: 8.5,
+    badgeColor: 'cyan',
+    gradientClass: 'from-cyan-500 to-teal-500',
+    description: 'Montagem direta de Big Bags e Slings convencionais'
+  },
+  {
+    id: 'travado',
+    name: 'Travado',
+    shortName: 'Travado',
+    configKey: 'peopleTravado',
+    defaultPeople: 11.0,
+    badgeColor: 'amber',
+    gradientClass: 'from-amber-500 to-orange-500',
+    description: 'Modelos estruturados com travas internas (baffles)'
+  },
+  {
+    id: 'sala_limpa',
+    name: 'Sala Limpa',
+    shortName: 'Sala Limpa',
+    configKey: 'peopleSalaLimpa',
+    defaultPeople: 8.5,
+    badgeColor: 'emerald',
+    gradientClass: 'from-emerald-500 to-teal-500',
+    description: 'Ambiente controlado / alimentício / farmacêutico'
+  },
+  {
+    id: 'multi',
+    name: 'Multi',
+    shortName: 'Multi',
+    configKey: 'peopleMulti',
+    defaultPeople: 8.5,
+    badgeColor: 'purple',
+    gradientClass: 'from-purple-500 to-indigo-500',
+    description: 'Células multifuncionais e montagens compostas'
+  },
+  {
+    id: 'fertilizante',
+    name: 'Fertilizante',
+    shortName: 'Fertilizante',
+    configKey: 'peopleFertilizante',
+    defaultPeople: 8.5,
+    badgeColor: 'lime',
+    gradientClass: 'from-lime-500 to-emerald-500',
+    description: 'Big Bags reforçados para fertilizantes e granéis pesados'
+  },
+  {
+    id: 'fertilizante_liner',
+    name: 'Fertilizante com Liner',
+    shortName: 'Fert. c/ Liner',
+    configKey: 'peopleFertilizanteLiner',
+    defaultPeople: 8.5,
+    badgeColor: 'blue',
+    gradientClass: 'from-blue-500 to-cyan-500',
+    description: 'Big Bags para fertilizantes com inserção e fixação de liner'
+  }
+];
 
 export const DEFAULT_CELL_CONFIG: CellProductionConfig = {
   peopleOne: 8.5,
   peopleTravado: 11.0,
+  peopleSalaLimpa: 8.5,
+  peopleMulti: 8.5,
+  peopleFertilizante: 8.5,
+  peopleFertilizanteLiner: 8.5,
   shiftHours: 8.5
 };
 

@@ -14,9 +14,58 @@ export const CalculationMemoryModal: React.FC<CalculationMemoryModalProps> = ({ 
 
   if (!isOpen) return null;
 
-  const peopleOne = cellConfig?.peopleOne || 8.5;
-  const peopleTravado = cellConfig?.peopleTravado || 11.0;
-  const shiftHours = cellConfig?.shiftHours || 8.5;
+  const peopleOne = cellConfig?.peopleOne ?? 8.5;
+  const peopleTravado = cellConfig?.peopleTravado ?? 11.0;
+  const peopleSalaLimpa = cellConfig?.peopleSalaLimpa ?? 8.5;
+  const peopleMulti = cellConfig?.peopleMulti ?? 8.5;
+  const peopleFertilizante = cellConfig?.peopleFertilizante ?? 8.5;
+  const peopleFertilizanteLiner = cellConfig?.peopleFertilizanteLiner ?? 8.5;
+  const shiftHours = cellConfig?.shiftHours ?? 8.5;
+
+  const allModels = [
+    {
+      name: 'Modelo "One"',
+      people: peopleOne,
+      color: 'border-cyan-500/20 text-cyan-300',
+      badge: 'bg-cyan-950 text-cyan-300 border-cyan-800',
+      desc: 'Montagem direta de Big Bags e Slings convencionais.'
+    },
+    {
+      name: 'Modelo "Travado"',
+      people: peopleTravado,
+      color: 'border-amber-500/20 text-amber-300',
+      badge: 'bg-amber-950 text-amber-300 border-amber-800',
+      desc: 'Modelos estruturados com travas internas (baffles).'
+    },
+    {
+      name: 'Modelo "Sala Limpa"',
+      people: peopleSalaLimpa,
+      color: 'border-emerald-500/20 text-emerald-300',
+      badge: 'bg-emerald-950 text-emerald-300 border-emerald-800',
+      desc: 'Ambiente controlado alimentício / farmacêutico.'
+    },
+    {
+      name: 'Modelo "Multi"',
+      people: peopleMulti,
+      color: 'border-purple-500/20 text-purple-300',
+      badge: 'bg-purple-950 text-purple-300 border-purple-800',
+      desc: 'Células multifuncionais e montagens compostas.'
+    },
+    {
+      name: 'Modelo "Fertilizante"',
+      people: peopleFertilizante,
+      color: 'border-lime-500/20 text-lime-300',
+      badge: 'bg-lime-950 text-lime-300 border-lime-800',
+      desc: 'Big Bags reforçados para fertilizantes e granéis.'
+    },
+    {
+      name: 'Modelo "Fertilizante c/ Liner"',
+      people: peopleFertilizanteLiner,
+      color: 'border-blue-500/20 text-blue-300',
+      badge: 'bg-blue-950 text-blue-300 border-blue-800',
+      desc: 'Big Bags para fertilizantes com inserção e fixação de liner.'
+    }
+  ];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in">
@@ -49,14 +98,14 @@ export const CalculationMemoryModal: React.FC<CalculationMemoryModalProps> = ({ 
         {/* Modal Body */}
         <div className="p-6 overflow-y-auto space-y-6 text-sm text-slate-300 leading-relaxed">
           
-          {/* Highlight Note: Origin of 8.5 * 8.5 */}
+          {/* Highlight Note: Origin of Headcount Constants */}
           <div className="p-4 rounded-xl bg-cyan-950/40 border border-cyan-500/30 space-y-2">
             <div className="flex items-center gap-2 text-cyan-300 font-bold text-sm">
               <Users className="w-4 h-4 text-cyan-400" />
-              <span>O que representam as constantes 8,5 e 11,0?</span>
+              <span>O que representam as constantes multiplicadoras?</span>
             </div>
             <p className="text-xs text-cyan-100/90 leading-relaxed">
-              As constantes representam o <strong>Número de Pessoas / Operadores alocados na Célula de Costura</strong>. Por esse motivo, no modelo <em>One</em> a conta diária é <code className="bg-slate-950 px-1.5 py-0.5 rounded font-mono text-cyan-300">8,5 × 8,5</code>: são <strong>8,5 pessoas</strong> na célula multiplicadas por uma jornada de <strong>8,5 horas por dia</strong>!
+              As constantes representam o <strong>Número de Pessoas / Operadores alocados na Célula de Costura</strong> de cada tipo de modelo. A capacidade horária unitária de 1 operador é <code className="bg-slate-950 px-1 py-0.5 rounded font-mono text-cyan-300">60 ÷ T</code>. Ao multiplicar pelo número de operadores na célula, obtém-se a <strong>Estimativa de Ritmo (ER)</strong>.
             </p>
           </div>
 
@@ -78,46 +127,29 @@ export const CalculationMemoryModal: React.FC<CalculationMemoryModalProps> = ({ 
           <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-3">
             <div className="flex items-center gap-2 text-amber-400 font-bold text-sm">
               <Zap className="w-4 h-4" />
-              <span>2. Estimativa de Ritmo da Célula (ER)</span>
+              <span>2. Estimativa de Ritmo da Célula por Modelo (ER)</span>
             </div>
             <p className="text-xs text-slate-400">
-              O ritmo horário unitário de 1 operador é <code className="text-slate-300 font-mono">60 ÷ T</code> (bags/hora/pessoa). Ao multiplicar pelo número de operadores na célula, obtém-se a capacidade horária da célula inteira (ER):
+              Fórmula geral: <code className="text-slate-200 font-mono">ER = (60 ÷ T) × (Nº Pessoas na Célula)</code>
             </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-              
-              {/* Box Tipo One */}
-              <div className="p-3.5 rounded-xl bg-slate-900 border border-cyan-500/20 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-cyan-300 uppercase tracking-wider">Modelo Tipo "One"</span>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-800 font-mono font-bold">
-                    {peopleOne.toFixed(1).replace('.', ',')} operadores
-                  </span>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
+              {allModels.map((m, idx) => (
+                <div key={idx} className={`p-3 rounded-xl bg-slate-900 border ${m.color} space-y-1.5`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider">{m.name}</span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold border ${m.badge}`}>
+                      {m.people.toFixed(1).replace('.', ',')} pess.
+                    </span>
+                  </div>
+                  <div className="p-1.5 rounded bg-slate-950 font-mono text-xs text-center font-bold">
+                    ER = (60 ÷ T) × {m.people.toFixed(1).replace('.', ',')}
+                  </div>
+                  <p className="text-[10px] text-slate-400 leading-tight">
+                    {m.desc}
+                  </p>
                 </div>
-                <div className="p-2 rounded bg-slate-950 font-mono text-cyan-300 text-xs text-center">
-                  ER = (60 ÷ T) × {peopleOne.toFixed(1).replace('.', ',')}
-                </div>
-                <p className="text-[11px] text-slate-400 leading-normal">
-                  Célula dimensionada para montagem direta de Big Bags e Slings convencionais.
-                </p>
-              </div>
-
-              {/* Box Tipo Travado */}
-              <div className="p-3.5 rounded-xl bg-slate-900 border border-amber-500/20 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-amber-300 uppercase tracking-wider">Modelo Tipo "Travado"</span>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-950 text-amber-300 border border-amber-800 font-mono font-bold">
-                    {peopleTravado.toFixed(1).replace('.', ',')} operadores
-                  </span>
-                </div>
-                <div className="p-2 rounded bg-slate-950 font-mono text-amber-300 text-xs text-center">
-                  ER = (60 ÷ T) × {peopleTravado.toFixed(1).replace('.', ',')}
-                </div>
-                <p className="text-[11px] text-slate-400 leading-normal">
-                  Célula com mais postos de trabalho para costura das travas estruturais internas (baffles).
-                </p>
-              </div>
-
+              ))}
             </div>
           </div>
 

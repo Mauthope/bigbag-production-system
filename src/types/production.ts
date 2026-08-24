@@ -30,10 +30,33 @@ export interface ComponentCategoryConfig {
   orderIndex?: number;
 }
 
+export type CellModelType =
+  | 'one'
+  | 'travado'
+  | 'sala_limpa'
+  | 'multi'
+  | 'fertilizante'
+  | 'fertilizante_liner';
+
 export interface CellProductionConfig {
-  peopleOne: number;      // Nº de pessoas/operadores na célula para modelo One (padrão: 8.5)
-  peopleTravado: number;  // Nº de pessoas/operadores na célula para modelo Travado (padrão: 11.0)
-  shiftHours: number;     // Horas produtivas por dia/turno (padrão: 8.5h)
+  peopleOne: number;                 // Nº de pessoas na célula One (padrão: 8.5)
+  peopleTravado: number;             // Nº de pessoas na célula Travado (padrão: 11.0)
+  peopleSalaLimpa?: number;          // Nº de pessoas na célula Sala Limpa (padrão: 8.5)
+  peopleMulti?: number;              // Nº de pessoas na célula Multi (padrão: 8.5)
+  peopleFertilizante?: number;       // Nº de pessoas na célula Fertilizante (padrão: 8.5)
+  peopleFertilizanteLiner?: number;  // Nº de pessoas na célula Fertilizante c/ Liner (padrão: 8.5)
+  shiftHours: number;                // Horas produtivas por dia/turno (padrão: 8.5h)
+}
+
+export interface CellModelDefinition {
+  id: CellModelType;
+  name: string;
+  shortName: string;
+  configKey: 'peopleOne' | 'peopleTravado' | 'peopleSalaLimpa' | 'peopleMulti' | 'peopleFertilizante' | 'peopleFertilizanteLiner';
+  defaultPeople: number;
+  badgeColor: string;
+  gradientClass: string;
+  description: string;
 }
 
 
