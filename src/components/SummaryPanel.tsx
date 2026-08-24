@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useProduction } from '@/context/ProductionContext';
 import { CELL_MODELS_DEFINITIONS } from '@/data/defaultData';
 import { CellModelType } from '@/types/production';
-import { Clock, Zap, Boxes, Table, FileText, Users, ChevronRight } from 'lucide-react';
+import { Clock, Zap, Boxes, Table, FileText, Users, SlidersHorizontal } from 'lucide-react';
 import { ReferenceTimesModal } from './ReferenceTimesModal';
 import { CalculationMemoryModal } from './CalculationMemoryModal';
 import { CellConfigModal } from './CellConfigModal';
@@ -35,31 +35,31 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = () => {
   return (
     <>
       <div className="sticky top-16 z-30 w-full py-2 -my-2 backdrop-blur-md bg-slate-950/80">
-        <div className="p-4 sm:p-5 rounded-2xl bg-slate-900/95 backdrop-blur-2xl border border-cyan-500/30 shadow-2xl shadow-cyan-950/30 flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-4">
+        <div className="p-4 sm:p-5 rounded-2xl bg-slate-900/95 backdrop-blur-2xl border border-cyan-500/30 shadow-2xl shadow-cyan-950/30 flex flex-col gap-4">
           
-          {/* KPI Metrics Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 w-full xl:w-auto flex-1">
+          {/* ROW 1: Full-Width 3-Column KPI Metrics Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 w-full">
             
             {/* Card 1: Tempo Total / Bag */}
-            <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 shrink-0">
+            <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 flex items-center gap-3.5 shadow-sm">
+              <div className="w-11 h-11 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 shrink-0">
                 <Clock className="w-5 h-5 animate-pulse" />
               </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 truncate">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] uppercase font-bold tracking-wider text-slate-400 truncate">
                     Tempo Total / Bag
                   </span>
-                  <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-slate-800 text-slate-300 font-semibold shrink-0">
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-semibold shrink-0">
                     {selectedOperationIds.length} itens
                   </span>
                 </div>
-                <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-xl sm:text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-teal-300 font-mono">
+                <div className="flex items-baseline gap-1.5 mt-0.5 flex-wrap">
+                  <span className="text-2xl sm:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-teal-300 font-mono">
                     {totalTime.toFixed(2).replace('.', ',')}
                   </span>
                   <span className="text-xs font-bold text-teal-400">min</span>
-                  <span className="text-[11px] text-slate-400 font-mono ml-1 truncate">
+                  <span className="text-xs text-slate-400 font-mono">
                     ({calculatorReadableTime})
                   </span>
                 </div>
@@ -67,24 +67,27 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = () => {
             </div>
 
             {/* Card 2: ER (Estimativa de Ritmo) */}
-            <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
+            <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 flex items-center gap-3.5 shadow-sm">
+              <div className="w-11 h-11 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
                 <Zap className="w-5 h-5" />
               </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 truncate">
-                    ER ({selectedModelDef.shortName} × {currentPeople.toFixed(1).replace('.', ',')}p)
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] uppercase font-bold tracking-wider text-slate-400 truncate">
+                    Estimativa de Ritmo (ER)
+                  </span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-950/80 text-amber-300 border border-amber-800/50 font-mono font-bold shrink-0">
+                    {selectedModelDef.shortName} × {currentPeople.toFixed(1).replace('.', ',')}p
                   </span>
                 </div>
-                <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-xl sm:text-2xl font-extrabold text-amber-300 font-mono">
+                <div className="flex items-baseline gap-1.5 mt-0.5 flex-wrap">
+                  <span className="text-2xl sm:text-3xl font-extrabold text-amber-300 font-mono">
                     {er.toFixed(1).replace('.', ',')}
                   </span>
                   <span className="text-xs font-bold text-amber-400/80 font-mono">
-                    (~{Math.round(er)})
+                    (~{Math.round(er)} un/h)
                   </span>
-                  <span className="text-[10px] text-slate-500 ml-1 font-mono">
+                  <span className="text-[10px] text-slate-500 font-mono">
                     (60÷T×{currentPeople.toFixed(1).replace('.', ',')})
                   </span>
                 </div>
@@ -92,20 +95,25 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = () => {
             </div>
 
             {/* Card 3: Produção do Dia (ER × Jornada) */}
-            <div className="p-3 rounded-xl bg-slate-950/70 border border-emerald-500/20 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+            <div className="p-3.5 rounded-xl bg-slate-950/70 border border-emerald-500/20 flex items-center gap-3.5 shadow-sm">
+              <div className="w-11 h-11 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
                 <Boxes className="w-5 h-5" />
               </div>
-              <div className="min-w-0">
-                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block truncate">
-                  Produção / Dia (ER × {shiftHours.toFixed(1).replace('.', ',')}h)
-                </span>
-                <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-xl sm:text-2xl font-extrabold text-emerald-300 font-mono">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] uppercase font-bold tracking-wider text-slate-400 truncate">
+                    Produção do Dia
+                  </span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-800/50 font-mono font-bold shrink-0">
+                    Turno {shiftHours.toFixed(1).replace('.', ',')}h
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-1.5 mt-0.5 flex-wrap">
+                  <span className="text-2xl sm:text-3xl font-extrabold text-emerald-300 font-mono">
                     {dailyProduction.toFixed(1).replace('.', ',')}
                   </span>
                   <span className="text-xs font-bold text-emerald-400/80">bags/dia</span>
-                  <span className="text-[10px] text-slate-500 ml-1 font-mono">
+                  <span className="text-[10px] text-slate-500 font-mono">
                     (~{Math.round(dailyProduction)} un)
                   </span>
                 </div>
@@ -114,11 +122,11 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = () => {
 
           </div>
 
-          {/* Right Controls: 6-Model Selector & Action Buttons */}
-          <div className="w-full xl:w-auto shrink-0 flex flex-col items-stretch xl:items-end gap-2.5">
+          {/* ROW 2: Model Selector + Cell Sizing + Action Modals Buttons */}
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 pt-3 border-t border-slate-800/80">
             
-            {/* Bag/Cell Model Selector: 6 Models + Cell Sizing Button */}
-            <div className="flex items-center gap-1.5 w-full xl:w-auto">
+            {/* Left: 6-Model Selector Pills + Custom Sizing Gear */}
+            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
               <div className="flex items-center p-1 rounded-xl bg-slate-950/90 border border-slate-800 shadow-inner overflow-x-auto custom-scrollbar gap-1 flex-1">
                 {CELL_MODELS_DEFINITIONS.map(model => {
                   const isSelected = bagType === model.id;
@@ -129,15 +137,15 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = () => {
                       key={model.id}
                       type="button"
                       onClick={() => setBagType(model.id)}
-                      className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 shrink-0 ${
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 shrink-0 ${
                         isSelected
-                          ? `bg-gradient-to-r ${model.gradientClass} text-slate-950 shadow-md`
-                          : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                          ? `bg-gradient-to-r ${model.gradientClass} text-slate-950 shadow-md font-extrabold`
+                          : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/80'
                       }`}
                       title={model.description}
                     >
                       <span className="whitespace-nowrap">{model.shortName}</span>
-                      <span className={`text-[10px] px-1 py-0.2 rounded font-mono font-bold ${
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono font-bold ${
                         isSelected
                           ? 'bg-slate-950/30 text-slate-950'
                           : 'bg-slate-900 text-slate-400 border border-slate-800'
@@ -153,19 +161,20 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = () => {
               <button
                 type="button"
                 onClick={() => setIsCellConfigOpen(true)}
-                className="p-2 rounded-xl bg-slate-950/90 hover:bg-slate-800 text-slate-400 hover:text-cyan-300 border border-slate-800 hover:border-cyan-500/40 transition-colors cursor-pointer shrink-0"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-950/90 hover:bg-slate-800 text-slate-300 hover:text-cyan-300 border border-slate-800 hover:border-cyan-500/40 text-xs font-bold transition-colors cursor-pointer shrink-0 shadow-sm"
                 title="Configurar número de operadores/pessoas nas células para cada modelo e horas do turno"
               >
-                <Users className="w-4 h-4" />
+                <Users className="w-4 h-4 text-cyan-400" />
+                <span className="hidden sm:inline">Pessoas na Célula</span>
               </button>
             </div>
 
-            {/* Action Buttons Row */}
-            <div className="flex items-center gap-2 w-full xl:w-auto justify-end">
+            {/* Right: Quick Action Modals */}
+            <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
                 onClick={() => setIsReferenceModalOpen(true)}
-                className="flex-1 xl:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-cyan-300 hover:text-cyan-200 text-xs font-bold border border-cyan-500/30 hover:border-cyan-500/50 transition-all shadow-sm active:scale-95 cursor-pointer whitespace-nowrap"
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-cyan-300 hover:text-cyan-200 text-xs font-bold border border-cyan-500/30 hover:border-cyan-500/50 transition-all shadow-sm active:scale-95 cursor-pointer whitespace-nowrap"
                 title="Exibir tabela de tempos padrão e valores de ER de referência dos modelos de Big Bag"
               >
                 <Table className="w-3.5 h-3.5 text-cyan-400" />
@@ -175,7 +184,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = () => {
               <button
                 type="button"
                 onClick={() => setIsCalculationMemoryOpen(true)}
-                className="flex-1 xl:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-amber-300 hover:text-amber-200 text-xs font-bold border border-amber-500/30 hover:border-amber-500/50 transition-all shadow-sm active:scale-95 cursor-pointer whitespace-nowrap"
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-amber-300 hover:text-amber-200 text-xs font-bold border border-amber-500/30 hover:border-amber-500/50 transition-all shadow-sm active:scale-95 cursor-pointer whitespace-nowrap"
                 title="Ver fórmulas matemáticas, constantes industriais e memorial de cálculo"
               >
                 <FileText className="w-3.5 h-3.5 text-amber-400" />
