@@ -24,6 +24,7 @@ import {
   ArrowDownRight
 } from 'lucide-react';
 import { SectorCostModal } from '@/components/SectorCostModal';
+import { MonthlyVarianceChart } from '@/components/MonthlyVarianceChart';
 import { ComponentCategoryKey } from '@/types/production';
 
 export default function IndicatorsPage() {
@@ -500,6 +501,13 @@ export default function IndicatorsPage() {
         </div>
 
       </div>
+
+      {/* Monthly Variance Chart (Aumentos, Diminuições & Totalizador) */}
+      <MonthlyVarianceChart
+        operations={enrichedOperations}
+        categories={categories}
+        monthlyVolume={monthlyVolume}
+      />
 
       {/* Sector Breakdown Visualization (Rank de Economia por Setor) */}
       {metrics.sortedSectors.length > 0 && (
