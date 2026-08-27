@@ -13,7 +13,6 @@ import {
   SlidersHorizontal,
   CheckCircle2,
   AlertTriangle,
-  RotateCcw,
   Sparkles,
   ArrowRight,
   ChevronDown,
@@ -63,7 +62,6 @@ export default function IndicatorsPage() {
   const monthlyVolume = activeMonthRecord?.volume ?? (financialConfig?.monthlyVolume ?? 20000);
   const defaultHourlyRate = financialConfig?.defaultHourlyRate ?? 28.5;
   const sectorHourlyRates = financialConfig?.sectorHourlyRates ?? {};
-  const comparisonMode = financialConfig?.comparisonBaselineMode ?? 'previous';
   const errorMarginPercent = financialConfig?.errorMarginPercent ?? 5;
 
   // Category Lookup Map
@@ -77,25 +75,14 @@ export default function IndicatorsPage() {
   // Operations enriched with comparison and financial calculation
   const enrichedOperations = useMemo(() => {
     return operations.map(op => {
-      // Determine Baseline / Ponto de Partida
+      // Ponto de Partida do Mês: Sempre a última medição anterior (Ciclo Kaizen Contínuo)
       let baselineTime = op.time;
-
-      if (comparisonMode === 'previous') {
-        // Continuous Kaizen Cycle: compare against penultimate/previous measurement
-        if (op.previousTime !== undefined) {
-          baselineTime = op.previousTime;
-        } else if (op.history && op.history.length > 1) {
-          baselineTime = op.history[op.history.length - 2].time;
-        } else if (op.initialTime !== undefined) {
-          baselineTime = op.initialTime;
-        }
-      } else {
-        // Historical Initial Baseline
-        if (op.initialTime !== undefined) {
-          baselineTime = op.initialTime;
-        } else if (op.history && op.history.length > 0) {
-          baselineTime = op.history[0].time;
-        }
+      if (op.previousTime !== undefined) {
+        baselineTime = op.previousTime;
+      } else if (op.history && op.history.length > 1) {
+        baselineTime = op.history[op.history.length - 2].time;
+      } else if (op.initialTime !== undefined) {
+        baselineTime = op.initialTime;
       }
 
       const currentTime = op.time;
@@ -144,7 +131,7 @@ export default function IndicatorsPage() {
         status
       };
     });
-  }, [operations, comparisonMode, monthlyVolume, defaultHourlyRate, sectorHourlyRates]);
+  }, [operations, monthlyVolume, defaultHourlyRate, sectorHourlyRates]);
 
   // Filtered operations
   const filteredOperations = useMemo(() => {
@@ -261,10 +248,6 @@ export default function IndicatorsPage() {
     updateFinancialConfig({ errorMarginPercent: isNaN(num) || num < 0 ? 0 : num });
   };
 
-  const handleModeToggle = (mode: 'previous' | 'initial') => {
-    updateFinancialConfig({ comparisonBaselineMode: mode });
-  };
-
   // Inline baseline edit handler
   const startEditingBaseline = (opId: string, currentBaseline: number) => {
     setEditingBaselineId(opId);
@@ -295,11 +278,7 @@ export default function IndicatorsPage() {
   const saveEditedBaseline = async (opId: string) => {
     const num = parseFloat(tempBaselineValue.replace(',', '.'));
     if (!isNaN(num) && num >= 0) {
-      if (comparisonMode === 'previous') {
-        await updateOperationBaseline(opId, undefined, num);
-      } else {
-        await updateOperationBaseline(opId, num, undefined);
-      }
+      await updateOperationBaseline(opId, undefined, num);
     }
     setEditingBaselineId(null);
   };
@@ -506,38 +485,10 @@ export default function IndicatorsPage() {
 
         </div>
 
-        {/* Comparison Baseline Mode Selector */}
-        <div className="flex items-center gap-2 bg-slate-950/80 p-1 rounded-xl border border-slate-800">
-          <span className="text-[11px] font-bold text-slate-400 px-2.5 hidden sm:inline">
-            Ponto de Partida:
-          </span>
-          <button
-            type="button"
-            onClick={() => handleModeToggle('previous')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-              comparisonMode === 'previous'
-                ? 'bg-gradient-to-r from-cyan-500 to-teal-500 text-slate-950 shadow-md font-extrabold'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-            title="Ciclo Contínuo Kaizen: Compara com a última medição anterior (a medição anterior vira a referência da próxima)"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Última Medição Anterior</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleModeToggle('initial')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-              comparisonMode === 'initial'
-                ? 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white shadow-md font-extrabold'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-            title="Baseline Histórico: Compara com o ponto de partida original da fábrica"
-          >
-            <Clock className="w-3.5 h-3.5" />
-            <span>Baseline Inicial Histórico</span>
-          </button>
+        {/* Informative Note: Monthly calculation always uses last measurement */}
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-950/60 border border-slate-800 text-xs text-slate-400">
+          <span className="w-2 h-2 rounded-full bg-cyan-400 shrink-0" />
+          <span>Apuração mensal baseada na <strong>Última Medição Anterior</strong></span>
         </div>
 
       </div>
@@ -841,7 +792,7 @@ export default function IndicatorsPage() {
           </div>
 
           <span className="text-xs text-slate-400 hidden sm:inline">
-            Modo: <strong>{comparisonMode === 'previous' ? 'Última Medição Anterior' : 'Baseline Inicial Histórico'}</strong>
+            Ponto de Partida: <strong className="text-cyan-300">Última Medição Anterior (Kaizen)</strong>
           </span>
         </div>
 
