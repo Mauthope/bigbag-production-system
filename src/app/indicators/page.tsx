@@ -48,7 +48,7 @@ export default function IndicatorsPage() {
   const [isNewMonthModalOpen, setIsNewMonthModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'gain' | 'loss' | 'neutral'>('all');
+  const [statusFilter, setStatusFilter] = useState<'changed' | 'all' | 'gain' | 'loss' | 'neutral'>('changed');
   const [editingBaselineId, setEditingBaselineId] = useState<string | null>(null);
   const [tempBaselineValue, setTempBaselineValue] = useState<string>('');
   const [editingVolumeId, setEditingVolumeId] = useState<string | null>(null);
@@ -140,6 +140,7 @@ export default function IndicatorsPage() {
       const matchesCategory = selectedCategory === 'all' || op.category === selectedCategory;
       const matchesStatus =
         statusFilter === 'all' ||
+        (statusFilter === 'changed' && op.status !== 'neutral') ||
         (statusFilter === 'gain' && op.status === 'gain') ||
         (statusFilter === 'loss' && op.status === 'loss') ||
         (statusFilter === 'neutral' && op.status === 'neutral');
@@ -768,7 +769,8 @@ export default function IndicatorsPage() {
             onChange={e => setStatusFilter(e.target.value as any)}
             className="px-3 py-2 rounded-xl bg-slate-950/80 border border-slate-800 text-xs font-semibold text-slate-300 focus:outline-none focus:border-cyan-500 cursor-pointer"
           >
-            <option value="all">Todos os Status</option>
+            <option value="changed">Apenas c/ Mudança ({metrics.gainCount + metrics.lossCount})</option>
+            <option value="all">Todas as Operações ({operations.length})</option>
             <option value="gain">Apenas Ganhos de Tempo ({metrics.gainCount})</option>
             <option value="loss">Apenas Aumentos de Tempo ({metrics.lossCount})</option>
             <option value="neutral">Sem Alteração ({metrics.neutralCount})</option>
@@ -786,8 +788,12 @@ export default function IndicatorsPage() {
             <h3 className="text-sm font-bold text-white uppercase tracking-wider">
               Tabela de Medições & Retorno Financeiro
             </h3>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono">
-              {filteredOperations.length} operações exibidas
+            <span className={`text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border ${
+              statusFilter === 'changed'
+                ? 'bg-cyan-950/80 text-cyan-300 border-cyan-800'
+                : 'bg-slate-800 text-slate-300 border-slate-700'
+            }`}>
+              {filteredOperations.length} {statusFilter === 'changed' ? 'itens com mudança' : 'operações exibidas'}
             </span>
           </div>
 
@@ -816,7 +822,20 @@ export default function IndicatorsPage() {
               {filteredOperations.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="p-8 text-center text-slate-500">
-                    Nenhuma operação encontrada com os filtros selecionados.
+                    <p className="text-slate-400 font-medium">
+                      {statusFilter === 'changed'
+                        ? 'Nenhuma operação teve variação de tempo nesta medição.'
+                        : 'Nenhuma operação encontrada com os filtros selecionados.'}
+                    </p>
+                    {statusFilter === 'changed' && (
+                      <button
+                        type="button"
+                        onClick={() => setStatusFilter('all')}
+                        className="text-xs text-cyan-400 hover:text-cyan-300 underline font-semibold mt-2 inline-block cursor-pointer"
+                      >
+                        Exibir todas as operações da fábrica ({operations.length})
+                      </button>
+                    )}
                   </td>
                 </tr>
               ) : (
