@@ -10,7 +10,7 @@ interface NewMonthModalProps {
 }
 
 export const NewMonthModal: React.FC<NewMonthModalProps> = ({ isOpen, onClose }) => {
-  const { financialConfig, changeActiveMonth, saveMonthlyClosing } = useProduction();
+  const { financialConfig, startNewMonth } = useProduction();
 
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -42,14 +42,8 @@ export const NewMonthModal: React.FC<NewMonthModalProps> = ({ isOpen, onClose })
     const monthKey = `${selectedYear}-${formattedMonth}`;
     const monthLabel = `${months[selectedMonth - 1].label}/${selectedYear}`;
 
-    await changeActiveMonth(monthKey);
-    await saveMonthlyClosing(monthKey, {
-      monthKey,
-      monthLabel,
-      volume: initialVolume,
-      defaultHourlyRate: financialConfig?.defaultHourlyRate || 28.5,
-      isClosed: false
-    });
+    // Starts the new month with all baselines advanced and zero balance
+    await startNewMonth(monthKey, initialVolume, monthLabel);
 
     onClose();
   };
@@ -136,6 +130,13 @@ export const NewMonthModal: React.FC<NewMonthModalProps> = ({ isOpen, onClose })
             <span className="text-[10px] text-slate-500 mt-1 block">
               Como cada mês tem sua sazonalidade, esse volume será exclusivo deste período.
             </span>
+          </div>
+
+          <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-xs flex items-start gap-2">
+            <span className="text-base leading-none">🌱</span>
+            <p className="text-[11px] leading-relaxed text-slate-300">
+              <strong className="text-emerald-300">Balanço 100% Zerado:</strong> A última medição registrada de cada operação se tornará a nova referência inicial. Os ganhos e perdas começarão do zero e registrarão apenas as novas medições feitas neste mês.
+            </p>
           </div>
 
         </div>

@@ -23,7 +23,8 @@ import {
   ArrowDownRight,
   Lock,
   Unlock,
-  Plus
+  Plus,
+  RotateCcw
 } from 'lucide-react';
 import { SectorCostModal } from '@/components/SectorCostModal';
 import { NewMonthModal } from '@/components/NewMonthModal';
@@ -41,6 +42,7 @@ export default function IndicatorsPage() {
     updateOperationCustomVolume,
     updateOperationTime,
     changeActiveMonth,
+    resetCurrentMonthMeasurements,
     saveMonthlyClosing
   } = useProduction();
 
@@ -424,6 +426,18 @@ export default function IndicatorsPage() {
             {isMonthClosed ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
             <span>{isMonthClosed ? 'Reabrir Mês' : 'Consolidar / Fechar Mês'}</span>
           </button>
+
+          {!isMonthClosed && (
+            <button
+              type="button"
+              onClick={resetCurrentMonthMeasurements}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-950/80 hover:bg-slate-800 text-slate-400 hover:text-cyan-300 border border-slate-800 text-xs font-bold transition-all cursor-pointer shadow-sm"
+              title="Fixa os tempos atuais como ponto de partida para começar a medir do zero neste mês"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Zerar Medições do Mês</span>
+            </button>
+          )}
 
           <button
             type="button"

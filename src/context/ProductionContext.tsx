@@ -42,6 +42,8 @@ interface ProductionContextType {
   updateOperationBaseline: (id: string, initialTime?: number, previousTime?: number) => Promise<void>;
   updateOperationCustomVolume: (id: string, customVolume?: number) => Promise<void>;
   changeActiveMonth: (monthKey: string) => Promise<void>;
+  startNewMonth: (monthKey: string, volume: number, monthLabel?: string) => Promise<void>;
+  resetCurrentMonthMeasurements: () => Promise<void>;
   saveMonthlyClosing: (monthKey: string, summary: Partial<MonthlyClosingRecord>) => Promise<void>;
 
   // Operations Catalog
@@ -569,6 +571,73 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     showToast(`Mês de referência alterado para ${monthKey}!`, 'info');
   }, [showToast]);
 
+  const startNewMonth = useCallback(async (monthKey: string, volume: number, monthLabel?: string) => {
+    // 1. All operations advance: current measured time becomes the new baseline reference for the new month!
+    setOperations(prevOps => {
+      const updated = prevOps.map(op => ({
+        ...op,
+        previousTime: op.time // O tempo medido vira o ponto de partida (delta = 0, balanço zerado)
+      }));
+      if (localStorageService.saveOperations) {
+        localStorageService.saveOperations(updated);
+      }
+      return updated;
+    });
+
+    // 2. Initialize new month record with clean zero balance
+    setFinancialConfig(prev => {
+      const existingHistory = prev.monthlyHistory || {};
+      const [year, monthNum] = monthKey.split('-');
+      const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+      const defaultLabel = `${monthNames[parseInt(monthNum, 10) - 1] || monthNum}/${year}`;
+
+      const updated: FinancialImpactConfig = {
+        ...prev,
+        activeMonthKey: monthKey,
+        monthlyVolume: volume,
+        monthlyHistory: {
+          ...existingHistory,
+          [monthKey]: {
+            monthKey,
+            monthLabel: monthLabel || defaultLabel,
+            volume,
+            defaultHourlyRate: prev.defaultHourlyRate,
+            grossSavings: 0,
+            totalSavings: 0,
+            totalLosses: 0,
+            netSavings: 0,
+            hoursSaved: 0,
+            hoursLost: 0,
+            netHours: 0,
+            isClosed: false
+          }
+        }
+      };
+
+      if (localStorageService.saveFinancialConfig) {
+        localStorageService.saveFinancialConfig(updated);
+      }
+      return updated;
+    });
+
+    showToast(`Novo mês ${monthKey} iniciado com medições zeradas!`, 'success');
+  }, [showToast]);
+
+  const resetCurrentMonthMeasurements = useCallback(async () => {
+    // Resets current month baseline by aligning previousTime = op.time for all operations
+    setOperations(prevOps => {
+      const updated = prevOps.map(op => ({
+        ...op,
+        previousTime: op.time
+      }));
+      if (localStorageService.saveOperations) {
+        localStorageService.saveOperations(updated);
+      }
+      return updated;
+    });
+    showToast('Medições do mês atual reiniciadas! Balanço zerado para novo ciclo.', 'success');
+  }, [showToast]);
+
   const saveMonthlyClosing = useCallback(async (monthKey: string, summary: Partial<MonthlyClosingRecord>) => {
     setFinancialConfig(prev => {
       const existingHistory = prev.monthlyHistory || {};
@@ -634,6 +703,8 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         updateOperationBaseline,
         updateOperationCustomVolume,
         changeActiveMonth,
+        startNewMonth,
+        resetCurrentMonthMeasurements,
         saveMonthlyClosing,
         operations,
         isLoading,
