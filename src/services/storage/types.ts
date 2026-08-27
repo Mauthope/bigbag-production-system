@@ -1,4 +1,4 @@
-import { ComponentCategoryConfig, OperationItem, TimeStudy, CellProductionConfig } from '@/types/production';
+import { ComponentCategoryConfig, OperationItem, TimeStudy, CellProductionConfig, FinancialImpactConfig } from '@/types/production';
 
 export interface StorageData {
   categories?: ComponentCategoryConfig[];
@@ -6,6 +6,7 @@ export interface StorageData {
   timeStudies?: TimeStudy[];
   selectedCalculatorIds: string[];
   cellConfig?: CellProductionConfig;
+  financialConfig?: FinancialImpactConfig;
   lastUpdated: string;
   version: string;
 }
@@ -20,6 +21,10 @@ export interface IStorageService {
   // Cell & Headcount Config
   getCellConfig?(): Promise<CellProductionConfig>;
   saveCellConfig?(config: CellProductionConfig): Promise<void>;
+
+  // Financial Impact Config
+  getFinancialConfig?(): Promise<FinancialImpactConfig>;
+  saveFinancialConfig?(config: FinancialImpactConfig): Promise<void>;
 
   // Operations
   getOperations(): Promise<OperationItem[]>;

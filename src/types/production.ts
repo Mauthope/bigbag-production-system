@@ -12,12 +12,21 @@ export interface OperationTimeHistoryEntry {
 export interface OperationItem {
   id: string;
   name: string;
-  time: number; // in minutes (e.g. 2.50)
+  time: number; // in minutes (e.g. 2.50) - Nova Medição / Tempo Atual
+  previousTime?: number; // Tempo da medição anterior (ponto de partida do ciclo atual)
+  initialTime?: number; // Tempo original inicial histórico (baseline de fábrica)
   isDefault: boolean;
   category: ComponentCategoryKey;
   description?: string;
   history?: OperationTimeHistoryEntry[];
   updatedAt?: string;
+}
+
+export interface FinancialImpactConfig {
+  monthlyVolume: number;              // Quantidade do mês (ex: 20000 bags)
+  defaultHourlyRate: number;          // Custo hora-homem padrão (ex: 28.50 R$/h)
+  sectorHourlyRates: Record<string, number>; // Custo hora-homem específico por setor/categoria
+  comparisonBaselineMode?: 'previous' | 'initial'; // 'previous' = última medição anterior | 'initial' = baseline inicial
 }
 
 export interface ComponentCategoryConfig {

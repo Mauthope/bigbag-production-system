@@ -16,7 +16,8 @@ import {
   UserCheck,
   Sparkles,
   Layers,
-  Clock3
+  Clock3,
+  TrendingUp
 } from 'lucide-react';
 import { useProduction } from '@/context/ProductionContext';
 import { ExportImportModal } from './ExportImportModal';
@@ -38,6 +39,12 @@ export const Navbar: React.FC = () => {
       shortLabel: 'Parâmetros',
       href: '/settings',
       icon: <Sliders className="w-4 h-4" />
+    },
+    {
+      label: 'Ganhos & Impacto R$',
+      shortLabel: 'Ganhos R$',
+      href: '/indicators',
+      icon: <TrendingUp className="w-4 h-4" />
     }
   ];
 

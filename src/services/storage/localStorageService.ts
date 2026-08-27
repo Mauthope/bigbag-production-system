@@ -1,5 +1,5 @@
-import { DEFAULT_CATEGORIES, DEFAULT_OPERATIONS, DEFAULT_CELL_CONFIG } from '@/data/defaultData';
-import { ComponentCategoryConfig, OperationItem, TimeStudy, CellProductionConfig } from '@/types/production';
+import { DEFAULT_CATEGORIES, DEFAULT_OPERATIONS, DEFAULT_CELL_CONFIG, DEFAULT_FINANCIAL_CONFIG } from '@/data/defaultData';
+import { ComponentCategoryConfig, OperationItem, TimeStudy, CellProductionConfig, FinancialImpactConfig } from '@/types/production';
 import { IStorageService, StorageData } from './types';
 
 const STORAGE_KEYS = {
@@ -8,6 +8,7 @@ const STORAGE_KEYS = {
   TIME_STUDIES: 'bigbag_production_time_studies_v1',
   CALCULATOR_SELECTION: 'bigbag_calculator_selection_v1',
   CELL_CONFIG: 'bigbag_cell_config_v1',
+  FINANCIAL_CONFIG: 'bigbag_financial_config_v1',
   DATA_VERSION: '2.0.0'
 };
 
@@ -170,6 +171,27 @@ export class LocalStorageService implements IStorageService {
     localStorage.setItem(STORAGE_KEYS.CELL_CONFIG, JSON.stringify(config));
   }
 
+  // Financial Impact Config
+  async getFinancialConfig(): Promise<FinancialImpactConfig> {
+    if (!this.isClient()) return DEFAULT_FINANCIAL_CONFIG;
+    try {
+      const stored = localStorage.getItem(STORAGE_KEYS.FINANCIAL_CONFIG);
+      if (!stored) {
+        await this.saveFinancialConfig(DEFAULT_FINANCIAL_CONFIG);
+        return DEFAULT_FINANCIAL_CONFIG;
+      }
+      return { ...DEFAULT_FINANCIAL_CONFIG, ...JSON.parse(stored) };
+    } catch (e) {
+      console.error('Error reading financial config from localStorage:', e);
+      return DEFAULT_FINANCIAL_CONFIG;
+    }
+  }
+
+  async saveFinancialConfig(config: FinancialImpactConfig): Promise<void> {
+    if (!this.isClient()) return;
+    localStorage.setItem(STORAGE_KEYS.FINANCIAL_CONFIG, JSON.stringify(config));
+  }
+
   // Backup & Restore
   async exportAllData(): Promise<StorageData> {
     const categories = await this.getCategories();
@@ -177,6 +199,7 @@ export class LocalStorageService implements IStorageService {
     const timeStudies = await this.getTimeStudies();
     const selectedCalculatorIds = await this.getCalculatorSelection();
     const cellConfig = await this.getCellConfig();
+    const financialConfig = await this.getFinancialConfig();
 
     return {
       categories,
@@ -184,6 +207,7 @@ export class LocalStorageService implements IStorageService {
       timeStudies,
       selectedCalculatorIds,
       cellConfig,
+      financialConfig,
       lastUpdated: new Date().toISOString(),
       version: STORAGE_KEYS.DATA_VERSION
     };
@@ -205,6 +229,9 @@ export class LocalStorageService implements IStorageService {
     }
     if (data.cellConfig && typeof data.cellConfig === 'object') {
       await this.saveCellConfig(data.cellConfig);
+    }
+    if (data.financialConfig && typeof data.financialConfig === 'object') {
+      await this.saveFinancialConfig(data.financialConfig);
     }
   }
 

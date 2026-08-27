@@ -7,9 +7,10 @@ import {
   OperationItem,
   TimeStudy,
   OperationTimeHistoryEntry,
-  CellProductionConfig
+  CellProductionConfig,
+  FinancialImpactConfig
 } from '@/types/production';
-import { CATEGORIES_CONFIG, DEFAULT_CATEGORIES, DEFAULT_OPERATIONS, DEFAULT_CELL_CONFIG } from '@/data/defaultData';
+import { CATEGORIES_CONFIG, DEFAULT_CATEGORIES, DEFAULT_OPERATIONS, DEFAULT_CELL_CONFIG, DEFAULT_FINANCIAL_CONFIG } from '@/data/defaultData';
 import { localStorageService } from '@/services/storage/localStorageService';
 import { StorageData } from '@/services/storage/types';
 
@@ -28,10 +29,16 @@ interface ProductionContextType {
   deleteCategory: (key: string) => Promise<void>;
   resetCategoriesToDefault: () => Promise<void>;
 
-  // Cell & Headcount Config (Pessoas nas células One e Travado)
+  // Cell & Headcount Config (Pessoas nas células)
   cellConfig: CellProductionConfig;
   updateCellConfig: (updates: Partial<CellProductionConfig>) => Promise<void>;
   resetCellConfig: () => Promise<void>;
+
+  // Financial Impact Config & ROI Indicators
+  financialConfig: FinancialImpactConfig;
+  updateFinancialConfig: (updates: Partial<FinancialImpactConfig>) => Promise<void>;
+  resetFinancialConfig: () => Promise<void>;
+  updateOperationBaseline: (id: string, initialTime?: number, previousTime?: number) => Promise<void>;
 
   // Operations Catalog
   operations: OperationItem[];
@@ -79,6 +86,7 @@ const ProductionContext = createContext<ProductionContextType | undefined>(undef
 export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [categories, setCategories] = useState<ComponentCategoryConfig[]>(DEFAULT_CATEGORIES);
   const [cellConfig, setCellConfig] = useState<CellProductionConfig>(DEFAULT_CELL_CONFIG);
+  const [financialConfig, setFinancialConfig] = useState<FinancialImpactConfig>(DEFAULT_FINANCIAL_CONFIG);
   const [operations, setOperations] = useState<OperationItem[]>(DEFAULT_OPERATIONS);
   const [timeStudies, setTimeStudies] = useState<TimeStudy[]>([]);
   const [selectedOperationIds, setSelectedOperationIds] = useState<string[]>([]);
@@ -103,18 +111,20 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   useEffect(() => {
     async function init() {
       try {
-        const [loadedCats, loadedOps, loadedStudies, loadedSelection, loadedCell] = await Promise.all([
+        const [loadedCats, loadedOps, loadedStudies, loadedSelection, loadedCell, loadedFin] = await Promise.all([
           localStorageService.getCategories(),
           localStorageService.getOperations(),
           localStorageService.getTimeStudies(),
           localStorageService.getCalculatorSelection(),
-          localStorageService.getCellConfig ? localStorageService.getCellConfig() : Promise.resolve(DEFAULT_CELL_CONFIG)
+          localStorageService.getCellConfig ? localStorageService.getCellConfig() : Promise.resolve(DEFAULT_CELL_CONFIG),
+          localStorageService.getFinancialConfig ? localStorageService.getFinancialConfig() : Promise.resolve(DEFAULT_FINANCIAL_CONFIG)
         ]);
         setCategories(loadedCats);
         setOperations(loadedOps);
         setTimeStudies(loadedStudies);
         setSelectedOperationIds(loadedSelection);
         if (loadedCell) setCellConfig(loadedCell);
+        if (loadedFin) setFinancialConfig(loadedFin);
       } catch (err) {
         console.error('Error loading initial state:', err);
       } finally {
@@ -229,8 +239,12 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           source
         };
 
+        const initialBaseline = op.initialTime ?? (existingHistory[0]?.time ?? op.time);
+
         return {
           ...op,
+          previousTime: op.time, // A medição anterior torna-se o novo ponto de partida para a próxima comparação
+          initialTime: initialBaseline,
           time: Number(newTime),
           history: [...existingHistory, newEntry],
           updatedAt: new Date().toISOString()
@@ -242,6 +256,23 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setOperations(updated);
     await localStorageService.saveOperations(updated);
     showToast('Tempo padrão atualizado e marco histórico registrado!', 'success');
+  }, [operations, showToast]);
+
+  const updateOperationBaseline = useCallback(async (id: string, initialTime?: number, previousTime?: number) => {
+    const updated = operations.map(op => {
+      if (op.id === id) {
+        return {
+          ...op,
+          ...(initialTime !== undefined ? { initialTime: Number(initialTime) } : {}),
+          ...(previousTime !== undefined ? { previousTime: Number(previousTime) } : {}),
+          updatedAt: new Date().toISOString()
+        };
+      }
+      return op;
+    });
+    setOperations(updated);
+    await localStorageService.saveOperations(updated);
+    showToast('Ponto de partida atualizado com sucesso!', 'success');
   }, [operations, showToast]);
 
   const updateOperationHistory = useCallback(async (id: string, history: OperationTimeHistoryEntry[]) => {
@@ -445,6 +476,25 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     showToast('Pessoas na célula redefinidas para o padrão (8.5 One / 11.0 Travado).', 'info');
   }, [showToast]);
 
+  const updateFinancialConfig = useCallback(async (updates: Partial<FinancialImpactConfig>) => {
+    setFinancialConfig(prev => {
+      const updated = { ...prev, ...updates };
+      if (localStorageService.saveFinancialConfig) {
+        localStorageService.saveFinancialConfig(updated);
+      }
+      return updated;
+    });
+    showToast('Parâmetros de impacto financeiro atualizados!', 'success');
+  }, [showToast]);
+
+  const resetFinancialConfig = useCallback(async () => {
+    setFinancialConfig(DEFAULT_FINANCIAL_CONFIG);
+    if (localStorageService.saveFinancialConfig) {
+      await localStorageService.saveFinancialConfig(DEFAULT_FINANCIAL_CONFIG);
+    }
+    showToast('Parâmetros financeiros redefinidos para o padrão.', 'info');
+  }, [showToast]);
+
   return (
     <ProductionContext.Provider
       value={{
@@ -457,6 +507,10 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         cellConfig,
         updateCellConfig,
         resetCellConfig,
+        financialConfig,
+        updateFinancialConfig,
+        resetFinancialConfig,
+        updateOperationBaseline,
         operations,
         isLoading,
         updateOperationTime,

@@ -1,4 +1,4 @@
-import { ComponentCategoryConfig, ComponentCategoryKey, OperationItem, CellProductionConfig, CellModelDefinition } from '../types/production';
+import { ComponentCategoryConfig, ComponentCategoryKey, OperationItem, CellProductionConfig, CellModelDefinition, FinancialImpactConfig } from '../types/production';
 
 export const CELL_MODELS_DEFINITIONS: CellModelDefinition[] = [
   {
@@ -71,6 +71,13 @@ export const DEFAULT_CELL_CONFIG: CellProductionConfig = {
   peopleFertilizante: 8.5,
   peopleFertilizanteLiner: 8.5,
   shiftHours: 8.5
+};
+
+export const DEFAULT_FINANCIAL_CONFIG: FinancialImpactConfig = {
+  monthlyVolume: 20000,
+  defaultHourlyRate: 28.50,
+  sectorHourlyRates: {},
+  comparisonBaselineMode: 'previous'
 };
 
 export const DEFAULT_CATEGORIES: ComponentCategoryConfig[] = [
