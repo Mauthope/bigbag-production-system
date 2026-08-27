@@ -22,11 +22,30 @@ export interface OperationItem {
   updatedAt?: string;
 }
 
+export interface MonthlyClosingRecord {
+  monthKey: string; // "YYYY-MM", e.g. "2026-08"
+  monthLabel: string; // "Agosto/2026"
+  volume: number; // Volume real produzido no mês
+  defaultHourlyRate: number; // Custo hora-homem praticado
+  sectorHourlyRates?: Record<string, number>;
+  totalSavings: number; // Economia gerada (R$)
+  totalLosses: number; // Custos adicionais (R$)
+  netSavings: number; // Saldo líquido totalizador (R$)
+  hoursSaved: number; // Horas poupadas
+  hoursLost: number; // Horas perdidas
+  netHours: number; // Saldo líquido de horas
+  isClosed?: boolean; // Se o mês foi finalizado/congelado
+  closedAt?: string;
+  notes?: string;
+}
+
 export interface FinancialImpactConfig {
-  monthlyVolume: number;              // Quantidade do mês (ex: 20000 bags)
+  activeMonthKey: string;              // Mês ativo selecionado (ex: "2026-08")
+  monthlyVolume: number;              // Quantidade do mês ativo (ex: 20000 bags)
   defaultHourlyRate: number;          // Custo hora-homem padrão (ex: 28.50 R$/h)
   sectorHourlyRates: Record<string, number>; // Custo hora-homem específico por setor/categoria
   comparisonBaselineMode?: 'previous' | 'initial'; // 'previous' = última medição anterior | 'initial' = baseline inicial
+  monthlyHistory?: Record<string, MonthlyClosingRecord>; // Histórico por mês
 }
 
 export interface ComponentCategoryConfig {

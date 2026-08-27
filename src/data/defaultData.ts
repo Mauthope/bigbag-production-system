@@ -74,10 +74,54 @@ export const DEFAULT_CELL_CONFIG: CellProductionConfig = {
 };
 
 export const DEFAULT_FINANCIAL_CONFIG: FinancialImpactConfig = {
+  activeMonthKey: '2026-08',
   monthlyVolume: 20000,
   defaultHourlyRate: 28.50,
   sectorHourlyRates: {},
-  comparisonBaselineMode: 'previous'
+  comparisonBaselineMode: 'previous',
+  monthlyHistory: {
+    '2026-06': {
+      monthKey: '2026-06',
+      monthLabel: 'Junho/2026',
+      volume: 18500,
+      defaultHourlyRate: 28.50,
+      totalSavings: 8450.00,
+      totalLosses: 1200.00,
+      netSavings: 7250.00,
+      hoursSaved: 296.5,
+      hoursLost: 42.1,
+      netHours: 254.4,
+      isClosed: true,
+      closedAt: '2026-06-30'
+    },
+    '2026-07': {
+      monthKey: '2026-07',
+      monthLabel: 'Julho/2026',
+      volume: 22000,
+      defaultHourlyRate: 28.50,
+      totalSavings: 11200.00,
+      totalLosses: 850.00,
+      netSavings: 10350.00,
+      hoursSaved: 393.0,
+      hoursLost: 29.8,
+      netHours: 363.2,
+      isClosed: true,
+      closedAt: '2026-07-31'
+    },
+    '2026-08': {
+      monthKey: '2026-08',
+      monthLabel: 'Agosto/2026',
+      volume: 20000,
+      defaultHourlyRate: 28.50,
+      totalSavings: 0,
+      totalLosses: 0,
+      netSavings: 0,
+      hoursSaved: 0,
+      hoursLost: 0,
+      netHours: 0,
+      isClosed: false
+    }
+  }
 };
 
 export const DEFAULT_CATEGORIES: ComponentCategoryConfig[] = [

@@ -8,7 +8,8 @@ import {
   TimeStudy,
   OperationTimeHistoryEntry,
   CellProductionConfig,
-  FinancialImpactConfig
+  FinancialImpactConfig,
+  MonthlyClosingRecord
 } from '@/types/production';
 import { CATEGORIES_CONFIG, DEFAULT_CATEGORIES, DEFAULT_OPERATIONS, DEFAULT_CELL_CONFIG, DEFAULT_FINANCIAL_CONFIG } from '@/data/defaultData';
 import { localStorageService } from '@/services/storage/localStorageService';
@@ -39,6 +40,8 @@ interface ProductionContextType {
   updateFinancialConfig: (updates: Partial<FinancialImpactConfig>) => Promise<void>;
   resetFinancialConfig: () => Promise<void>;
   updateOperationBaseline: (id: string, initialTime?: number, previousTime?: number) => Promise<void>;
+  changeActiveMonth: (monthKey: string) => Promise<void>;
+  saveMonthlyClosing: (monthKey: string, summary: Partial<MonthlyClosingRecord>) => Promise<void>;
 
   // Operations Catalog
   operations: OperationItem[];
@@ -479,12 +482,108 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const updateFinancialConfig = useCallback(async (updates: Partial<FinancialImpactConfig>) => {
     setFinancialConfig(prev => {
       const updated = { ...prev, ...updates };
+      // If monthlyVolume changed, update the active month record as well
+      if (updates.monthlyVolume !== undefined && prev.activeMonthKey) {
+        const history = updated.monthlyHistory || {};
+        const activeMonth = history[prev.activeMonthKey];
+        if (activeMonth) {
+          updated.monthlyHistory = {
+            ...history,
+            [prev.activeMonthKey]: {
+              ...activeMonth,
+              volume: updates.monthlyVolume
+            }
+          };
+        }
+      }
       if (localStorageService.saveFinancialConfig) {
         localStorageService.saveFinancialConfig(updated);
       }
       return updated;
     });
     showToast('Parâmetros de impacto financeiro atualizados!', 'success');
+  }, [showToast]);
+
+  const changeActiveMonth = useCallback(async (monthKey: string) => {
+    setFinancialConfig(prev => {
+      const existingHistory = prev.monthlyHistory || {};
+      const targetMonth = existingHistory[monthKey];
+      
+      const newVolume = targetMonth ? targetMonth.volume : prev.monthlyVolume;
+      const updated: FinancialImpactConfig = {
+        ...prev,
+        activeMonthKey: monthKey,
+        monthlyVolume: newVolume
+      };
+
+      if (!targetMonth) {
+        const [year, monthNum] = monthKey.split('-');
+        const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+        const monthLabel = `${monthNames[parseInt(monthNum, 10) - 1] || monthNum}/${year}`;
+
+        updated.monthlyHistory = {
+          ...existingHistory,
+          [monthKey]: {
+            monthKey,
+            monthLabel,
+            volume: newVolume,
+            defaultHourlyRate: prev.defaultHourlyRate,
+            totalSavings: 0,
+            totalLosses: 0,
+            netSavings: 0,
+            hoursSaved: 0,
+            hoursLost: 0,
+            netHours: 0,
+            isClosed: false
+          }
+        };
+      }
+
+      if (localStorageService.saveFinancialConfig) {
+        localStorageService.saveFinancialConfig(updated);
+      }
+      return updated;
+    });
+    showToast(`Mês de referência alterado para ${monthKey}!`, 'info');
+  }, [showToast]);
+
+  const saveMonthlyClosing = useCallback(async (monthKey: string, summary: Partial<MonthlyClosingRecord>) => {
+    setFinancialConfig(prev => {
+      const existingHistory = prev.monthlyHistory || {};
+      const currentRec = existingHistory[monthKey];
+      const [year, monthNum] = monthKey.split('-');
+      const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+      const defaultLabel = `${monthNames[parseInt(monthNum, 10) - 1] || monthNum}/${year}`;
+
+      const updatedRecord: MonthlyClosingRecord = {
+        monthKey,
+        monthLabel: currentRec?.monthLabel || defaultLabel,
+        volume: summary.volume !== undefined ? summary.volume : (currentRec?.volume || prev.monthlyVolume),
+        defaultHourlyRate: summary.defaultHourlyRate !== undefined ? summary.defaultHourlyRate : (currentRec?.defaultHourlyRate || prev.defaultHourlyRate),
+        totalSavings: summary.totalSavings !== undefined ? summary.totalSavings : (currentRec?.totalSavings || 0),
+        totalLosses: summary.totalLosses !== undefined ? summary.totalLosses : (currentRec?.totalLosses || 0),
+        netSavings: summary.netSavings !== undefined ? summary.netSavings : (currentRec?.netSavings || 0),
+        hoursSaved: summary.hoursSaved !== undefined ? summary.hoursSaved : (currentRec?.hoursSaved || 0),
+        hoursLost: summary.hoursLost !== undefined ? summary.hoursLost : (currentRec?.hoursLost || 0),
+        netHours: summary.netHours !== undefined ? summary.netHours : (currentRec?.netHours || 0),
+        isClosed: summary.isClosed !== undefined ? summary.isClosed : (currentRec?.isClosed || false),
+        closedAt: summary.isClosed ? new Date().toISOString().split('T')[0] : currentRec?.closedAt
+      };
+
+      const updated: FinancialImpactConfig = {
+        ...prev,
+        monthlyHistory: {
+          ...existingHistory,
+          [monthKey]: updatedRecord
+        }
+      };
+
+      if (localStorageService.saveFinancialConfig) {
+        localStorageService.saveFinancialConfig(updated);
+      }
+      return updated;
+    });
+    showToast(`Mês ${monthKey} consolidado e salvo com sucesso!`, 'success');
   }, [showToast]);
 
   const resetFinancialConfig = useCallback(async () => {
@@ -511,6 +610,8 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         updateFinancialConfig,
         resetFinancialConfig,
         updateOperationBaseline,
+        changeActiveMonth,
+        saveMonthlyClosing,
         operations,
         isLoading,
         updateOperationTime,

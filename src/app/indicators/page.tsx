@@ -21,9 +21,13 @@ import {
   Calendar,
   Layers,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  Lock,
+  Unlock,
+  Plus
 } from 'lucide-react';
 import { SectorCostModal } from '@/components/SectorCostModal';
+import { NewMonthModal } from '@/components/NewMonthModal';
 import { MonthlyVarianceChart } from '@/components/MonthlyVarianceChart';
 import { ComponentCategoryKey } from '@/types/production';
 
@@ -34,17 +38,25 @@ export default function IndicatorsPage() {
     financialConfig,
     updateFinancialConfig,
     updateOperationBaseline,
-    updateOperationTime
+    updateOperationTime,
+    changeActiveMonth,
+    saveMonthlyClosing
   } = useProduction();
 
   const [isSectorCostModalOpen, setIsSectorCostModalOpen] = useState(false);
+  const [isNewMonthModalOpen, setIsNewMonthModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'gain' | 'loss' | 'neutral'>('all');
   const [editingBaselineId, setEditingBaselineId] = useState<string | null>(null);
   const [tempBaselineValue, setTempBaselineValue] = useState<string>('');
 
-  const monthlyVolume = financialConfig?.monthlyVolume ?? 20000;
+  const activeMonthKey = financialConfig?.activeMonthKey || '2026-08';
+  const monthlyHistory = financialConfig?.monthlyHistory || {};
+  const activeMonthRecord = monthlyHistory[activeMonthKey];
+  const isMonthClosed = activeMonthRecord?.isClosed ?? false;
+
+  const monthlyVolume = activeMonthRecord?.volume ?? (financialConfig?.monthlyVolume ?? 20000);
   const defaultHourlyRate = financialConfig?.defaultHourlyRate ?? 28.5;
   const sectorHourlyRates = financialConfig?.sectorHourlyRates ?? {};
   const comparisonMode = financialConfig?.comparisonBaselineMode ?? 'previous';
@@ -229,6 +241,29 @@ export default function IndicatorsPage() {
     await updateOperationBaseline(opId, undefined, currentTime);
   };
 
+  const handleToggleCloseMonth = async () => {
+    await saveMonthlyClosing(activeMonthKey, {
+      volume: monthlyVolume,
+      defaultHourlyRate: defaultHourlyRate,
+      totalSavings: metrics.totalMonthlySavings > 0 ? metrics.totalMonthlySavings : 0,
+      totalLosses: metrics.totalMonthlySavings < 0 ? Math.abs(metrics.totalMonthlySavings) : 0,
+      netSavings: metrics.totalMonthlySavings,
+      hoursSaved: metrics.totalMonthlyHoursSaved > 0 ? metrics.totalMonthlyHoursSaved : 0,
+      hoursLost: metrics.totalMonthlyHoursSaved < 0 ? Math.abs(metrics.totalMonthlyHoursSaved) : 0,
+      netHours: metrics.totalMonthlyHoursSaved,
+      isClosed: !isMonthClosed
+    });
+  };
+
+  // Available months list
+  const availableMonths = useMemo(() => {
+    const keys = Object.keys(monthlyHistory);
+    if (!keys.includes(activeMonthKey)) {
+      keys.push(activeMonthKey);
+    }
+    return keys.sort();
+  }, [monthlyHistory, activeMonthKey]);
+
   return (
     <div className="space-y-6 animate-in fade-in pb-16">
       
@@ -261,6 +296,75 @@ export default function IndicatorsPage() {
         </div>
       </div>
 
+      {/* Month Selector & Monthly Closing Bar */}
+      <div className="p-4 rounded-2xl bg-gradient-to-r from-slate-900/95 via-slate-900/80 to-slate-950/90 border border-cyan-500/25 shadow-lg flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+        
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-cyan-400" />
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
+              Mês de Referência:
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <select
+              value={activeMonthKey}
+              onChange={e => changeActiveMonth(e.target.value)}
+              className="px-3.5 py-1.5 rounded-xl bg-slate-950 border border-slate-700 text-xs font-bold text-cyan-300 focus:outline-none focus:border-cyan-500 cursor-pointer shadow-inner font-mono"
+            >
+              {availableMonths.map(key => {
+                const rec = monthlyHistory[key];
+                const label = rec?.monthLabel || key;
+                const closedTag = rec?.isClosed ? ' [Fechado]' : ' [Em Aberto]';
+                return (
+                  <option key={key} value={key}>
+                    {label} {closedTag}
+                  </option>
+                );
+              })}
+            </select>
+
+            <span className={`text-[10px] px-2.5 py-1 rounded-full font-bold font-mono border flex items-center gap-1 ${
+              isMonthClosed
+                ? 'bg-cyan-950/80 text-cyan-300 border-cyan-800/80'
+                : 'bg-emerald-950/80 text-emerald-300 border-emerald-800/80'
+            }`}>
+              {isMonthClosed ? <Lock className="w-3 h-3 text-cyan-400" /> : <Unlock className="w-3 h-3 text-emerald-400" />}
+              <span>{isMonthClosed ? 'Mês Consolidado / Fechado' : 'Mês Ativo em Aberto'}</span>
+            </span>
+          </div>
+        </div>
+
+        {/* Month Actions (New Month + Close/Reopen Month) */}
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={handleToggleCloseMonth}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm ${
+              isMonthClosed
+                ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-emerald-950/40'
+            }`}
+            title={isMonthClosed ? 'Reabrir mês para novas alterações' : 'Consolidar e congelar o resultado deste mês'}
+          >
+            {isMonthClosed ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+            <span>{isMonthClosed ? 'Reabrir Mês' : 'Consolidar / Fechar Mês'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsNewMonthModalOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-cyan-300 hover:text-cyan-200 border border-cyan-500/30 hover:border-cyan-500/50 text-xs font-bold transition-all cursor-pointer shadow-sm"
+            title="Iniciar um novo mês com nova quantidade prevista de bags"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>+ Iniciar Novo Mês</span>
+          </button>
+        </div>
+
+      </div>
+
       {/* Simulation Inputs Bar */}
       <div className="p-4 sm:p-5 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-lg flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
         
@@ -271,7 +375,7 @@ export default function IndicatorsPage() {
             <Boxes className="w-4 h-4 text-cyan-400 shrink-0" />
             <div>
               <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
-                Volume do Mês
+                Volume de {activeMonthRecord?.monthLabel || activeMonthKey}
               </span>
               <div className="flex items-center gap-1">
                 <input
@@ -507,6 +611,8 @@ export default function IndicatorsPage() {
         operations={enrichedOperations}
         categories={categories}
         monthlyVolume={monthlyVolume}
+        monthlyHistory={monthlyHistory}
+        activeMonthKey={activeMonthKey}
       />
 
       {/* Sector Breakdown Visualization (Rank de Economia por Setor) */}
@@ -826,6 +932,12 @@ export default function IndicatorsPage() {
       <SectorCostModal
         isOpen={isSectorCostModalOpen}
         onClose={() => setIsSectorCostModalOpen(false)}
+      />
+
+      {/* New Month Creation / Activation Modal */}
+      <NewMonthModal
+        isOpen={isNewMonthModalOpen}
+        onClose={() => setIsNewMonthModalOpen(false)}
       />
 
     </div>

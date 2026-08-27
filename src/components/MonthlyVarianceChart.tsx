@@ -25,7 +25,7 @@ import {
   HelpCircle,
   Filter
 } from 'lucide-react';
-import { ComponentCategoryConfig } from '@/types/production';
+import { ComponentCategoryConfig, MonthlyClosingRecord } from '@/types/production';
 
 export interface EnrichedOperationItem {
   id: string;
@@ -48,6 +48,8 @@ interface MonthlyVarianceChartProps {
   operations: EnrichedOperationItem[];
   categories: ComponentCategoryConfig[];
   monthlyVolume: number;
+  monthlyHistory?: Record<string, MonthlyClosingRecord>;
+  activeMonthKey?: string;
 }
 
 type ChartMetric = 'financial' | 'hours' | 'seconds';
@@ -56,7 +58,9 @@ type ViewMode = 'operations' | 'monthly_summary';
 export const MonthlyVarianceChart: React.FC<MonthlyVarianceChartProps> = ({
   operations,
   categories,
-  monthlyVolume
+  monthlyVolume,
+  monthlyHistory,
+  activeMonthKey
 }) => {
   const [isMounted, setIsMounted] = useState(false);
   const [metric, setMetric] = useState<ChartMetric>('financial');
@@ -180,41 +184,57 @@ export const MonthlyVarianceChart: React.FC<MonthlyVarianceChartProps> = ({
     return items;
   }, [filteredOps, metric, aggregates, categoryMap]);
 
-  // Prepare data for "Monthly Summary" View (Simulated/Historical months)
+  // Prepare data for "Monthly Summary" View (Real Historical/Closed Months)
   const monthlySummaryData = useMemo(() => {
-    const months = [
-      { name: 'Mês Anterior (-60d)', factor: 0.6 },
-      { name: 'Mês Passado (-30d)', factor: 0.85 },
-      { name: 'Mês Atual (Vigente)', factor: 1.0 }
-    ];
+    if (monthlyHistory && Object.keys(monthlyHistory).length > 0) {
+      const sortedKeys = Object.keys(monthlyHistory).sort();
+      return sortedKeys.map(key => {
+        const rec = monthlyHistory[key];
+        const isCurrent = key === activeMonthKey;
 
-    return months.map(m => {
-      let gains = 0;
-      let losses = 0;
-      let net = 0;
+        let gains = rec.totalSavings;
+        let losses = rec.totalLosses;
+        let net = rec.netSavings;
 
-      if (metric === 'financial') {
-        gains = aggregates.gainVal * m.factor;
-        losses = aggregates.lossVal * m.factor;
-        net = gains - losses;
-      } else if (metric === 'hours') {
-        gains = aggregates.gainHours * m.factor;
-        losses = aggregates.lossHours * m.factor;
-        net = gains - losses;
-      } else {
-        gains = aggregates.gainSecs * m.factor;
-        losses = aggregates.lossSecs * m.factor;
-        net = gains - losses;
+        // For the currently active month, reflect the live calculated aggregates!
+        if (isCurrent) {
+          gains = aggregates.gainVal;
+          losses = aggregates.lossVal;
+          net = aggregates.totalNet;
+        }
+
+        if (metric === 'hours') {
+          gains = isCurrent ? aggregates.gainHours : rec.hoursSaved;
+          losses = isCurrent ? aggregates.lossHours : rec.hoursLost;
+          net = isCurrent ? aggregates.totalHours : rec.netHours;
+        } else if (metric === 'seconds') {
+          const vol = (isCurrent ? monthlyVolume : rec.volume) || 1;
+          gains = isCurrent ? aggregates.gainSecs : ((rec.hoursSaved * 3600) / vol);
+          losses = isCurrent ? aggregates.lossSecs : ((rec.hoursLost * 3600) / vol);
+          net = gains - losses;
+        }
+
+        return {
+          month: rec.monthLabel || key,
+          Ganhos: Number(gains.toFixed(1)),
+          Aumentos: Number(losses.toFixed(1)),
+          Totalizador: Number(net.toFixed(1)),
+          volume: isCurrent ? monthlyVolume : rec.volume
+        };
+      });
+    }
+
+    // Fallback if no history exists yet
+    return [
+      {
+        month: 'Mês Atual',
+        Ganhos: Number(aggregates.gainVal.toFixed(1)),
+        Aumentos: Number(aggregates.lossVal.toFixed(1)),
+        Totalizador: Number(aggregates.totalNet.toFixed(1)),
+        volume: monthlyVolume
       }
-
-      return {
-        month: m.name,
-        Ganhos: Number(gains.toFixed(1)),
-        Aumentos: Number(losses.toFixed(1)),
-        Totalizador: Number(net.toFixed(1))
-      };
-    });
-  }, [aggregates, metric]);
+    ];
+  }, [monthlyHistory, activeMonthKey, aggregates, metric, monthlyVolume]);
 
   const formatYAxis = (val: number) => {
     if (metric === 'financial') {
