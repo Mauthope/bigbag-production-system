@@ -116,22 +116,24 @@ export const MonthlyVarianceChart: React.FC<MonthlyVarianceChartProps> = ({
       }
     });
 
-    const grossNet = gainVal - lossVal;
-    const errorDeduction = grossNet * (errorMarginPercent / 100);
-    totalNet = grossNet - errorDeduction;
+    // Business rule: Gains are computed exclusively from time reductions
+    // Increases represent Kaizen improvement alerts and are NOT subtracted from gains
+    const grossGains = gainVal;
+    const errorDeduction = grossGains * (errorMarginPercent / 100);
+    totalNet = grossGains - errorDeduction;
 
-    const grossHours = gainHours - lossHours;
+    const grossHours = gainHours;
     const errorHoursDeduction = grossHours * (errorMarginPercent / 100);
     totalHours = grossHours - errorHoursDeduction;
 
-    const grossSecs = gainSecs - lossSecs;
+    const grossSecs = gainSecs;
     const errorSecsDeduction = grossSecs * (errorMarginPercent / 100);
     totalSecs = grossSecs - errorSecsDeduction;
 
     return {
       gainVal,
       lossVal,
-      grossNet,
+      grossNet: grossGains,
       errorDeduction,
       errorMarginPercent,
       totalNet,
@@ -186,12 +188,12 @@ export const MonthlyVarianceChart: React.FC<MonthlyVarianceChartProps> = ({
 
     items.push({
       id: 'totalizer',
-      name: 'TOTALIZADOR LÍQUIDO',
-      fullName: 'Resultado Líquido do Mês (Ganhos - Aumentos)',
+      name: 'GANHOS CONSOLIDADOS',
+      fullName: 'Ganhos Consolidados do Mês (Diminuições de Tempo c/ -5% de margem)',
       category: 'Geral',
-      categoryColor: '#06b6d4',
+      categoryColor: '#10b981',
       value: Number(totalValue.toFixed(2)),
-      type: totalValue >= 0 ? 'gain' : 'loss',
+      type: 'gain',
       rawOp: null as any,
       isTotalizer: true
     });
@@ -387,30 +389,26 @@ export const MonthlyVarianceChart: React.FC<MonthlyVarianceChartProps> = ({
       {/* Summary KPI Pills of the Chart */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         
-        {/* Totalizador Líquido */}
-        <div className={`p-3 rounded-xl border flex items-center justify-between ${
-          aggregates.totalNet >= 0
-            ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-400'
-            : 'bg-rose-950/30 border-rose-500/30 text-rose-400'
-        }`}>
+        {/* Ganhos Consolidados */}
+        <div className="p-3 rounded-xl border flex items-center justify-between bg-emerald-950/30 border-emerald-500/30 text-emerald-400">
           <div>
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] uppercase font-bold tracking-wider block opacity-80">
-                💎 Totalizador Líquido
+                💎 Ganhos Consolidados do Mês
               </span>
               <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-900 border border-slate-700 text-slate-300 font-mono">
                 -{aggregates.errorMarginPercent}% erro
               </span>
             </div>
             <span className="text-lg font-black font-mono">
-              {aggregates.totalNet >= 0 ? '+' : '-'} R$ {Math.abs(aggregates.totalNet).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              + R$ {aggregates.totalNet.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
             <span className="text-[10px] text-slate-400 block mt-0.5">
-              Bruto: R$ {Math.abs(aggregates.grossNet).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              Ganhos Brutos: R$ {aggregates.gainVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </span>
           </div>
           <span className="text-xs font-mono font-bold px-2 py-1 rounded-lg bg-slate-950/60 border border-slate-800">
-            {aggregates.totalHours >= 0 ? '+' : ''}{aggregates.totalHours.toFixed(1).replace('.', ',')} h/mês
+            +{aggregates.totalHours.toFixed(1).replace('.', ',')} h/mês
           </span>
         </div>
 
@@ -430,19 +428,22 @@ export const MonthlyVarianceChart: React.FC<MonthlyVarianceChartProps> = ({
           </span>
         </div>
 
-        {/* Aumentos (Desvios) */}
+        {/* Aumentos (Oportunidades de Melhoria Kaizen) */}
         <div className="p-3 rounded-xl bg-slate-950/60 border border-rose-500/20 text-rose-300 flex items-center justify-between">
           <div>
             <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-rose-400" />
-              Total Aumentos de Tempo
+              Aumentos de Tempo (Alerta Kaizen)
             </span>
             <span className="text-lg font-black font-mono text-rose-400">
-              - R$ {aggregates.lossVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              ~ R$ {aggregates.lossVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+            <span className="text-[9px] text-slate-400 block mt-0.5">
+              ⚠️ Oportunidade Kaizen (não deduz dos ganhos)
             </span>
           </div>
           <span className="text-xs font-mono text-rose-400/80">
-            -{aggregates.lossHours.toFixed(1).replace('.', ',')} h
+            +{aggregates.lossHours.toFixed(1).replace('.', ',')} h
           </span>
         </div>
 
@@ -601,9 +602,9 @@ export const MonthlyVarianceChart: React.FC<MonthlyVarianceChartProps> = ({
                 }}
               />
               <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
-              <Bar dataKey="Ganhos" fill="#10b981" radius={[4, 4, 0, 0]} name="Diminuições (Ganhos)" />
-              <Bar dataKey="Aumentos" fill="#f43f5e" radius={[4, 4, 0, 0]} name="Aumentos (Desvios)" />
-              <Bar dataKey="Totalizador" fill="#06b6d4" radius={[4, 4, 0, 0]} name="Totalizador Líquido" />
+              <Bar dataKey="Ganhos" fill="#10b981" radius={[4, 4, 0, 0]} name="Diminuições (Ganhos de Tempo)" />
+              <Bar dataKey="Aumentos" fill="#f43f5e" radius={[4, 4, 0, 0]} name="Aumentos (Alerta Kaizen)" />
+              <Bar dataKey="Totalizador" fill="#06b6d4" radius={[4, 4, 0, 0]} name="Ganhos Consolidados (-5% margem)" />
             </BarChart>
           </ResponsiveContainer>
         )}
@@ -614,15 +615,15 @@ export const MonthlyVarianceChart: React.FC<MonthlyVarianceChartProps> = ({
         <div className="flex items-center gap-4 flex-wrap">
           <span className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded bg-emerald-500" />
-            <span>Diminuição no Tempo (Ganho / Economia)</span>
+            <span>Diminuição no Tempo (Ganho Financeiro Registrado)</span>
           </span>
           <span className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded bg-rose-500" />
-            <span>Aumento no Tempo (Custo Adicional)</span>
+            <span>Aumento no Tempo (Alerta Kaizen / Não deduzido do ganho)</span>
           </span>
           <span className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded bg-cyan-400 border border-cyan-300" />
-            <span>Totalizador (Saldo Líquido)</span>
+            <span>Ganhos Consolidados (Ganhos c/ -5% margem)</span>
           </span>
         </div>
 

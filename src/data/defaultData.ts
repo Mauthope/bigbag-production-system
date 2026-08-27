@@ -105,10 +105,10 @@ export const DEFAULT_FINANCIAL_CONFIG: FinancialImpactConfig = {
       grossSavings: 3100.00,
       totalSavings: 3100.00,
       totalLosses: 700.00,
-      netSavings: 2280.00, // c/ 5% dedução
+      netSavings: 2945.00, // Ganhos c/ 5% dedução técnica
       hoursSaved: 108.8,
       hoursLost: 24.5,
-      netHours: 80.0,
+      netHours: 103.4,
       isClosed: true,
       closedAt: '2026-02-28'
     },
@@ -120,10 +120,10 @@ export const DEFAULT_FINANCIAL_CONFIG: FinancialImpactConfig = {
       grossSavings: 5400.00,
       totalSavings: 5400.00,
       totalLosses: 1100.00,
-      netSavings: 4085.00, // c/ 5% dedução
+      netSavings: 5130.00, // Ganhos c/ 5% dedução técnica
       hoursSaved: 189.5,
       hoursLost: 38.6,
-      netHours: 143.3,
+      netHours: 180.0,
       isClosed: true,
       closedAt: '2026-03-31'
     },
@@ -135,13 +135,13 @@ export const DEFAULT_FINANCIAL_CONFIG: FinancialImpactConfig = {
       grossSavings: 1800.00,
       totalSavings: 1800.00,
       totalLosses: 2900.00,
-      netSavings: -1155.00, // Mês com aumento de tempo (perda na curva de aprendizado)
+      netSavings: 1710.00, // Ganhos preservados; perdas são alerta Kaizen de melhoria
       hoursSaved: 63.2,
       hoursLost: 101.7,
-      netHours: -38.5,
+      netHours: 60.0,
       isClosed: true,
       closedAt: '2026-04-30',
-      notes: 'Entrada de novos operadores na célula (curva de aprendizado)'
+      notes: 'Entrada de novos operadores na célula (alerta Kaizen: necessita padronização)'
     },
     '2026-05': {
       monthKey: '2026-05',
@@ -151,10 +151,10 @@ export const DEFAULT_FINANCIAL_CONFIG: FinancialImpactConfig = {
       grossSavings: 7800.00,
       totalSavings: 7800.00,
       totalLosses: 950.00,
-      netSavings: 6507.50,
+      netSavings: 7410.00,
       hoursSaved: 273.7,
       hoursLost: 33.3,
-      netHours: 228.3,
+      netHours: 260.0,
       isClosed: true,
       closedAt: '2026-05-31'
     },
@@ -166,10 +166,10 @@ export const DEFAULT_FINANCIAL_CONFIG: FinancialImpactConfig = {
       grossSavings: 8450.00,
       totalSavings: 8450.00,
       totalLosses: 1200.00,
-      netSavings: 6887.50,
+      netSavings: 8027.50,
       hoursSaved: 296.5,
       hoursLost: 42.1,
-      netHours: 241.7,
+      netHours: 281.7,
       isClosed: true,
       closedAt: '2026-06-30'
     },
@@ -181,10 +181,10 @@ export const DEFAULT_FINANCIAL_CONFIG: FinancialImpactConfig = {
       grossSavings: 11200.00,
       totalSavings: 11200.00,
       totalLosses: 850.00,
-      netSavings: 9832.50,
+      netSavings: 10640.00,
       hoursSaved: 393.0,
       hoursLost: 29.8,
-      netHours: 345.0,
+      netHours: 373.4,
       isClosed: true,
       closedAt: '2026-07-31'
     },

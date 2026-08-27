@@ -151,23 +151,37 @@ export default function IndicatorsPage() {
 
   // Aggregate KPI Metrics
   const metrics = useMemo(() => {
-    let totalMonthlySavings = 0;
-    let totalMonthlyHoursSaved = 0;
+    let grossMonthlyGains = 0;
+    let grossHoursGained = 0;
     let totalTimeSavedPerBag = 0;
+
+    let grossLossesAmount = 0;
+    let grossLossesHours = 0;
+    let totalTimeLostPerBag = 0;
+
     let gainCount = 0;
     let lossCount = 0;
     let neutralCount = 0;
 
-    const sectorBreakdown: Record<string, { name: string; color: string; savings: number; hours: number; count: number }> = {};
+    const sectorBreakdown: Record<string, { name: string; color: string; savings: number; hours: number; count: number; lossAmount: number; lossHours: number }> = {};
 
     enrichedOperations.forEach(op => {
-      totalMonthlySavings += op.monthlyFinancialImpact;
-      totalMonthlyHoursSaved += op.monthlyHoursImpacted;
-      totalTimeSavedPerBag += op.timeSavedMinutes;
-
-      if (op.status === 'gain') gainCount++;
-      else if (op.status === 'loss') lossCount++;
-      else neutralCount++;
+      if (op.status === 'gain') {
+        gainCount++;
+        grossMonthlyGains += op.monthlyFinancialImpact;
+        grossHoursGained += op.monthlyHoursImpacted;
+        totalTimeSavedPerBag += op.timeSavedMinutes;
+      } else if (op.status === 'loss') {
+        lossCount++;
+        // Notice: op.monthlyFinancialImpact is negative for loss, so take absolute for Kaizen tracking
+        const lossVal = Math.abs(op.monthlyFinancialImpact);
+        const lossH = Math.abs(op.monthlyHoursImpacted);
+        grossLossesAmount += lossVal;
+        grossLossesHours += lossH;
+        totalTimeLostPerBag += Math.abs(op.deltaMinutes);
+      } else {
+        neutralCount++;
+      }
 
       // Sector aggregation
       if (!sectorBreakdown[op.category]) {
@@ -177,21 +191,29 @@ export default function IndicatorsPage() {
           color: cat?.colorHex || '#06b6d4',
           savings: 0,
           hours: 0,
-          count: 0
+          count: 0,
+          lossAmount: 0,
+          lossHours: 0
         };
       }
-      sectorBreakdown[op.category].savings += op.monthlyFinancialImpact;
-      sectorBreakdown[op.category].hours += op.monthlyHoursImpacted;
-      if (op.status !== 'neutral') sectorBreakdown[op.category].count++;
+      if (op.status === 'gain') {
+        sectorBreakdown[op.category].savings += op.monthlyFinancialImpact;
+        sectorBreakdown[op.category].hours += op.monthlyHoursImpacted;
+        sectorBreakdown[op.category].count++;
+      } else if (op.status === 'loss') {
+        sectorBreakdown[op.category].lossAmount += Math.abs(op.monthlyFinancialImpact);
+        sectorBreakdown[op.category].lossHours += Math.abs(op.monthlyHoursImpacted);
+        sectorBreakdown[op.category].count++;
+      }
     });
 
-    // 5% Error margin / Industrial dispersion deduction applied to final outcome
-    const grossMonthlySavings = totalMonthlySavings;
+    // 5% Error margin / Industrial dispersion deduction applied ONLY to gains
+    const grossMonthlySavings = grossMonthlyGains;
     const errorMarginAmount = grossMonthlySavings * (errorMarginPercent / 100);
     const finalMonthlySavings = grossMonthlySavings - errorMarginAmount;
     const finalAnnualProjectedSavings = finalMonthlySavings * 12;
 
-    const grossHoursSaved = totalMonthlyHoursSaved;
+    const grossHoursSaved = grossHoursGained;
     const errorHoursAmount = grossHoursSaved * (errorMarginPercent / 100);
     const finalMonthlyHoursSaved = grossHoursSaved - errorHoursAmount;
 
@@ -199,18 +221,21 @@ export default function IndicatorsPage() {
     const equivalentOperatorsFreed = finalMonthlyHoursSaved / (22 * 8.5);
 
     const sortedSectors = Object.values(sectorBreakdown)
-      .filter(s => s.savings !== 0 || s.hours !== 0)
+      .filter(s => s.savings !== 0 || s.hours !== 0 || s.lossAmount !== 0)
       .sort((a, b) => b.savings - a.savings);
 
     return {
       grossMonthlySavings,
       errorMarginPercent,
       errorMarginAmount,
-      totalMonthlySavings: finalMonthlySavings, // Resultado final com dedução de 5% de margem de erro
+      totalMonthlySavings: finalMonthlySavings, // Apenas ganhos c/ dedução de 5% de margem técnica
       annualProjectedSavings: finalAnnualProjectedSavings,
       grossHoursSaved,
       totalMonthlyHoursSaved: finalMonthlyHoursSaved,
       totalTimeSavedPerBag,
+      totalTimeLostPerBag,
+      grossLossesAmount, // Rastreador de desvios para Kaizen (não subtraído dos ganhos)
+      grossLossesHours,
       gainCount,
       lossCount,
       neutralCount,
@@ -497,50 +522,42 @@ export default function IndicatorsPage() {
       {/* 4 Summary KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         
-        {/* KPI 1: Impacto Financeiro Líquido Mensal */}
+        {/* KPI 1: Ganhos Financeiros do Mês (ROI Real) */}
         <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl relative overflow-hidden flex flex-col justify-between">
           <div className="flex items-center justify-between gap-2">
             <div>
               <span className="text-xs uppercase font-bold tracking-wider text-slate-400 block">
-                Resultado Financeiro Final
+                Ganhos Financeiros do Mês
               </span>
               <span className="text-[10px] text-amber-400 font-semibold">
-                (Ajustado c/ -{metrics.errorMarginPercent}% margem de erro)
+                (Ajustado c/ -{metrics.errorMarginPercent}% margem de erro técnica)
               </span>
             </div>
-            <div className={`p-2 rounded-xl border ${
-              metrics.totalMonthlySavings >= 0
-                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
-            }`}>
-              {metrics.totalMonthlySavings >= 0 ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
+            <div className="p-2 rounded-xl border bg-emerald-500/10 border-emerald-500/20 text-emerald-400">
+              <ArrowUpRight className="w-5 h-5" />
             </div>
           </div>
 
           <div className="mt-3">
             <div className="flex items-baseline gap-1">
               <span className="text-xs font-bold text-slate-400">R$</span>
-              <span className={`text-2xl sm:text-3xl font-black font-mono tracking-tight ${
-                metrics.totalMonthlySavings >= 0 ? 'text-emerald-400' : 'text-rose-400'
-              }`}>
-                {Math.abs(metrics.totalMonthlySavings).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-emerald-400">
+                {metrics.totalMonthlySavings.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
               <span className="text-xs font-bold text-slate-400">/mês</span>
             </div>
             <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 mt-1.5 pt-1 border-t border-slate-800/60">
-              <span>Bruto: R$ {Math.abs(metrics.grossMonthlySavings).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+              <span>Ganhos Brutos: R$ {metrics.grossMonthlySavings.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
               <span className="text-amber-400 font-semibold">
-                -{metrics.errorMarginPercent}%: -R$ {Math.abs(metrics.errorMarginAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                -{metrics.errorMarginPercent}%: -R$ {metrics.errorMarginAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </span>
             </div>
           </div>
 
           <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
             <span className="text-slate-400">Projeção Anual:</span>
-            <span className={`font-mono font-bold ${
-              metrics.annualProjectedSavings >= 0 ? 'text-emerald-400' : 'text-rose-400'
-            }`}>
-              R$ {Math.abs(metrics.annualProjectedSavings).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / ano
+            <span className="font-mono font-bold text-emerald-400">
+              R$ {metrics.annualProjectedSavings.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / ano
             </span>
           </div>
         </div>
@@ -563,15 +580,13 @@ export default function IndicatorsPage() {
 
           <div className="mt-3">
             <div className="flex items-baseline gap-1">
-              <span className={`text-2xl sm:text-3xl font-black font-mono tracking-tight ${
-                metrics.totalMonthlyHoursSaved >= 0 ? 'text-cyan-400' : 'text-amber-400'
-              }`}>
-                {Math.abs(metrics.totalMonthlyHoursSaved).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+              <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-cyan-400">
+                {metrics.totalMonthlyHoursSaved.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
               </span>
               <span className="text-xs font-bold text-cyan-300">horas / mês</span>
             </div>
             <span className="text-[10px] text-slate-400 font-mono block mt-1">
-              Bruto: {Math.abs(metrics.grossHoursSaved).toFixed(1).replace('.', ',')} h | {metrics.totalMonthlyHoursSaved >= 0 ? 'Horas liberadas' : 'Horas extras'}
+              Ganhos Brutos: {metrics.grossHoursSaved.toFixed(1).replace('.', ',')} h poupadas
             </span>
           </div>
 
@@ -587,7 +602,7 @@ export default function IndicatorsPage() {
         <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl flex flex-col justify-between">
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs uppercase font-bold tracking-wider text-slate-400">
-              Ganho Médio por Bag
+              Ganho de Tempo por Bag
             </span>
             <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
               <Boxes className="w-5 h-5" />
@@ -596,17 +611,13 @@ export default function IndicatorsPage() {
 
           <div className="mt-3">
             <div className="flex items-baseline gap-1">
-              <span className={`text-2xl sm:text-3xl font-black font-mono tracking-tight ${
-                metrics.totalTimeSavedPerBag >= 0 ? 'text-amber-300' : 'text-rose-400'
-              }`}>
-                {Math.abs(metrics.totalTimeSavedPerBag).toFixed(2).replace('.', ',')}
+              <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-amber-300">
+                {metrics.totalTimeSavedPerBag.toFixed(2).replace('.', ',')}
               </span>
               <span className="text-xs font-bold text-amber-400">min / bag</span>
             </div>
             <span className="text-[11px] font-semibold text-slate-400 block mt-1">
-              {metrics.totalTimeSavedPerBag >= 0
-                ? `Redução de ~${Math.round(metrics.totalTimeSavedPerBag * 60)} segundos no ciclo total`
-                : `Acréscimo de ~${Math.round(Math.abs(metrics.totalTimeSavedPerBag) * 60)} segundos`}
+              Redução de ~{Math.round(metrics.totalTimeSavedPerBag * 60)} segundos no ciclo dos itens com ganho
             </span>
           </div>
 
@@ -618,44 +629,61 @@ export default function IndicatorsPage() {
           </div>
         </div>
 
-        {/* KPI 4: Balanço de Operações Kaizen */}
+        {/* KPI 4: Oportunidades Kaizen (Aumentos de Tempo) */}
         <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl flex flex-col justify-between">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-xs uppercase font-bold tracking-wider text-slate-400">
-              Diagnóstico Kaizen
-            </span>
-            <div className="p-2 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400">
-              <Sparkles className="w-5 h-5" />
+            <div>
+              <span className="text-xs uppercase font-bold tracking-wider text-slate-400 block">
+                Oportunidades Kaizen
+              </span>
+              <span className="text-[10px] text-slate-400 font-semibold">
+                (Aumentos de Tempo Identificados)
+              </span>
+            </div>
+            <div className={`p-2 rounded-xl border ${
+              metrics.lossCount > 0
+                ? 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+                : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+            }`}>
+              {metrics.lossCount > 0 ? <AlertTriangle className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
             </div>
           </div>
 
-          <div className="mt-2 space-y-1 text-xs">
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1.5 text-emerald-400 font-medium">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                Ganhos de Tempo:
-              </span>
-              <span className="font-bold font-mono text-emerald-300">{metrics.gainCount} itens</span>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1.5 text-rose-400 font-medium">
-                <AlertTriangle className="w-3.5 h-3.5" />
-                Aumento de Tempo:
-              </span>
-              <span className="font-bold font-mono text-rose-300">{metrics.lossCount} itens</span>
-            </div>
-
-            <div className="flex items-center justify-between text-slate-400">
-              <span>Sem Alteração:</span>
-              <span className="font-bold font-mono">{metrics.neutralCount} itens</span>
-            </div>
+          <div className="mt-3">
+            {metrics.lossCount > 0 ? (
+              <>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-rose-400">
+                    {metrics.lossCount}
+                  </span>
+                  <span className="text-xs font-bold text-rose-300">operações c/ aumento</span>
+                </div>
+                <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 mt-1.5 pt-1 border-t border-slate-800/60">
+                  <span>Desvio: +{metrics.grossLossesHours.toFixed(1).replace('.', ',')} h</span>
+                  <span className="text-rose-400 font-semibold">
+                    ~ R$ {metrics.grossLossesAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-emerald-400">
+                    0
+                  </span>
+                  <span className="text-xs font-bold text-emerald-300">desvios registrados</span>
+                </div>
+                <span className="text-[11px] text-slate-400 block mt-1">
+                  100% dos processos mantidos ou melhorados
+                </span>
+              </>
+            )}
           </div>
 
           <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
-            <span className="text-slate-400">Total Analisado:</span>
-            <span className="text-purple-300 font-mono font-bold">
-              {operations.length} operações
+            <span className="text-slate-400">Status Kaizen:</span>
+            <span className="text-[10px] text-slate-400 italic">
+              Não deduzido dos ganhos
             </span>
           </div>
         </div>
@@ -949,7 +977,7 @@ export default function IndicatorsPage() {
                               +{(op.deltaMinutes * 60).toFixed(0)}s (+{op.percentChange.toFixed(1).replace('.', ',')}%)
                             </span>
                             <span className="text-[9px] text-rose-400 font-bold mt-0.5">
-                              Perda de Tempo (Aumentou)
+                              Aumento (Necessita Kaizen)
                             </span>
                           </div>
                         ) : (
@@ -1040,12 +1068,29 @@ export default function IndicatorsPage() {
 
                       {/* Monthly Financial Impact */}
                       <td className="p-3.5 text-right font-mono">
-                        <span className={`font-black text-xs ${
-                          op.monthlyFinancialImpact > 0 ? 'text-emerald-400' : op.monthlyFinancialImpact < 0 ? 'text-rose-400' : 'text-slate-500'
-                        }`}>
-                          {op.monthlyFinancialImpact > 0 ? '+ ' : op.monthlyFinancialImpact < 0 ? '- ' : ''}
-                          R$ {Math.abs(op.monthlyFinancialImpact).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
+                        {op.status === 'gain' ? (
+                          <div>
+                            <span className="font-black text-xs text-emerald-400">
+                              + R$ {op.monthlyFinancialImpact.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                            <span className="text-[9px] text-emerald-500 font-semibold block">
+                              Ganho no Indicador
+                            </span>
+                          </div>
+                        ) : op.status === 'loss' ? (
+                          <div>
+                            <span className="font-bold text-xs text-rose-400">
+                              ~ R$ {Math.abs(op.monthlyFinancialImpact).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                            <span className="text-[9px] text-slate-400 font-medium block">
+                              Alerta Kaizen (não deduz)
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-500 text-xs">
+                            R$ 0,00
+                          </span>
+                        )}
                       </td>
 
                       {/* Annual Financial Impact */}
