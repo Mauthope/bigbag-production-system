@@ -29,6 +29,7 @@ import {
 import { SectorCostModal } from '@/components/SectorCostModal';
 import { NewMonthModal } from '@/components/NewMonthModal';
 import { MonthlyVarianceChart } from '@/components/MonthlyVarianceChart';
+import { FinancialEvolutionChart } from '@/components/FinancialEvolutionChart';
 import { ComponentCategoryKey } from '@/types/production';
 
 export default function IndicatorsPage() {
@@ -229,6 +230,20 @@ export default function IndicatorsPage() {
       sortedSectors
     };
   }, [enrichedOperations, categoryMap, errorMarginPercent]);
+
+  // Overall cycle time calculations for continuous timeline
+  const { totalActiveCycleTime, totalBaselineCycleTime } = useMemo(() => {
+    let activeTotal = 0;
+    let baselineTotal = 0;
+    enrichedOperations.forEach(op => {
+      activeTotal += op.currentTime;
+      baselineTotal += op.initialTime !== undefined ? op.initialTime : op.baselineTime;
+    });
+    return {
+      totalActiveCycleTime: activeTotal,
+      totalBaselineCycleTime: baselineTotal
+    };
+  }, [enrichedOperations]);
 
   // Handlers for parameters
   const handleVolumeChange = (val: string) => {
@@ -695,7 +710,18 @@ export default function IndicatorsPage() {
 
       </div>
 
-      {/* Monthly Variance Chart (Aumentos, Diminuições & Totalizador) */}
+      {/* 1. Continuous Financial Evolution Chart (Estilo Índice Financeiro / Dólar) */}
+      <FinancialEvolutionChart
+        monthlyHistory={monthlyHistory}
+        activeMonthKey={activeMonthKey}
+        currentMonthNetSavings={metrics.totalMonthlySavings}
+        currentMonthHoursSaved={metrics.totalMonthlyHoursSaved}
+        totalCycleTimeMinutes={totalActiveCycleTime}
+        baselineCycleTimeMinutes={totalBaselineCycleTime}
+        errorMarginPercent={errorMarginPercent}
+      />
+
+      {/* 2. Monthly Performance Breakdown Chart (Comprovação Mês a Mês a partir da Última Medição) */}
       <MonthlyVarianceChart
         operations={enrichedOperations}
         categories={categories}

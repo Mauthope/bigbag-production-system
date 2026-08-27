@@ -67,7 +67,7 @@ export const MonthlyVarianceChart: React.FC<MonthlyVarianceChartProps> = ({
   const [isMounted, setIsMounted] = useState(false);
   const [metric, setMetric] = useState<ChartMetric>('financial');
   const [selectedSector, setSelectedSector] = useState<string>('all');
-  const [viewMode, setViewMode] = useState<ViewMode>('operations');
+  const [viewMode, setViewMode] = useState<ViewMode>('monthly_summary');
   const [showOnlyChanged, setShowOnlyChanged] = useState<boolean>(true);
 
   useEffect(() => {
@@ -281,10 +281,13 @@ export const MonthlyVarianceChart: React.FC<MonthlyVarianceChartProps> = ({
             </div>
             <div>
               <h2 className="text-base sm:text-lg font-bold text-white tracking-tight flex items-center gap-2">
-                Gráfico Mensal: Aumentos, Diminuições & Totalizador
+                Comprovação de Ganhos & Perdas Mês a Mês
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-950 border border-cyan-800 text-cyan-300 font-mono font-bold">
+                  Baseado na Última Medição
+                </span>
               </h2>
               <p className="text-xs text-slate-400">
-                Visualização do balanço mensal de melhorias de processo e retorno financeiro
+                Comparativo mensal mostrando meses com ganhos (verde), aumentos de tempo (vermelho) e o saldo líquido
               </p>
             </div>
           </div>
@@ -293,31 +296,31 @@ export const MonthlyVarianceChart: React.FC<MonthlyVarianceChartProps> = ({
         {/* Filter Controls Row */}
         <div className="flex flex-wrap items-center gap-2.5">
           
-          {/* View Mode Toggle: Operations vs Monthly */}
+          {/* View Mode Toggle: Monthly Summary vs Operations */}
           <div className="flex items-center p-1 rounded-xl bg-slate-950/90 border border-slate-800">
-            <button
-              type="button"
-              onClick={() => setViewMode('operations')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                viewMode === 'operations'
-                  ? 'bg-slate-800 text-cyan-300 shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="Exibir aumentos e diminuições de cada operação e o totalizador final"
-            >
-              Variações + Totalizador
-            </button>
             <button
               type="button"
               onClick={() => setViewMode('monthly_summary')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 viewMode === 'monthly_summary'
-                  ? 'bg-slate-800 text-cyan-300 shadow-sm'
+                  ? 'bg-slate-800 text-cyan-300 shadow-sm font-black'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
-              title="Exibir comparativo consolidado mês a mês"
+              title="Exibir comparativo consolidado mês a mês (Ganhos vs Perdas de cada período)"
             >
-              Evolução Mensal
+              Mês a Mês (Histórico)
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('operations')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                viewMode === 'operations'
+                  ? 'bg-slate-800 text-cyan-300 shadow-sm font-black'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Exibir aumentos e diminuições detalhados de cada operação no mês selecionado"
+            >
+              Detalhamento de Operações
             </button>
           </div>
 
