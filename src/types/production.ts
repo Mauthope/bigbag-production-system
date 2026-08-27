@@ -15,6 +15,7 @@ export interface OperationItem {
   time: number; // in minutes (e.g. 2.50) - Nova Medição / Tempo Atual
   previousTime?: number; // Tempo da medição anterior (ponto de partida do ciclo atual)
   initialTime?: number; // Tempo original inicial histórico (baseline de fábrica)
+  customVolume?: number; // Quantidade específica no mês onde essa operação se aplica (se não definida, usa o volume total do mês)
   isDefault: boolean;
   category: ComponentCategoryKey;
   description?: string;
@@ -28,9 +29,11 @@ export interface MonthlyClosingRecord {
   volume: number; // Volume real produzido no mês
   defaultHourlyRate: number; // Custo hora-homem praticado
   sectorHourlyRates?: Record<string, number>;
+  errorMarginPercent?: number; // Percentual de margem de erro / dispersão técnica (padrão: 5%)
+  grossSavings?: number; // Resultado bruto antes da margem de erro
   totalSavings: number; // Economia gerada (R$)
-  totalLosses: number; // Custos adicionais (R$)
-  netSavings: number; // Saldo líquido totalizador (R$)
+  totalLosses: number; // Custos adicionais / Perdas (R$)
+  netSavings: number; // Saldo líquido totalizador com desconto de erro (R$)
   hoursSaved: number; // Horas poupadas
   hoursLost: number; // Horas perdidas
   netHours: number; // Saldo líquido de horas
@@ -45,6 +48,7 @@ export interface FinancialImpactConfig {
   defaultHourlyRate: number;          // Custo hora-homem padrão (ex: 28.50 R$/h)
   sectorHourlyRates: Record<string, number>; // Custo hora-homem específico por setor/categoria
   comparisonBaselineMode?: 'previous' | 'initial'; // 'previous' = última medição anterior | 'initial' = baseline inicial
+  errorMarginPercent?: number;        // Percentual de erro no resultado final (padrão: 5%)
   monthlyHistory?: Record<string, MonthlyClosingRecord>; // Histórico por mês
 }
 

@@ -79,6 +79,7 @@ export const DEFAULT_FINANCIAL_CONFIG: FinancialImpactConfig = {
   defaultHourlyRate: 28.50,
   sectorHourlyRates: {},
   comparisonBaselineMode: 'previous',
+  errorMarginPercent: 5,
   monthlyHistory: {
     '2026-06': {
       monthKey: '2026-06',

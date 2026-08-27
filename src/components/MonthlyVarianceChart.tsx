@@ -50,6 +50,7 @@ interface MonthlyVarianceChartProps {
   monthlyVolume: number;
   monthlyHistory?: Record<string, MonthlyClosingRecord>;
   activeMonthKey?: string;
+  errorMarginPercent?: number;
 }
 
 type ChartMetric = 'financial' | 'hours' | 'seconds';
@@ -60,7 +61,8 @@ export const MonthlyVarianceChart: React.FC<MonthlyVarianceChartProps> = ({
   categories,
   monthlyVolume,
   monthlyHistory,
-  activeMonthKey
+  activeMonthKey,
+  errorMarginPercent = 5
 }) => {
   const [isMounted, setIsMounted] = useState(false);
   const [metric, setMetric] = useState<ChartMetric>('financial');
@@ -114,22 +116,35 @@ export const MonthlyVarianceChart: React.FC<MonthlyVarianceChartProps> = ({
       }
     });
 
-    totalNet = gainVal - lossVal;
-    totalHours = gainHours - lossHours;
-    totalSecs = gainSecs - lossSecs;
+    const grossNet = gainVal - lossVal;
+    const errorDeduction = grossNet * (errorMarginPercent / 100);
+    totalNet = grossNet - errorDeduction;
+
+    const grossHours = gainHours - lossHours;
+    const errorHoursDeduction = grossHours * (errorMarginPercent / 100);
+    totalHours = grossHours - errorHoursDeduction;
+
+    const grossSecs = gainSecs - lossSecs;
+    const errorSecsDeduction = grossSecs * (errorMarginPercent / 100);
+    totalSecs = grossSecs - errorSecsDeduction;
 
     return {
       gainVal,
       lossVal,
+      grossNet,
+      errorDeduction,
+      errorMarginPercent,
       totalNet,
       gainHours,
       lossHours,
+      grossHours,
       totalHours,
       gainSecs,
       lossSecs,
+      grossSecs,
       totalSecs
     };
-  }, [filteredOps]);
+  }, [filteredOps, errorMarginPercent]);
 
   // Prepare data for "Operations Detail + Totalizer" View
   const operationsChartData = useMemo(() => {
@@ -376,11 +391,19 @@ export const MonthlyVarianceChart: React.FC<MonthlyVarianceChartProps> = ({
             : 'bg-rose-950/30 border-rose-500/30 text-rose-400'
         }`}>
           <div>
-            <span className="text-[10px] uppercase font-bold tracking-wider block opacity-80">
-              💎 Totalizador Líquido do Mês
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] uppercase font-bold tracking-wider block opacity-80">
+                💎 Totalizador Líquido
+              </span>
+              <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-900 border border-slate-700 text-slate-300 font-mono">
+                -{aggregates.errorMarginPercent}% erro
+              </span>
+            </div>
             <span className="text-lg font-black font-mono">
               {aggregates.totalNet >= 0 ? '+' : '-'} R$ {Math.abs(aggregates.totalNet).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+            <span className="text-[10px] text-slate-400 block mt-0.5">
+              Bruto: R$ {Math.abs(aggregates.grossNet).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </span>
           </div>
           <span className="text-xs font-mono font-bold px-2 py-1 rounded-lg bg-slate-950/60 border border-slate-800">
@@ -483,7 +506,19 @@ export const MonthlyVarianceChart: React.FC<MonthlyVarianceChartProps> = ({
                           {isTotal ? (
                             <>
                               <div className="flex items-center justify-between text-slate-300">
-                                <span>Total Líquido:</span>
+                                <span>Resultado Bruto:</span>
+                                <span className={aggregates.grossNet >= 0 ? 'text-emerald-300' : 'text-rose-300'}>
+                                  {aggregates.grossNet >= 0 ? '+' : '-'} R$ {Math.abs(aggregates.grossNet).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between text-slate-400 text-[11px]">
+                                <span>Margem Erro ({aggregates.errorMarginPercent}%):</span>
+                                <span className="text-amber-400">
+                                  -{aggregates.errorMarginPercent}% (-R$ {Math.abs(aggregates.errorDeduction).toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between text-slate-200 border-t border-slate-800 pt-1">
+                                <span className="font-bold">Total Final:</span>
                                 <strong className={aggregates.totalNet >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
                                   {aggregates.totalNet >= 0 ? '+' : '-'} R$ {Math.abs(aggregates.totalNet).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                 </strong>

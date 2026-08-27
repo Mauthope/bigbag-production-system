@@ -40,6 +40,7 @@ interface ProductionContextType {
   updateFinancialConfig: (updates: Partial<FinancialImpactConfig>) => Promise<void>;
   resetFinancialConfig: () => Promise<void>;
   updateOperationBaseline: (id: string, initialTime?: number, previousTime?: number) => Promise<void>;
+  updateOperationCustomVolume: (id: string, customVolume?: number) => Promise<void>;
   changeActiveMonth: (monthKey: string) => Promise<void>;
   saveMonthlyClosing: (monthKey: string, summary: Partial<MonthlyClosingRecord>) => Promise<void>;
 
@@ -276,6 +277,27 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setOperations(updated);
     await localStorageService.saveOperations(updated);
     showToast('Ponto de partida atualizado com sucesso!', 'success');
+  }, [operations, showToast]);
+
+  const updateOperationCustomVolume = useCallback(async (id: string, customVolume?: number) => {
+    const updated = operations.map(op => {
+      if (op.id === id) {
+        return {
+          ...op,
+          customVolume: customVolume !== undefined && customVolume > 0 ? Number(customVolume) : undefined,
+          updatedAt: new Date().toISOString()
+        };
+      }
+      return op;
+    });
+    setOperations(updated);
+    await localStorageService.saveOperations(updated);
+    showToast(
+      customVolume !== undefined && customVolume > 0
+        ? `Volume específico de ${customVolume.toLocaleString('pt-BR')} bags definido para a operação!`
+        : 'Volume da operação restaurado para o volume total do mês.',
+      'info'
+    );
   }, [operations, showToast]);
 
   const updateOperationHistory = useCallback(async (id: string, history: OperationTimeHistoryEntry[]) => {
@@ -610,6 +632,7 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         updateFinancialConfig,
         resetFinancialConfig,
         updateOperationBaseline,
+        updateOperationCustomVolume,
         changeActiveMonth,
         saveMonthlyClosing,
         operations,

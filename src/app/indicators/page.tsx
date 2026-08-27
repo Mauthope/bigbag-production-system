@@ -38,6 +38,7 @@ export default function IndicatorsPage() {
     financialConfig,
     updateFinancialConfig,
     updateOperationBaseline,
+    updateOperationCustomVolume,
     updateOperationTime,
     changeActiveMonth,
     saveMonthlyClosing
@@ -50,6 +51,8 @@ export default function IndicatorsPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'gain' | 'loss' | 'neutral'>('all');
   const [editingBaselineId, setEditingBaselineId] = useState<string | null>(null);
   const [tempBaselineValue, setTempBaselineValue] = useState<string>('');
+  const [editingVolumeId, setEditingVolumeId] = useState<string | null>(null);
+  const [tempVolumeValue, setTempVolumeValue] = useState<string>('');
 
   const activeMonthKey = financialConfig?.activeMonthKey || '2026-08';
   const monthlyHistory = financialConfig?.monthlyHistory || {};
@@ -60,6 +63,7 @@ export default function IndicatorsPage() {
   const defaultHourlyRate = financialConfig?.defaultHourlyRate ?? 28.5;
   const sectorHourlyRates = financialConfig?.sectorHourlyRates ?? {};
   const comparisonMode = financialConfig?.comparisonBaselineMode ?? 'previous';
+  const errorMarginPercent = financialConfig?.errorMarginPercent ?? 5;
 
   // Category Lookup Map
   const categoryMap = useMemo(() => {
@@ -94,7 +98,7 @@ export default function IndicatorsPage() {
       }
 
       const currentTime = op.time;
-      const deltaMinutes = currentTime - baselineTime; // Positive = took longer, Negative = saved time
+      const deltaMinutes = currentTime - baselineTime; // Positive = took longer (Perda), Negative = saved time (Ganho)
       const timeSavedMinutes = baselineTime - currentTime; // Positive = economy, Negative = added time
       const percentChange = baselineTime > 0 ? ((currentTime - baselineTime) / baselineTime) * 100 : 0;
 
@@ -103,11 +107,19 @@ export default function IndicatorsPage() {
         ? sectorHourlyRates[op.category]
         : defaultHourlyRate;
 
+      // Volume specifically applied to this operation (or default monthly volume)
+      const effectiveVolume = op.customVolume !== undefined && op.customVolume > 0
+        ? op.customVolume
+        : monthlyVolume;
+      const isCustomVolume = op.customVolume !== undefined && op.customVolume > 0;
+
       // Hours Saved / Impacted in the Month
-      const monthlyHoursImpacted = (timeSavedMinutes * monthlyVolume) / 60;
+      // If time decreased (delta < 0), positive hours saved (Ganho)
+      // If time increased (delta > 0), negative hours lost (Perda)
+      const monthlyHoursImpacted = (timeSavedMinutes * effectiveVolume) / 60;
 
       // Monthly & Annual Financial Impact in R$
-      // Positive = Financial Savings (Economia), Negative = Added Cost (Custo Adicional)
+      // Positive = Financial Savings (Ganho de Economia), Negative = Added Cost (Perda / Custo Adicional)
       const monthlyFinancialImpact = monthlyHoursImpacted * hourlyRate;
       const annualFinancialImpact = monthlyFinancialImpact * 12;
 
@@ -117,6 +129,8 @@ export default function IndicatorsPage() {
 
       return {
         ...op,
+        effectiveVolume,
+        isCustomVolume,
         baselineTime,
         currentTime,
         deltaMinutes,
@@ -182,18 +196,31 @@ export default function IndicatorsPage() {
       if (op.status !== 'neutral') sectorBreakdown[op.category].count++;
     });
 
-    const annualProjectedSavings = totalMonthlySavings * 12;
+    // 5% Error margin / Industrial dispersion deduction applied to final outcome
+    const grossMonthlySavings = totalMonthlySavings;
+    const errorMarginAmount = grossMonthlySavings * (errorMarginPercent / 100);
+    const finalMonthlySavings = grossMonthlySavings - errorMarginAmount;
+    const finalAnnualProjectedSavings = finalMonthlySavings * 12;
+
+    const grossHoursSaved = totalMonthlyHoursSaved;
+    const errorHoursAmount = grossHoursSaved * (errorMarginPercent / 100);
+    const finalMonthlyHoursSaved = grossHoursSaved - errorHoursAmount;
+
     // Equivalent full-time operators freed up (assuming 176h/month = 22 days * 8h)
-    const equivalentOperatorsFreed = totalMonthlyHoursSaved / (22 * 8.5);
+    const equivalentOperatorsFreed = finalMonthlyHoursSaved / (22 * 8.5);
 
     const sortedSectors = Object.values(sectorBreakdown)
       .filter(s => s.savings !== 0 || s.hours !== 0)
       .sort((a, b) => b.savings - a.savings);
 
     return {
-      totalMonthlySavings,
-      annualProjectedSavings,
-      totalMonthlyHoursSaved,
+      grossMonthlySavings,
+      errorMarginPercent,
+      errorMarginAmount,
+      totalMonthlySavings: finalMonthlySavings, // Resultado final com dedução de 5% de margem de erro
+      annualProjectedSavings: finalAnnualProjectedSavings,
+      grossHoursSaved,
+      totalMonthlyHoursSaved: finalMonthlyHoursSaved,
       totalTimeSavedPerBag,
       gainCount,
       lossCount,
@@ -201,7 +228,7 @@ export default function IndicatorsPage() {
       equivalentOperatorsFreed,
       sortedSectors
     };
-  }, [enrichedOperations, categoryMap]);
+  }, [enrichedOperations, categoryMap, errorMarginPercent]);
 
   // Handlers for parameters
   const handleVolumeChange = (val: string) => {
@@ -214,6 +241,11 @@ export default function IndicatorsPage() {
     updateFinancialConfig({ defaultHourlyRate: isNaN(num) || num < 0 ? 0 : num });
   };
 
+  const handleErrorMarginChange = (val: string) => {
+    const num = parseFloat(val.replace(',', '.'));
+    updateFinancialConfig({ errorMarginPercent: isNaN(num) || num < 0 ? 0 : num });
+  };
+
   const handleModeToggle = (mode: 'previous' | 'initial') => {
     updateFinancialConfig({ comparisonBaselineMode: mode });
   };
@@ -222,6 +254,27 @@ export default function IndicatorsPage() {
   const startEditingBaseline = (opId: string, currentBaseline: number) => {
     setEditingBaselineId(opId);
     setTempBaselineValue(currentBaseline.toFixed(2));
+  };
+
+  // Inline specific volume edit handlers
+  const startEditingVolume = (opId: string, currentVol: number) => {
+    setEditingVolumeId(opId);
+    setTempVolumeValue(currentVol.toString());
+  };
+
+  const saveEditedVolume = async (opId: string) => {
+    const num = parseInt(tempVolumeValue, 10);
+    if (!isNaN(num) && num > 0) {
+      await updateOperationCustomVolume(opId, num);
+    } else {
+      await updateOperationCustomVolume(opId, undefined);
+    }
+    setEditingVolumeId(null);
+  };
+
+  const resetVolumeToTotal = async (opId: string) => {
+    await updateOperationCustomVolume(opId, undefined);
+    setEditingVolumeId(null);
   };
 
   const saveEditedBaseline = async (opId: string) => {
@@ -413,6 +466,29 @@ export default function IndicatorsPage() {
             </div>
           </div>
 
+          {/* Input 3: Margem de Erro Técnica (%) */}
+          <div className="flex items-center gap-2.5 bg-slate-950/70 px-3.5 py-2 rounded-xl border border-slate-800">
+            <span className="text-amber-400 font-bold text-xs">±%</span>
+            <div>
+              <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider flex items-center gap-1">
+                Margem de Erro
+                <span className="text-[9px] text-amber-400/80 font-mono">(5%)</span>
+              </span>
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  min="0"
+                  max="50"
+                  step="0.5"
+                  value={errorMarginPercent}
+                  onChange={e => handleErrorMarginChange(e.target.value)}
+                  className="w-14 bg-transparent text-sm font-bold text-amber-300 focus:outline-none font-mono"
+                />
+                <span className="text-xs text-slate-400 font-semibold">% dedução</span>
+              </div>
+            </div>
+          </div>
+
         </div>
 
         {/* Comparison Baseline Mode Selector */}
@@ -457,9 +533,14 @@ export default function IndicatorsPage() {
         {/* KPI 1: Impacto Financeiro Líquido Mensal */}
         <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl relative overflow-hidden flex flex-col justify-between">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-xs uppercase font-bold tracking-wider text-slate-400">
-              Impacto Financeiro Mensal
-            </span>
+            <div>
+              <span className="text-xs uppercase font-bold tracking-wider text-slate-400 block">
+                Resultado Financeiro Final
+              </span>
+              <span className="text-[10px] text-amber-400 font-semibold">
+                (Ajustado c/ -{metrics.errorMarginPercent}% margem de erro)
+              </span>
+            </div>
             <div className={`p-2 rounded-xl border ${
               metrics.totalMonthlySavings >= 0
                 ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
@@ -479,9 +560,12 @@ export default function IndicatorsPage() {
               </span>
               <span className="text-xs font-bold text-slate-400">/mês</span>
             </div>
-            <span className="text-[11px] font-semibold text-slate-400 block mt-1">
-              {metrics.totalMonthlySavings >= 0 ? '💰 Economia Líquida de Mão-de-Obra' : '⚠️ Custo Adicional / Desvio Operacional'}
-            </span>
+            <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 mt-1.5 pt-1 border-t border-slate-800/60">
+              <span>Bruto: R$ {Math.abs(metrics.grossMonthlySavings).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+              <span className="text-amber-400 font-semibold">
+                -{metrics.errorMarginPercent}%: -R$ {Math.abs(metrics.errorMarginAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </span>
+            </div>
           </div>
 
           <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
@@ -497,9 +581,14 @@ export default function IndicatorsPage() {
         {/* KPI 2: Horas-Homem Poupadas / Mês */}
         <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl flex flex-col justify-between">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-xs uppercase font-bold tracking-wider text-slate-400">
-              Horas de Mão-de-Obra / Mês
-            </span>
+            <div>
+              <span className="text-xs uppercase font-bold tracking-wider text-slate-400 block">
+                Horas de Mão-de-Obra / Mês
+              </span>
+              <span className="text-[10px] text-cyan-400/80 font-medium">
+                (Líquido c/ -{metrics.errorMarginPercent}% de erro)
+              </span>
+            </div>
             <div className="p-2 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
               <Clock className="w-5 h-5" />
             </div>
@@ -514,8 +603,8 @@ export default function IndicatorsPage() {
               </span>
               <span className="text-xs font-bold text-cyan-300">horas / mês</span>
             </div>
-            <span className="text-[11px] font-semibold text-slate-400 block mt-1">
-              {metrics.totalMonthlyHoursSaved >= 0 ? '⏱️ Horas liberadas na célula' : 'Horas adicionais requeridas'}
+            <span className="text-[10px] text-slate-400 font-mono block mt-1">
+              Bruto: {Math.abs(metrics.grossHoursSaved).toFixed(1).replace('.', ',')} h | {metrics.totalMonthlyHoursSaved >= 0 ? 'Horas liberadas' : 'Horas extras'}
             </span>
           </div>
 
@@ -613,6 +702,7 @@ export default function IndicatorsPage() {
         monthlyVolume={monthlyVolume}
         monthlyHistory={monthlyHistory}
         activeMonthKey={activeMonthKey}
+        errorMarginPercent={errorMarginPercent}
       />
 
       {/* Sector Breakdown Visualization (Rank de Economia por Setor) */}
@@ -737,6 +827,7 @@ export default function IndicatorsPage() {
                 <th className="p-3.5 text-center">Ponto de Partida</th>
                 <th className="p-3.5 text-center">Nova Medição</th>
                 <th className="p-3.5 text-center">Variação (Δ)</th>
+                <th className="p-3.5 text-center">Qtd Aplicada / Mês</th>
                 <th className="p-3.5 text-center">Custo R$/h</th>
                 <th className="p-3.5 text-center">Horas Poupadas/Mês</th>
                 <th className="p-3.5 text-right">Impacto Mês (R$)</th>
@@ -747,7 +838,7 @@ export default function IndicatorsPage() {
             <tbody className="divide-y divide-slate-800/60 font-medium text-slate-300">
               {filteredOperations.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="p-8 text-center text-slate-500">
+                  <td colSpan={10} className="p-8 text-center text-slate-500">
                     Nenhuma operação encontrada com os filtros selecionados.
                   </td>
                 </tr>
@@ -851,8 +942,8 @@ export default function IndicatorsPage() {
                               <TrendingDown className="w-3 h-3 text-emerald-400" />
                               -{(Math.abs(op.deltaMinutes) * 60).toFixed(0)}s ({op.percentChange.toFixed(1).replace('.', ',')}%)
                             </span>
-                            <span className="text-[9px] text-emerald-400 font-semibold mt-0.5">
-                              Ganho de Tempo!
+                            <span className="text-[9px] text-emerald-400 font-bold mt-0.5">
+                              Ganho de Tempo (Diminuiu)
                             </span>
                           </div>
                         ) : op.status === 'loss' ? (
@@ -861,14 +952,79 @@ export default function IndicatorsPage() {
                               <TrendingUp className="w-3 h-3 text-rose-400" />
                               +{(op.deltaMinutes * 60).toFixed(0)}s (+{op.percentChange.toFixed(1).replace('.', ',')}%)
                             </span>
-                            <span className="text-[9px] text-rose-400 font-semibold mt-0.5">
-                              Aumento de Tempo
+                            <span className="text-[9px] text-rose-400 font-bold mt-0.5">
+                              Perda de Tempo (Aumentou)
                             </span>
                           </div>
                         ) : (
                           <span className="text-slate-500 font-semibold text-[11px]">
                             0,00 min (Estável)
                           </span>
+                        )}
+                      </td>
+
+                      {/* Qtd Aplicada / Mês (Specific or Full Monthly Volume) */}
+                      <td className="p-3.5 text-center font-mono">
+                        {editingVolumeId === op.id ? (
+                          <div className="flex items-center justify-center gap-1">
+                            <input
+                              type="number"
+                              step="500"
+                              min="0"
+                              value={tempVolumeValue}
+                              onChange={e => setTempVolumeValue(e.target.value)}
+                              className="w-20 px-1.5 py-0.5 rounded bg-slate-950 border border-cyan-500 text-cyan-300 text-center font-bold font-mono text-xs focus:outline-none"
+                              autoFocus
+                              placeholder={`${monthlyVolume}`}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => saveEditedVolume(op.id)}
+                              className="p-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer"
+                              title="Salvar quantidade específica desta operação"
+                            >
+                              ✓
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingVolumeId(null)}
+                              className="p-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-300 cursor-pointer"
+                              title="Cancelar"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="inline-flex flex-col items-center">
+                            <button
+                              type="button"
+                              onClick={() => startEditingVolume(op.id, op.effectiveVolume)}
+                              className={`group flex items-center justify-center gap-1.5 px-2 py-1 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
+                                op.isCustomVolume
+                                  ? 'bg-cyan-950/70 border-cyan-500/50 text-cyan-300 hover:bg-cyan-900/60 shadow-sm'
+                                  : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:bg-slate-800/80 hover:border-slate-700'
+                              }`}
+                              title="Clique para definir uma quantidade específica de bags onde esta operação se aplica (se não for no volume total do mês)"
+                            >
+                              <span>{op.effectiveVolume.toLocaleString('pt-BR')} un</span>
+                              <span className="text-[10px] text-slate-500 group-hover:text-cyan-400">✏️</span>
+                            </button>
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <span className={`text-[9px] font-semibold ${op.isCustomVolume ? 'text-cyan-400 font-bold' : 'text-slate-500'}`}>
+                                {op.isCustomVolume ? 'Qtd Específica' : 'Volume Total (100%)'}
+                              </span>
+                              {op.isCustomVolume && (
+                                <button
+                                  type="button"
+                                  onClick={() => resetVolumeToTotal(op.id)}
+                                  className="text-[9px] text-slate-400 hover:text-rose-400 underline cursor-pointer"
+                                  title="Restaurar para o volume total da fábrica"
+                                >
+                                  (redefinir)
+                                </button>
+                              )}
+                            </div>
+                          </div>
                         )}
                       </td>
 
