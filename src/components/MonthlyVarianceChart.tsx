@@ -201,7 +201,7 @@ export const MonthlyVarianceChart: React.FC<MonthlyVarianceChartProps> = ({
     return items;
   }, [filteredOps, metric, aggregates, categoryMap]);
 
-  // Prepare data for "Monthly Summary" View (Real Historical/Closed Months)
+  // Prepare data for "Monthly Summary" View (Single clean bar per month: Ganhos Consolidados)
   const monthlySummaryData = useMemo(() => {
     if (monthlyHistory && Object.keys(monthlyHistory).length > 0) {
       const sortedKeys = Object.keys(monthlyHistory).sort();
@@ -209,34 +209,27 @@ export const MonthlyVarianceChart: React.FC<MonthlyVarianceChartProps> = ({
         const rec = monthlyHistory[key];
         const isCurrent = key === activeMonthKey;
 
-        let gains = rec.totalSavings;
-        let losses = rec.totalLosses;
-        let net = rec.netSavings;
-
-        // For the currently active month, reflect the live calculated aggregates!
-        if (isCurrent) {
-          gains = aggregates.gainVal;
-          losses = aggregates.lossVal;
-          net = aggregates.totalNet;
-        }
+        let val = isCurrent ? aggregates.totalNet : rec.netSavings;
+        let grossVal = isCurrent ? aggregates.gainVal : rec.totalSavings;
+        let lossVal = isCurrent ? aggregates.lossVal : rec.totalLosses;
+        let hoursVal = isCurrent ? aggregates.totalHours : rec.hoursSaved;
+        let volume = (isCurrent ? monthlyVolume : rec.volume) || 1;
 
         if (metric === 'hours') {
-          gains = isCurrent ? aggregates.gainHours : rec.hoursSaved;
-          losses = isCurrent ? aggregates.lossHours : rec.hoursLost;
-          net = isCurrent ? aggregates.totalHours : rec.netHours;
+          val = isCurrent ? aggregates.totalHours : rec.hoursSaved;
         } else if (metric === 'seconds') {
-          const vol = (isCurrent ? monthlyVolume : rec.volume) || 1;
-          gains = isCurrent ? aggregates.gainSecs : ((rec.hoursSaved * 3600) / vol);
-          losses = isCurrent ? aggregates.lossSecs : ((rec.hoursLost * 3600) / vol);
-          net = gains - losses;
+          val = isCurrent ? aggregates.gainSecs : ((rec.hoursSaved * 3600) / volume);
         }
 
         return {
-          month: rec.monthLabel || key,
-          Ganhos: Number(gains.toFixed(1)),
-          Aumentos: Number(losses.toFixed(1)),
-          Totalizador: Number(net.toFixed(1)),
-          volume: isCurrent ? monthlyVolume : rec.volume
+          month: rec.monthLabel ? rec.monthLabel.split('/')[0] : key,
+          fullMonth: rec.monthLabel || key,
+          valor: Number(val.toFixed(1)),
+          grossGains: Number(grossVal.toFixed(2)),
+          kaizenAlerts: Number(lossVal.toFixed(2)),
+          hoursSaved: Number(hoursVal.toFixed(1)),
+          volume,
+          isCurrent
         };
       });
     }
@@ -245,13 +238,22 @@ export const MonthlyVarianceChart: React.FC<MonthlyVarianceChartProps> = ({
     return [
       {
         month: 'Mês Atual',
-        Ganhos: Number(aggregates.gainVal.toFixed(1)),
-        Aumentos: Number(aggregates.lossVal.toFixed(1)),
-        Totalizador: Number(aggregates.totalNet.toFixed(1)),
-        volume: monthlyVolume
+        fullMonth: 'Mês Atual',
+        valor: Number(aggregates.totalNet.toFixed(1)),
+        grossGains: Number(aggregates.gainVal.toFixed(2)),
+        kaizenAlerts: Number(aggregates.lossVal.toFixed(2)),
+        hoursSaved: Number(aggregates.totalHours.toFixed(1)),
+        volume: monthlyVolume,
+        isCurrent: true
       }
     ];
   }, [monthlyHistory, activeMonthKey, aggregates, metric, monthlyVolume]);
+
+  const averageMonthlyGain = useMemo(() => {
+    if (!monthlySummaryData.length) return 0;
+    const sum = monthlySummaryData.reduce((acc, item) => acc + item.valor, 0);
+    return Number((sum / monthlySummaryData.length).toFixed(1));
+  }, [monthlySummaryData]);
 
   const formatYAxis = (val: number) => {
     if (metric === 'financial') {
@@ -283,13 +285,13 @@ export const MonthlyVarianceChart: React.FC<MonthlyVarianceChartProps> = ({
             </div>
             <div>
               <h2 className="text-base sm:text-lg font-bold text-white tracking-tight flex items-center gap-2">
-                Comprovação de Ganhos & Perdas Mês a Mês
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-950 border border-cyan-800 text-cyan-300 font-mono font-bold">
-                  Baseado na Última Medição
+                Comprovação de Ganhos Mês a Mês
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950 border border-emerald-800 text-emerald-300 font-mono font-bold">
+                  Economia Real (-5% margem)
                 </span>
               </h2>
               <p className="text-xs text-slate-400">
-                Comparativo mensal mostrando meses com ganhos (verde), aumentos de tempo (vermelho) e o saldo líquido
+                Histórico consolidado de retorno financeiro e horas poupadas a cada período de fábrica
               </p>
             </div>
           </div>
@@ -588,23 +590,94 @@ export const MonthlyVarianceChart: React.FC<MonthlyVarianceChartProps> = ({
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={monthlySummaryData}
-              margin={{ top: 20, right: 20, left: 10, bottom: 20 }}
+              margin={{ top: 25, right: 20, left: 10, bottom: 15 }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" opacity={0.7} />
+              <defs>
+                <linearGradient id="barGainsGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#10b981" stopOpacity={0.95} />
+                  <stop offset="100%" stopColor="#047857" stopOpacity={0.65} />
+                </linearGradient>
+                <linearGradient id="activeMonthBarGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#06b6d4" stopOpacity={1} />
+                  <stop offset="100%" stopColor="#0e7490" stopOpacity={0.7} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" opacity={0.6} vertical={false} />
               <XAxis dataKey="month" stroke="#64748b" fontSize={11} tickLine={false} />
               <YAxis stroke="#64748b" fontSize={11} tickFormatter={formatYAxis} tickLine={false} />
               <Tooltip
-                contentStyle={{
-                  backgroundColor: '#020617',
-                  borderColor: '#334155',
-                  borderRadius: '12px',
-                  fontSize: '12px'
+                cursor={{ fill: 'rgba(255, 255, 255, 0.03)' }}
+                content={({ active, payload }) => {
+                  if (!active || !payload || !payload.length) return null;
+                  const item = payload[0].payload;
+                  return (
+                    <div className="p-3.5 rounded-xl bg-slate-950/95 border border-slate-700 shadow-2xl text-xs space-y-2 min-w-[220px]">
+                      <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
+                        <span className="font-extrabold text-white text-sm">{item.fullMonth}</span>
+                        {item.isCurrent ? (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-950 border border-cyan-700 text-cyan-300 font-bold font-mono">
+                            Mês Ativo
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-400 font-mono">Fechado</span>
+                        )}
+                      </div>
+                      
+                      <div className="flex items-center justify-between text-slate-200">
+                        <span className="font-medium">Economia Conquistada:</span>
+                        <strong className="text-emerald-400 font-mono text-sm">
+                          {metric === 'financial'
+                            ? `+ R$ ${item.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                            : metric === 'hours'
+                            ? `+ ${item.valor.toFixed(1).replace('.', ',')} h`
+                            : `+ ${item.valor.toFixed(0)} s/bag`}
+                        </strong>
+                      </div>
+
+                      {metric === 'financial' && item.grossGains > 0 && (
+                        <div className="flex items-center justify-between text-slate-400 text-[11px] font-mono">
+                          <span>Ganhos Brutos (-5% erro):</span>
+                          <span>R$ {item.grossGains.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                      )}
+
+                      {item.kaizenAlerts > 0 && metric === 'financial' && (
+                        <div className="flex items-center justify-between text-rose-400 text-[11px] font-mono pt-1.5 border-t border-slate-800/80">
+                          <span>⚠️ Oportunidade Kaizen:</span>
+                          <span className="font-semibold">~ R$ {item.kaizenAlerts.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between text-slate-500 text-[10px] pt-1.5 border-t border-slate-800 font-mono">
+                        <span>Volume Produzido:</span>
+                        <span className="text-slate-300 font-bold">{item.volume?.toLocaleString('pt-BR')} bags</span>
+                      </div>
+                    </div>
+                  );
                 }}
               />
-              <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
-              <Bar dataKey="Ganhos" fill="#10b981" radius={[4, 4, 0, 0]} name="Diminuições (Ganhos de Tempo)" />
-              <Bar dataKey="Aumentos" fill="#f43f5e" radius={[4, 4, 0, 0]} name="Aumentos (Alerta Kaizen)" />
-              <Bar dataKey="Totalizador" fill="#06b6d4" radius={[4, 4, 0, 0]} name="Ganhos Consolidados (-5% margem)" />
+              <ReferenceLine
+                y={averageMonthlyGain}
+                stroke="#06b6d4"
+                strokeDasharray="4 4"
+                strokeOpacity={0.8}
+                label={{
+                  value: `Média: ${metric === 'financial' ? `R$ ${(averageMonthlyGain / 1000).toFixed(1)}k` : `${averageMonthlyGain.toFixed(1)}h`}`,
+                  fill: '#22d3ee',
+                  fontSize: 10,
+                  position: 'top'
+                }}
+              />
+              <Bar dataKey="valor" radius={[6, 6, 0, 0]} maxBarSize={44}>
+                {monthlySummaryData.map((entry, index) => (
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={entry.isCurrent ? 'url(#activeMonthBarGradient)' : 'url(#barGainsGradient)'}
+                    stroke={entry.isCurrent ? '#22d3ee' : '#34d399'}
+                    strokeWidth={entry.isCurrent ? 2 : 1}
+                  />
+                ))}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         )}
@@ -615,15 +688,15 @@ export const MonthlyVarianceChart: React.FC<MonthlyVarianceChartProps> = ({
         <div className="flex items-center gap-4 flex-wrap">
           <span className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded bg-emerald-500" />
-            <span>Diminuição no Tempo (Ganho Financeiro Registrado)</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded bg-rose-500" />
-            <span>Aumento no Tempo (Alerta Kaizen / Não deduzido do ganho)</span>
+            <span>Ganhos Consolidados (Meses Históricos Fechados)</span>
           </span>
           <span className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded bg-cyan-400 border border-cyan-300" />
-            <span>Ganhos Consolidados (Ganhos c/ -5% margem)</span>
+            <span>Mês Vigente em Andamento</span>
+          </span>
+          <span className="flex items-center gap-1.5 text-cyan-300/80">
+            <span className="w-4 h-0.5 border-t border-dashed border-cyan-400" />
+            <span>Linha de Média Mensal</span>
           </span>
         </div>
 
