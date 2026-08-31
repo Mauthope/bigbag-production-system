@@ -13,6 +13,7 @@ import {
   Code,
   Trash2
 } from 'lucide-react';
+import { isSupabaseConfigured } from '@/lib/supabase';
 
 interface ExportImportModalProps {
   isOpen: boolean;
@@ -288,29 +289,56 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({ isOpen, on
 
           {activeTab === 'supabase' && (
             <div className="space-y-4">
-              <div className="p-4 rounded-xl bg-emerald-950/20 border border-emerald-800/40 space-y-2">
-                <div className="flex items-center gap-2 text-emerald-400 text-sm font-bold">
+              {/* Connection Status Badge */}
+              <div className={`p-4 rounded-xl border flex items-center justify-between gap-3 ${
+                isSupabaseConfigured()
+                  ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300'
+                  : 'bg-amber-950/30 border-amber-500/30 text-amber-300'
+              }`}>
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-xl border ${
+                    isSupabaseConfigured()
+                      ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                      : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+                  }`}>
+                    <Database className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-sm block text-white">
+                      {isSupabaseConfigured() ? '🟢 Supabase Conectado (Nuvem Ativa)' : '🟡 Modo LocalStorage (Offline / Local)'}
+                    </span>
+                    <span className="text-xs opacity-80">
+                      {isSupabaseConfigured()
+                        ? 'Todas as operações, cronoanálises e configurações estão sincronizando com o PostgreSQL.'
+                        : 'O sistema está rodando 100% no navegador. Basta configurar .env.local para ligar a nuvem.'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
+                <div className="flex items-center gap-2 text-cyan-400 text-sm font-bold">
                   <CheckCircle2 className="w-4 h-4" />
-                  Arquitetura 100% Preparada para o Supabase
+                  Arquitetura 100% Preparada para o Supabase (Dados Limpos)
                 </div>
                 <p className="text-xs text-slate-300 leading-relaxed">
-                  O sistema foi construído utilizando um padrão de repositório abstrato (<code className="text-emerald-300">IStorageService</code>). Atualmente roda em <strong className="text-white">LocalStorage</strong> e mudará para o Supabase instantaneamente assim que você configurar as variáveis de ambiente.
+                  O catálogo oficial de micro-operações de Big Bag e os parâmetros de fábrica estão limpos e prontos para serem salvos diretamente no seu banco de dados na nuvem.
                 </p>
               </div>
 
               <div className="space-y-2">
-                <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Passo a Passo de Ativação:</h4>
+                <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Passo a Passo Rápido de Ativação:</h4>
                 <ol className="list-decimal list-inside text-xs text-slate-400 space-y-2 leading-relaxed bg-slate-950/60 p-4 rounded-xl border border-slate-800">
-                  <li>Crie seu projeto no <a href="https://supabase.com" target="_blank" rel="noreferrer" className="text-cyan-400 underline inline-flex items-center gap-1">Supabase <ExternalLink className="w-3 h-3" /></a></li>
-                  <li>No menu <strong>SQL Editor</strong>, execute o script disponível no arquivo <code className="text-cyan-300">src/sql/schema.sql</code> deste projeto.</li>
-                  <li>Crie o arquivo <code className="text-cyan-300">.env.local</code> na raiz do projeto com as chaves:
-                    <pre className="mt-2 p-2 bg-slate-900 rounded border border-slate-800 text-cyan-300 font-mono text-[11px]">
+                  <li>Crie seu projeto gratuito ou empresarial no <a href="https://supabase.com" target="_blank" rel="noreferrer" className="text-cyan-400 underline inline-flex items-center gap-1">Supabase <ExternalLink className="w-3 h-3" /></a></li>
+                  <li>No menu <strong>SQL Editor</strong> do Supabase, cole e execute o script contido em <code className="text-cyan-300">src/sql/schema.sql</code></li>
+                  <li>Crie ou edite o arquivo <code className="text-cyan-300">.env.local</code> na raiz do projeto com suas credenciais:
+                    <pre className="mt-2 p-2.5 bg-slate-900 rounded-lg border border-slate-800 text-cyan-300 font-mono text-[11px] overflow-x-auto">
 {`NEXT_PUBLIC_STORAGE_TYPE=supabase
 NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=sua-chave-anon`}
+NEXT_PUBLIC_SUPABASE_ANON_KEY=sua-chave-anon-publica`}
                     </pre>
                   </li>
-                  <li>Pronto! O sistema migrará automaticamente do LocalStorage para a nuvem em tempo real.</li>
+                  <li>Reinicie a aplicação com <code className="text-cyan-300">npm run dev</code> ou faça deploy no Vercel / Netlify!</li>
                 </ol>
               </div>
             </div>
