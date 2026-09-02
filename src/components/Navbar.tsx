@@ -94,7 +94,7 @@ export const Navbar: React.FC = () => {
             {isOperatorMode ? (
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-cyan-950/40 border border-cyan-800/40 text-cyan-300 text-xs font-semibold font-mono">
                 <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-                <span>Chão de Fábrica &bull; Calculadora de Produção</span>
+                <span>Setor Desenvolvimento</span>
               </div>
             ) : (
               /* Desktop Navigation Links (Only in Full Mode) */

@@ -190,7 +190,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = () => {
               /* In Operator Mode, show clean line description */
               <div className="flex items-center gap-2 text-xs text-slate-400">
                 <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-                <span className="font-semibold text-slate-300">Modo de Operação de Fábrica</span>
+                <span className="font-semibold text-slate-300">Setor Desenvolvimento</span>
                 <span className="text-slate-600">&bull;</span>
                 <span className="text-slate-400">Cálculo de Tempos Padrão de Montagem de Big Bags</span>
               </div>

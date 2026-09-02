@@ -53,7 +53,7 @@ export default function OperatorCalculatorPage() {
               Calculadora Kanban de Tempo de Produção
             </h1>
             <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-cyan-950 text-cyan-300 border border-cyan-800/60 font-mono">
-              Chão de Fábrica
+              Setor Desenvolvimento
             </span>
           </div>
           <p className="text-sm text-slate-400 mt-1">
