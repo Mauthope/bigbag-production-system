@@ -111,15 +111,15 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     try {
       const params = new URLSearchParams(window.location.search);
-      const modeParam = params.get('mode') || params.get('access') || params.get('view');
+      const modeParam = (params.get('mode') || params.get('access') || params.get('view') || '').toLowerCase();
 
-      if (modeParam === 'calc' || modeParam === 'calculator' || modeParam === 'operator') {
+      if (['operador', 'calc', 'calculator', 'operator', 'fabrica'].includes(modeParam)) {
         setAccessModeState('calculator_only');
         localStorage.setItem('bagtime_access_mode', 'calculator_only');
         return;
       }
 
-      if (modeParam === 'full' || modeParam === 'admin' || modeParam === 'master') {
+      if (['full', 'admin', 'master', 'gestao', 'engenharia'].includes(modeParam)) {
         setAccessModeState('full');
         localStorage.setItem('bagtime_access_mode', 'full');
         return;

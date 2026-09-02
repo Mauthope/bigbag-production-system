@@ -16,7 +16,8 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = () => {
     calculatorTotalMinutes,
     calculatorReadableTime,
     selectedOperationIds,
-    cellConfig
+    cellConfig,
+    isCalculatorOnly
   } = useProduction();
 
   const [bagType, setBagType] = useState<CellModelType>('one');
@@ -157,16 +158,18 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = () => {
                 })}
               </div>
 
-              {/* Cell People Sizing Trigger Button */}
-              <button
-                type="button"
-                onClick={() => setIsCellConfigOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-950/90 hover:bg-slate-800 text-slate-300 hover:text-cyan-300 border border-slate-800 hover:border-cyan-500/40 text-xs font-bold transition-colors cursor-pointer shrink-0 shadow-sm"
-                title="Configurar número de operadores/pessoas nas células para cada modelo e horas do turno"
-              >
-                <Users className="w-4 h-4 text-cyan-400" />
-                <span className="hidden sm:inline">Pessoas na Célula</span>
-              </button>
+              {/* Cell People Sizing Trigger Button (Hidden in Operator Mode) */}
+              {!isCalculatorOnly && (
+                <button
+                  type="button"
+                  onClick={() => setIsCellConfigOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-950/90 hover:bg-slate-800 text-slate-300 hover:text-cyan-300 border border-slate-800 hover:border-cyan-500/40 text-xs font-bold transition-colors cursor-pointer shrink-0 shadow-sm"
+                  title="Configurar número de operadores/pessoas nas células para cada modelo e horas do turno"
+                >
+                  <Users className="w-4 h-4 text-cyan-400" />
+                  <span className="hidden sm:inline">Pessoas na Célula</span>
+                </button>
+              )}
             </div>
 
             {/* Right: Quick Action Modals */}
