@@ -42,7 +42,7 @@ export const AccessLinksModal: React.FC<AccessLinksModalProps> = ({ isOpen, onCl
 
   if (!isOpen) return null;
 
-  const operatorUrl = `${baseUrl || 'https://bagtime.app'}/?mode=calc`;
+  const operatorUrl = `${baseUrl || 'https://bagtime.app'}/calc`;
   const fullUrl = `${baseUrl || 'https://bagtime.app'}/?mode=full`;
 
   const handleCopy = async (type: 'calc' | 'full', url: string) => {
