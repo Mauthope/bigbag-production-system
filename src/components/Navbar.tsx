@@ -17,17 +17,24 @@ import {
   Sparkles,
   Layers,
   Clock3,
-  TrendingUp
+  TrendingUp,
+  Link2,
+  Lock,
+  Unlock,
+  Share2
 } from 'lucide-react';
 import { useProduction } from '@/context/ProductionContext';
 import { ExportImportModal } from './ExportImportModal';
+import { AccessLinksModal } from './AccessLinksModal';
 
 export const Navbar: React.FC = () => {
   const pathname = usePathname();
+  const { isCalculatorOnly, accessMode } = useProduction();
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isAccessModalOpen, setIsAccessModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const navItems = [
+  const allNavItems = [
     {
       label: 'Calculadora de Tempo',
       shortLabel: 'Calculadora',
@@ -47,6 +54,9 @@ export const Navbar: React.FC = () => {
       icon: <TrendingUp className="w-4 h-4" />
     }
   ];
+
+  // If in restricted Operator mode, ONLY show the first menu (Calculadora de Tempo)
+  const navItems = isCalculatorOnly ? allNavItems.slice(0, 1) : allNavItems;
 
   return (
     <>
@@ -105,8 +115,31 @@ export const Navbar: React.FC = () => {
               })}
             </nav>
 
-            {/* Storage & Backup Actions */}
+            {/* Storage, Access Links & Backup Actions */}
             <div className="hidden xl:flex items-center gap-2 shrink-0">
+              {/* Access Mode Button */}
+              <button
+                onClick={() => setIsAccessModalOpen(true)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer shadow-sm ${
+                  isCalculatorOnly
+                    ? 'bg-cyan-950/60 border-cyan-500/40 text-cyan-300 hover:bg-cyan-900/50'
+                    : 'bg-slate-900 border-slate-700/80 text-slate-300 hover:text-white hover:border-cyan-500/40'
+                }`}
+                title="Compartilhar ou alternar links de acesso (Operador vs Engenharia)"
+              >
+                {isCalculatorOnly ? (
+                  <>
+                    <Lock className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Modo Operador</span>
+                  </>
+                ) : (
+                  <>
+                    <Link2 className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Links de Acesso</span>
+                  </>
+                )}
+              </button>
+
               <button
                 onClick={() => setIsExportModalOpen(true)}
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white bg-slate-900 border border-slate-700/60 hover:border-slate-600 transition-colors cursor-pointer"
@@ -118,16 +151,23 @@ export const Navbar: React.FC = () => {
 
               <div
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-950/40 text-emerald-300 border border-emerald-800/40 cursor-pointer hover:bg-emerald-950/60 transition-colors"
-                title="Armazenado no LocalStorage com suporte a Supabase."
+                title="Armazenado com suporte a Supabase e LocalStorage."
                 onClick={() => setIsExportModalOpen(true)}
               >
                 <Database className="w-3.5 h-3.5 text-emerald-400" />
-                <span>LocalStorage</span>
+                <span>Nuvem / Local</span>
               </div>
             </div>
 
             {/* Mobile Menu Button */}
             <div className="flex md:hidden items-center gap-2">
+              <button
+                onClick={() => setIsAccessModalOpen(true)}
+                className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-cyan-400"
+                title="Links de Acesso"
+              >
+                <Link2 className="w-4 h-4" />
+              </button>
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                 className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white"
@@ -173,6 +213,17 @@ export const Navbar: React.FC = () => {
               <button
                 onClick={() => {
                   setIsMobileMenuOpen(false);
+                  setIsAccessModalOpen(true);
+                }}
+                className="flex items-center justify-center gap-2 w-full py-2 rounded-xl text-xs font-semibold bg-cyan-950/60 border border-cyan-700/50 text-cyan-300"
+              >
+                <Link2 className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Links de Acesso ({isCalculatorOnly ? 'Modo Operador' : 'Modo Completo'})</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
                   setIsExportModalOpen(true);
                 }}
                 className="flex items-center justify-center gap-2 w-full py-2 rounded-xl text-xs font-medium bg-slate-900 border border-slate-700 text-slate-200"
@@ -184,6 +235,12 @@ export const Navbar: React.FC = () => {
           </div>
         )}
       </header>
+
+      {/* Access Links Modal */}
+      <AccessLinksModal
+        isOpen={isAccessModalOpen}
+        onClose={() => setIsAccessModalOpen(false)}
+      />
 
       {/* Export / Import Modal */}
       <ExportImportModal

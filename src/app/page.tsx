@@ -22,7 +22,8 @@ export default function CalculatorPage() {
     clearAllOperations,
     resetToStandardOperations,
     categoryTotals,
-    isLoading
+    isLoading,
+    isCalculatorOnly
   } = useProduction();
 
   if (isLoading) {
@@ -80,14 +81,16 @@ export default function CalculatorPage() {
             <span>Limpar Todos</span>
           </button>
 
-          <Link
-            href="/settings"
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/60 text-xs font-medium transition-colors ml-1 cursor-pointer"
-            title="Editar tempos padrão no painel de parâmetros"
-          >
-            <Sliders className="w-3.5 h-3.5 text-amber-400" />
-            <span className="hidden sm:inline">Editar Tempos</span>
-          </Link>
+          {!isCalculatorOnly && (
+            <Link
+              href="/settings"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/60 text-xs font-medium transition-colors ml-1 cursor-pointer"
+              title="Editar tempos padrão no painel de parâmetros"
+            >
+              <Sliders className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden sm:inline">Editar Tempos</span>
+            </Link>
+          )}
         </div>
       </div>
 

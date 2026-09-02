@@ -82,6 +82,11 @@ interface ProductionContextType {
   importData: (data: StorageData) => Promise<void>;
   clearAllDataForProduction: () => Promise<void>;
 
+  // Access Modes & Link Permissions (Operador vs Gestão Completa)
+  accessMode: 'full' | 'calculator_only';
+  setAccessMode: (mode: 'full' | 'calculator_only') => void;
+  isCalculatorOnly: boolean;
+
   // Toast Helper
   toast: ToastState;
   showToast: (message: string, type?: 'success' | 'info' | 'error') => void;
@@ -97,7 +102,47 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [timeStudies, setTimeStudies] = useState<TimeStudy[]>([]);
   const [selectedOperationIds, setSelectedOperationIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [accessMode, setAccessModeState] = useState<'full' | 'calculator_only'>('full');
   const [toast, setToast] = useState<ToastState>({ show: false, message: '', type: 'info' });
+
+  // Detect access mode from URL query param (?mode=calc or ?mode=full) or localStorage
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const modeParam = params.get('mode') || params.get('access') || params.get('view');
+
+      if (modeParam === 'calc' || modeParam === 'calculator' || modeParam === 'operator') {
+        setAccessModeState('calculator_only');
+        localStorage.setItem('bagtime_access_mode', 'calculator_only');
+        return;
+      }
+
+      if (modeParam === 'full' || modeParam === 'admin' || modeParam === 'master') {
+        setAccessModeState('full');
+        localStorage.setItem('bagtime_access_mode', 'full');
+        return;
+      }
+
+      // Check stored preference
+      const saved = localStorage.getItem('bagtime_access_mode');
+      if (saved === 'calculator_only') {
+        setAccessModeState('calculator_only');
+      }
+    } catch (e) {
+      console.error('Error parsing access mode:', e);
+    }
+  }, []);
+
+  const setAccessMode = useCallback((mode: 'full' | 'calculator_only') => {
+    setAccessModeState(mode);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('bagtime_access_mode', mode);
+    }
+  }, []);
+
+  const isCalculatorOnly = accessMode === 'calculator_only';
 
   const showToast = useCallback((message: string, type: 'success' | 'info' | 'error' = 'info') => {
     setToast({ show: true, message, type });
@@ -729,6 +774,9 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         exportData,
         importData,
         clearAllDataForProduction,
+        accessMode,
+        setAccessMode,
+        isCalculatorOnly,
         toast,
         showToast
       }}

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import Link from 'next/link';
 import { useProduction } from '@/context/ProductionContext';
 import {
   TrendingUp,
@@ -43,8 +44,43 @@ export default function IndicatorsPage() {
     updateOperationTime,
     changeActiveMonth,
     resetCurrentMonthMeasurements,
-    saveMonthlyClosing
+    saveMonthlyClosing,
+    isCalculatorOnly,
+    setAccessMode
   } = useProduction();
+
+  // If in restricted Operator mode, block access
+  if (isCalculatorOnly) {
+    return (
+      <div className="max-w-xl mx-auto py-20 text-center space-y-6 animate-in fade-in">
+        <div className="w-16 h-16 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 flex items-center justify-center mx-auto shadow-xl shadow-cyan-950/30">
+          <Lock className="w-8 h-8" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-xl font-bold text-white tracking-tight">
+            Menu Restrito ao Modo Operador
+          </h2>
+          <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
+            Este terminal está utilizando o link de acesso exclusivo da <strong>Calculadora de Tempos</strong>. O painel de indicadores financeiros e retorno de ROI está reservado para a Engenharia e Gestão.
+          </p>
+        </div>
+        <div className="flex items-center justify-center gap-3 pt-2">
+          <Link
+            href="/"
+            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-400 hover:to-teal-400 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/20 transition-all cursor-pointer"
+          >
+            ← Voltar para a Calculadora
+          </Link>
+          <button
+            onClick={() => setAccessMode('full')}
+            className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 text-xs font-semibold transition-colors cursor-pointer"
+          >
+            Desbloquear Acesso Completo
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const [isSectorCostModalOpen, setIsSectorCostModalOpen] = useState(false);
   const [isNewMonthModalOpen, setIsNewMonthModalOpen] = useState(false);
