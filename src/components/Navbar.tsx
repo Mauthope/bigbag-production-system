@@ -25,7 +25,14 @@ export const Navbar: React.FC = () => {
   const [isAccessModalOpen, setIsAccessModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const isOperatorMode = isCalculatorOnly || pathname === '/calc';
+  const isOperatorFromUrl = typeof window !== 'undefined' && (
+    window.location.search.includes('mode=operador') ||
+    window.location.search.includes('mode=calc') ||
+    window.location.search.includes('mode=operator') ||
+    window.location.search.includes('mode=fabrica')
+  );
+
+  const isOperatorMode = isCalculatorOnly || isOperatorFromUrl || pathname === '/calc';
 
   const navItems = [
     {

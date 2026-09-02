@@ -20,6 +20,14 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = () => {
     isCalculatorOnly
   } = useProduction();
 
+  const isOperatorFromUrl = typeof window !== 'undefined' && (
+    window.location.search.includes('mode=operador') ||
+    window.location.search.includes('mode=calc') ||
+    window.location.search.includes('mode=operator') ||
+    window.location.search.includes('mode=fabrica')
+  );
+  const isOperator = isCalculatorOnly || isOperatorFromUrl;
+
   const [bagType, setBagType] = useState<CellModelType>('one');
   const [isReferenceModalOpen, setIsReferenceModalOpen] = useState(false);
   const [isCalculationMemoryOpen, setIsCalculationMemoryOpen] = useState(false);
@@ -77,9 +85,15 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = () => {
                   <span className="text-[11px] uppercase font-bold tracking-wider text-slate-400 truncate">
                     Estimativa de Ritmo (ER)
                   </span>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-950/80 text-amber-300 border border-amber-800/50 font-mono font-bold shrink-0">
-                    {selectedModelDef.shortName} × {currentPeople.toFixed(1).replace('.', ',')}p
-                  </span>
+                  {!isOperator ? (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-950/80 text-amber-300 border border-amber-800/50 font-mono font-bold shrink-0">
+                      {selectedModelDef.shortName} × {currentPeople.toFixed(1).replace('.', ',')}p
+                    </span>
+                  ) : (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-950/80 text-amber-300 border border-amber-800/50 font-mono font-bold shrink-0">
+                      Padrão Linha
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-baseline gap-1.5 mt-0.5 flex-wrap">
                   <span className="text-2xl sm:text-3xl font-extrabold text-amber-300 font-mono">
@@ -88,9 +102,11 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = () => {
                   <span className="text-xs font-bold text-amber-400/80 font-mono">
                     (~{Math.round(er)} un/h)
                   </span>
-                  <span className="text-[10px] text-slate-500 font-mono">
-                    (60÷T×{currentPeople.toFixed(1).replace('.', ',')})
-                  </span>
+                  {!isOperator && (
+                    <span className="text-[10px] text-slate-500 font-mono">
+                      (60÷T×{currentPeople.toFixed(1).replace('.', ',')})
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -123,43 +139,43 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = () => {
 
           </div>
 
-          {/* ROW 2: Model Selector + Cell Sizing + Action Modals Buttons */}
+          {/* ROW 2: Model Selector + Cell Sizing (Hidden in Operator Mode) + Action Modals */}
           <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 pt-3 border-t border-slate-800/80">
             
-            {/* Left: 6-Model Selector Pills + Custom Sizing Gear */}
-            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-              <div className="flex items-center p-1 rounded-xl bg-slate-950/90 border border-slate-800 shadow-inner overflow-x-auto custom-scrollbar gap-1 flex-1">
-                {CELL_MODELS_DEFINITIONS.map(model => {
-                  const isSelected = bagType === model.id;
-                  const people = (cellConfig && (cellConfig as any)[model.configKey]) ?? model.defaultPeople;
+            {/* Left: 6-Model Selector Pills + Custom Sizing Gear (Hidden for Operator) */}
+            {!isOperator ? (
+              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                <div className="flex items-center p-1 rounded-xl bg-slate-950/90 border border-slate-800 shadow-inner overflow-x-auto custom-scrollbar gap-1 flex-1">
+                  {CELL_MODELS_DEFINITIONS.map(model => {
+                    const isSelected = bagType === model.id;
+                    const people = (cellConfig && (cellConfig as any)[model.configKey]) ?? model.defaultPeople;
 
-                  return (
-                    <button
-                      key={model.id}
-                      type="button"
-                      onClick={() => setBagType(model.id)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 shrink-0 ${
-                        isSelected
-                          ? `bg-gradient-to-r ${model.gradientClass} text-slate-950 shadow-md font-extrabold`
-                          : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/80'
-                      }`}
-                      title={model.description}
-                    >
-                      <span className="whitespace-nowrap">{model.shortName}</span>
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono font-bold ${
-                        isSelected
-                          ? 'bg-slate-950/30 text-slate-950'
-                          : 'bg-slate-900 text-slate-400 border border-slate-800'
-                      }`}>
-                        {people.toFixed(1).replace('.', ',')}p
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+                    return (
+                      <button
+                        key={model.id}
+                        type="button"
+                        onClick={() => setBagType(model.id)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 shrink-0 ${
+                          isSelected
+                            ? `bg-gradient-to-r ${model.gradientClass} text-slate-950 shadow-md font-extrabold`
+                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/80'
+                        }`}
+                        title={model.description}
+                      >
+                        <span className="whitespace-nowrap">{model.shortName}</span>
+                        <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono font-bold ${
+                          isSelected
+                            ? 'bg-slate-950/30 text-slate-950'
+                            : 'bg-slate-900 text-slate-400 border border-slate-800'
+                        }`}>
+                          {people.toFixed(1).replace('.', ',')}p
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
 
-              {/* Cell People Sizing Trigger Button (Hidden in Operator Mode) */}
-              {!isCalculatorOnly && (
+                {/* Cell People Sizing Trigger Button */}
                 <button
                   type="button"
                   onClick={() => setIsCellConfigOpen(true)}
@@ -169,8 +185,16 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = () => {
                   <Users className="w-4 h-4 text-cyan-400" />
                   <span className="hidden sm:inline">Pessoas na Célula</span>
                 </button>
-              )}
-            </div>
+              </div>
+            ) : (
+              /* In Operator Mode, show clean line description */
+              <div className="flex items-center gap-2 text-xs text-slate-400">
+                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                <span className="font-semibold text-slate-300">Modo de Operação de Fábrica</span>
+                <span className="text-slate-600">&bull;</span>
+                <span className="text-slate-400">Cálculo de Tempos Padrão de Montagem de Big Bags</span>
+              </div>
+            )}
 
             {/* Right: Quick Action Modals */}
             <div className="flex items-center gap-2 shrink-0">

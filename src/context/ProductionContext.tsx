@@ -102,7 +102,25 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [timeStudies, setTimeStudies] = useState<TimeStudy[]>([]);
   const [selectedOperationIds, setSelectedOperationIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [accessMode, setAccessModeState] = useState<'full' | 'calculator_only'>('full');
+  const [accessMode, setAccessModeState] = useState<'full' | 'calculator_only'>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const mode = (params.get('mode') || params.get('access') || params.get('view') || '').toLowerCase();
+        if (['operador', 'calc', 'calculator', 'operator', 'fabrica'].includes(mode)) {
+          return 'calculator_only';
+        }
+        if (['full', 'admin', 'master', 'gestao', 'engenharia'].includes(mode)) {
+          return 'full';
+        }
+        const saved = localStorage.getItem('bagtime_access_mode');
+        if (saved === 'calculator_only') return 'calculator_only';
+      } catch (e) {
+        console.error('Error in initial accessMode evaluation:', e);
+      }
+    }
+    return 'full';
+  });
   const [toast, setToast] = useState<ToastState>({ show: false, message: '', type: 'info' });
 
   // Detect access mode from URL query param (?mode=calc or ?mode=full) or localStorage

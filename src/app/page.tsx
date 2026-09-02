@@ -26,6 +26,14 @@ export default function CalculatorPage() {
     isCalculatorOnly
   } = useProduction();
 
+  const isOperatorFromUrl = typeof window !== 'undefined' && (
+    window.location.search.includes('mode=operador') ||
+    window.location.search.includes('mode=calc') ||
+    window.location.search.includes('mode=operator') ||
+    window.location.search.includes('mode=fabrica')
+  );
+  const isOperator = isCalculatorOnly || isOperatorFromUrl;
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
@@ -81,7 +89,7 @@ export default function CalculatorPage() {
             <span>Limpar Todos</span>
           </button>
 
-          {!isCalculatorOnly && (
+          {!isOperator && (
             <Link
               href="/settings"
               className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/60 text-xs font-medium transition-colors ml-1 cursor-pointer"
