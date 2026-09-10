@@ -46,4 +46,8 @@ export interface IStorageService {
   exportAllData(): Promise<StorageData>;
   importAllData(data: StorageData): Promise<void>;
   clearAllDataForProduction?(): Promise<void>;
+
+  // Cloud & Offline Sync
+  checkHealth?(): Promise<boolean>;
+  syncOfflineDataToCloud?(): Promise<{ success: boolean; message: string }>;
 }

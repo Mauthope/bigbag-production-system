@@ -20,6 +20,48 @@ export class SupabaseStorageService implements IStorageService {
     return isSupabaseConfigured();
   }
 
+  async checkHealth(): Promise<boolean> {
+    if (!this.isReady()) return false;
+    const client = this.getClient();
+    if (!client) return false;
+    try {
+      const { data, error } = await client
+        .from('categories')
+        .select('key')
+        .limit(1);
+      return !error && Boolean(data);
+    } catch {
+      return false;
+    }
+  }
+
+  async syncOfflineDataToCloud(): Promise<{ success: boolean; message: string }> {
+    const isHealthy = await this.checkHealth();
+    if (!isHealthy) {
+      return {
+        success: false,
+        message: 'Nuvem ainda inacessível. Seus dados permanecem salvos em segurança no seu navegador.'
+      };
+    }
+
+    try {
+      const localData = await localStorageService.exportAllData();
+      await this.importAllData(localData);
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('bigbag_pending_offline_sync');
+      }
+      return {
+        success: true,
+        message: 'Todos os dados locais foram sincronizados com a nuvem do Supabase com sucesso!'
+      };
+    } catch (e: any) {
+      return {
+        success: false,
+        message: `Erro ao sincronizar dados: ${e?.message || 'Erro desconhecido'}`
+      };
+    }
+  }
+
   // ============================================================================
   // 1. Categories / Blocos Operacionais
   // ============================================================================

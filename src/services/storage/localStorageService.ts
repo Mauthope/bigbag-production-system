@@ -245,6 +245,17 @@ export class LocalStorageService implements IStorageService {
     localStorage.setItem(STORAGE_KEYS.CELL_CONFIG, JSON.stringify(DEFAULT_CELL_CONFIG));
     localStorage.setItem(STORAGE_KEYS.FINANCIAL_CONFIG, JSON.stringify(DEFAULT_FINANCIAL_CONFIG));
   }
+
+  async checkHealth(): Promise<boolean> {
+    return false;
+  }
+
+  async syncOfflineDataToCloud(): Promise<{ success: boolean; message: string }> {
+    return {
+      success: false,
+      message: 'Supabase não está configurado. Operando localmente via LocalStorage.'
+    };
+  }
 }
 
 export const localStorageService = new LocalStorageService();

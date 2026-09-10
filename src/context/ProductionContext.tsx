@@ -87,6 +87,13 @@ interface ProductionContextType {
   setAccessMode: (mode: 'full' | 'calculator_only') => void;
   isCalculatorOnly: boolean;
 
+  // Cloud & Offline Status
+  connectionStatus: 'online' | 'offline' | 'syncing' | 'connecting';
+  isSupabaseOnline: boolean;
+  hasPendingSync: boolean;
+  checkConnection: () => Promise<boolean>;
+  syncLocalToCloud: () => Promise<void>;
+
   // Toast Helper
   toast: ToastState;
   showToast: (message: string, type?: 'success' | 'info' | 'error') => void;
@@ -122,6 +129,116 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return 'full';
   });
   const [toast, setToast] = useState<ToastState>({ show: false, message: '', type: 'info' });
+
+  const showToast = useCallback((message: string, type: 'success' | 'info' | 'error' = 'info') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => {
+      setToast(prev => ({ ...prev, show: false }));
+    }, 3500);
+  }, []);
+
+  // Cloud & Offline Status
+  const [connectionStatus, setConnectionStatus] = useState<'online' | 'offline' | 'syncing' | 'connecting'>('connecting');
+  const [hasPendingSync, setHasPendingSync] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return Boolean(localStorage.getItem('bigbag_pending_offline_sync'));
+    }
+    return false;
+  });
+
+  const checkConnection = useCallback(async (): Promise<boolean> => {
+    if (typeof window !== 'undefined' && !window.navigator.onLine) {
+      setConnectionStatus('offline');
+      return false;
+    }
+
+    try {
+      if (localStorageService.checkHealth) {
+        const isHealthy = await localStorageService.checkHealth();
+        setConnectionStatus(isHealthy ? 'online' : 'offline');
+        return isHealthy;
+      }
+      setConnectionStatus('offline');
+      return false;
+    } catch {
+      setConnectionStatus('offline');
+      return false;
+    }
+  }, []);
+
+  const syncLocalToCloud = useCallback(async () => {
+    if (connectionStatus === 'syncing') return;
+    setConnectionStatus('syncing');
+
+    try {
+      if (localStorageService.syncOfflineDataToCloud) {
+        const result = await localStorageService.syncOfflineDataToCloud();
+        if (result.success) {
+          setHasPendingSync(false);
+          setConnectionStatus('online');
+          showToast(result.message, 'success');
+          // Recarregar dados mais recentes da nuvem
+          const [loadedCats, loadedOps, loadedStudies, loadedSelection, loadedCell, loadedFin] = await Promise.all([
+            localStorageService.getCategories(),
+            localStorageService.getOperations(),
+            localStorageService.getTimeStudies(),
+            localStorageService.getCalculatorSelection(),
+            localStorageService.getCellConfig ? localStorageService.getCellConfig() : Promise.resolve(DEFAULT_CELL_CONFIG),
+            localStorageService.getFinancialConfig ? localStorageService.getFinancialConfig() : Promise.resolve(DEFAULT_FINANCIAL_CONFIG)
+          ]);
+          setCategories(loadedCats);
+          setOperations(loadedOps);
+          setTimeStudies(loadedStudies);
+          setSelectedOperationIds(loadedSelection);
+          if (loadedCell) setCellConfig(loadedCell);
+          if (loadedFin) setFinancialConfig(loadedFin);
+        } else {
+          setConnectionStatus('offline');
+          showToast(result.message, 'error');
+        }
+      } else {
+        setConnectionStatus('offline');
+      }
+    } catch (e: any) {
+      setConnectionStatus('offline');
+      showToast(`Erro na sincronização: ${e?.message || 'Falha de rede'}`, 'error');
+    }
+  }, [connectionStatus, showToast]);
+
+  const isSupabaseOnline = connectionStatus === 'online';
+
+  useEffect(() => {
+    checkConnection();
+
+    const handleOnline = () => {
+      checkConnection().then(isOnline => {
+        if (isOnline) {
+          showToast('Conexão restabelecida! Nuvem online.', 'success');
+          if (typeof window !== 'undefined' && localStorage.getItem('bigbag_pending_offline_sync')) {
+            syncLocalToCloud();
+          }
+        }
+      });
+    };
+
+    const handleOffline = () => {
+      setConnectionStatus('offline');
+      showToast('Sem conexão de rede. Modo Offline ativado: dados salvos localmente.', 'info');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    const interval = setInterval(() => {
+      checkConnection();
+    }, 45000);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      clearInterval(interval);
+    };
+  }, [checkConnection, syncLocalToCloud, showToast]);
 
   // Detect access mode from URL query param (?mode=calc or ?mode=full) or localStorage
   useEffect(() => {
@@ -161,13 +278,6 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, []);
 
   const isCalculatorOnly = accessMode === 'calculator_only';
-
-  const showToast = useCallback((message: string, type: 'success' | 'info' | 'error' = 'info') => {
-    setToast({ show: true, message, type });
-    setTimeout(() => {
-      setToast(prev => ({ ...prev, show: false }));
-    }, 3500);
-  }, []);
 
   const categoriesConfig = useMemo(() => {
     return categories.reduce((acc, cat) => {
@@ -810,6 +920,11 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         accessMode,
         setAccessMode,
         isCalculatorOnly,
+        connectionStatus,
+        isSupabaseOnline,
+        hasPendingSync,
+        checkConnection,
+        syncLocalToCloud,
         toast,
         showToast
       }}

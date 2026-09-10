@@ -12,7 +12,10 @@ import {
   Menu,
   X,
   TrendingUp,
-  Link2
+  Link2,
+  Cloud,
+  CloudOff,
+  RefreshCw
 } from 'lucide-react';
 import { useProduction } from '@/context/ProductionContext';
 import { ExportImportModal } from './ExportImportModal';
@@ -20,7 +23,14 @@ import { AccessLinksModal } from './AccessLinksModal';
 
 export const Navbar: React.FC = () => {
   const pathname = usePathname();
-  const { isCalculatorOnly } = useProduction();
+  const {
+    isCalculatorOnly,
+    connectionStatus,
+    isSupabaseOnline,
+    hasPendingSync,
+    checkConnection,
+    syncLocalToCloud
+  } = useProduction();
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isAccessModalOpen, setIsAccessModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -92,9 +102,31 @@ export const Navbar: React.FC = () => {
 
             {/* Operator Mode Indicator (Center) */}
             {isOperatorMode ? (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-cyan-950/40 border border-cyan-800/40 text-cyan-300 text-xs font-semibold font-mono">
-                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-                <span>Setor Desenvolvimento</span>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-cyan-950/40 border border-cyan-800/40 text-cyan-300 text-xs font-semibold font-mono">
+                  <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                  <span>Setor Desenvolvimento</span>
+                </div>
+
+                {connectionStatus === 'online' ? (
+                  <div
+                    className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-emerald-950/40 text-emerald-300 border border-emerald-800/30 font-mono"
+                    title="Nuvem Supabase Online: Apontamentos sincronizados em tempo real."
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>Nuvem Online</span>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => syncLocalToCloud()}
+                    className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-amber-950/50 text-amber-300 border border-amber-800/50 font-mono cursor-pointer hover:bg-amber-900/40 transition-colors"
+                    title="Modo Offline: Dados salvos com segurança no navegador (LocalStorage). Clique para tentar reconectar à nuvem."
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                    <span>Offline (Salvo Local)</span>
+                  </button>
+                )}
               </div>
             ) : (
               /* Desktop Navigation Links (Only in Full Mode) */
@@ -142,14 +174,43 @@ export const Navbar: React.FC = () => {
                   <span>Backup</span>
                 </button>
 
-                <div
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-950/40 text-emerald-300 border border-emerald-800/40 cursor-pointer hover:bg-emerald-950/60 transition-colors"
-                  title="Armazenado com suporte a Supabase e LocalStorage."
-                  onClick={() => setIsExportModalOpen(true)}
-                >
-                  <Database className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Nuvem / Local</span>
-                </div>
+                {/* Cloud & Offline Live Status Badge */}
+                {connectionStatus === 'online' ? (
+                  <button
+                    type="button"
+                    onClick={() => checkConnection()}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-950/40 text-emerald-300 border border-emerald-800/40 hover:bg-emerald-950/70 transition-all cursor-pointer shadow-sm group"
+                    title="Nuvem Supabase Online: Banco conectado e sincronizado em tempo real. Clique para verificar status."
+                  >
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse group-hover:scale-125 transition-transform" />
+                    <Cloud className="w-3.5 h-3.5 text-emerald-400" />
+                    <span className="font-mono">Nuvem Online</span>
+                  </button>
+                ) : connectionStatus === 'syncing' ? (
+                  <div
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-cyan-950/50 text-cyan-300 border border-cyan-800/50 shadow-sm font-mono"
+                    title="Sincronizando dados com a nuvem..."
+                  >
+                    <RefreshCw className="w-3.5 h-3.5 text-cyan-400 animate-spin" />
+                    <span>Sincronizando...</span>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => syncLocalToCloud()}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-amber-950/50 text-amber-300 border border-amber-800/60 hover:bg-amber-900/50 transition-all cursor-pointer shadow-sm group"
+                    title="Modo Offline: Sem conexão com a nuvem. Seus dados estão salvos com segurança no LocalStorage do navegador. Clique para tentar reconectar e subir os dados."
+                  >
+                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                    <CloudOff className="w-3.5 h-3.5 text-amber-400" />
+                    <span className="font-mono">Offline (Salvo Local)</span>
+                    {hasPendingSync && (
+                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 border border-amber-500/40 text-amber-200 font-mono font-bold">
+                        Subir Nuvem
+                      </span>
+                    )}
+                  </button>
+                )}
               </div>
             )}
 
@@ -205,6 +266,33 @@ export const Navbar: React.FC = () => {
             })}
 
             <div className="pt-2 border-t border-slate-800/80 flex flex-col gap-2">
+              {/* Mobile Connection Status Indicator */}
+              {connectionStatus === 'online' ? (
+                <div className="flex items-center justify-center gap-2 w-full py-2 rounded-xl text-xs font-semibold bg-emerald-950/40 border border-emerald-800/40 text-emerald-300 font-mono">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <Cloud className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Nuvem Supabase Online</span>
+                </div>
+              ) : connectionStatus === 'syncing' ? (
+                <div className="flex items-center justify-center gap-2 w-full py-2 rounded-xl text-xs font-semibold bg-cyan-950/50 border border-cyan-800/50 text-cyan-300 font-mono">
+                  <RefreshCw className="w-3.5 h-3.5 text-cyan-400 animate-spin" />
+                  <span>Sincronizando com a Nuvem...</span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    syncLocalToCloud();
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="flex items-center justify-center gap-2 w-full py-2 rounded-xl text-xs font-semibold bg-amber-950/50 border border-amber-800/60 text-amber-300 font-mono cursor-pointer hover:bg-amber-900/50"
+                >
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                  <CloudOff className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Modo Offline (Salvo Local) - Sincronizar</span>
+                </button>
+              )}
+
               <button
                 onClick={() => {
                   setIsMobileMenuOpen(false);
