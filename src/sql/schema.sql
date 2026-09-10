@@ -148,6 +148,17 @@ CREATE POLICY "Permitir modificação de time_studies" ON time_studies FOR ALL U
 CREATE POLICY "Permitir leitura total de production_orders" ON production_orders FOR SELECT USING (true);
 CREATE POLICY "Permitir modificação de production_orders" ON production_orders FOR ALL USING (true);
 
+-- ------------------------------------------------------------------------------
+-- 8.1 PRIVILÉGIOS DE ACESSO AOS ROLES DO SUPABASE (anon, authenticated)
+-- ------------------------------------------------------------------------------
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL ROUTINES IN SCHEMA public TO anon, authenticated, service_role;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON ROUTINES TO anon, authenticated, service_role;
 
 -- ==============================================================================
 -- 9. CARGA INICIAL LIMPA (SEEDS DE PRODUÇÃO OFICIAIS)
