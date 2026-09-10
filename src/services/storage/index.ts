@@ -4,7 +4,7 @@ import { supabaseStorageService } from './supabaseService';
 import { isSupabaseConfigured } from '@/lib/supabase';
 
 export function getStorageService(): IStorageService {
-  const storageType = process.env.NEXT_PUBLIC_STORAGE_TYPE;
+  const storageType = process.env.NEXT_PUBLIC_STORAGE_TYPE || process.env.STORAGE_TYPE;
   
   if (storageType === 'supabase' || (storageType !== 'localStorage' && isSupabaseConfigured())) {
     return supabaseStorageService;
