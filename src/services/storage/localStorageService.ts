@@ -237,10 +237,13 @@ export class LocalStorageService implements IStorageService {
 
   async clearAllDataForProduction(): Promise<void> {
     if (!this.isClient()) return;
+    localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(DEFAULT_CATEGORIES));
     localStorage.setItem(STORAGE_KEYS.OPERATIONS, JSON.stringify(DEFAULT_OPERATIONS));
     localStorage.setItem(STORAGE_KEYS.TIME_STUDIES, JSON.stringify([]));
     const defaultIds = DEFAULT_OPERATIONS.filter(o => o.isDefault).map(o => o.id);
     localStorage.setItem(STORAGE_KEYS.CALCULATOR_SELECTION, JSON.stringify(defaultIds));
+    localStorage.setItem(STORAGE_KEYS.CELL_CONFIG, JSON.stringify(DEFAULT_CELL_CONFIG));
+    localStorage.setItem(STORAGE_KEYS.FINANCIAL_CONFIG, JSON.stringify(DEFAULT_FINANCIAL_CONFIG));
   }
 }
 

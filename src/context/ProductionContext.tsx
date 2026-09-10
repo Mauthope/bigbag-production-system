@@ -12,7 +12,7 @@ import {
   MonthlyClosingRecord
 } from '@/types/production';
 import { CATEGORIES_CONFIG, DEFAULT_CATEGORIES, DEFAULT_OPERATIONS, DEFAULT_CELL_CONFIG, DEFAULT_FINANCIAL_CONFIG } from '@/data/defaultData';
-import { localStorageService } from '@/services/storage/localStorageService';
+import { storage as localStorageService } from '@/services/storage';
 import { StorageData } from '@/services/storage/types';
 
 interface ToastState {
@@ -500,11 +500,26 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (localStorageService.clearAllDataForProduction) {
       await localStorageService.clearAllDataForProduction();
     }
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('bigbag_production_categories_v1');
+        localStorage.removeItem('bigbag_production_operations_v1');
+        localStorage.removeItem('bigbag_production_time_studies_v1');
+        localStorage.removeItem('bigbag_calculator_selection_v1');
+        localStorage.removeItem('bigbag_cell_config_v1');
+        localStorage.removeItem('bigbag_financial_config_v1');
+      } catch (e) {
+        console.error('Error clearing localStorage:', e);
+      }
+    }
+    setCategories(DEFAULT_CATEGORIES);
     setOperations(DEFAULT_OPERATIONS);
     setTimeStudies([]);
     const defaultIds = DEFAULT_OPERATIONS.filter(o => o.isDefault).map(o => o.id);
     setSelectedOperationIds(defaultIds);
-    showToast('Banco de dados limpo! Pronto para uso.', 'success');
+    setCellConfig(DEFAULT_CELL_CONFIG);
+    setFinancialConfig(DEFAULT_FINANCIAL_CONFIG);
+    showToast('Sistema, banco de dados e armazenamento local limpos! Pronto para uso oficial.', 'success');
   }, [showToast]);
 
   // Calculator Totals Computation

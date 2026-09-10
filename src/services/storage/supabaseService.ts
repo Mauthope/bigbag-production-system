@@ -319,6 +319,14 @@ export class SupabaseStorageService implements IStorageService {
   }
 
   async resetOperations(): Promise<OperationItem[]> {
+    const client = this.getClient();
+    if (client) {
+      try {
+        await client.from('operations').delete().neq('id', 'dummy_clean_all');
+      } catch (e) {
+        console.error('Erro ao limpar operações no Supabase:', e);
+      }
+    }
     await this.saveOperations(DEFAULT_OPERATIONS);
     return DEFAULT_OPERATIONS;
   }
@@ -491,6 +499,15 @@ export class SupabaseStorageService implements IStorageService {
   }
 
   async clearAllDataForProduction(): Promise<void> {
+    const client = this.getClient();
+    if (client) {
+      try {
+        await client.from('time_studies').delete().neq('id', 'dummy_clean_all');
+        await client.from('production_orders').delete().neq('id', 'dummy_clean_all');
+      } catch (e) {
+        console.error('Erro ao limpar tabelas no Supabase:', e);
+      }
+    }
     await this.resetCategories();
     await this.resetOperations();
     await this.saveCellConfig(DEFAULT_CELL_CONFIG);
