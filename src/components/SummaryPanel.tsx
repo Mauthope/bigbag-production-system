@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useProduction } from '@/context/ProductionContext';
 import { CELL_MODELS_DEFINITIONS } from '@/data/defaultData';
 import { CellModelType } from '@/types/production';
-import { Clock, Zap, Boxes, Table, FileText, Users, SlidersHorizontal } from 'lucide-react';
+import { Clock, Zap, Boxes, Table, FileText, Users, SlidersHorizontal, Cloud, CloudOff, RefreshCw } from 'lucide-react';
 import { ReferenceTimesModal } from './ReferenceTimesModal';
 import { CalculationMemoryModal } from './CalculationMemoryModal';
 import { CellConfigModal } from './CellConfigModal';
@@ -17,7 +17,11 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = () => {
     calculatorReadableTime,
     selectedOperationIds,
     cellConfig,
-    isCalculatorOnly
+    isCalculatorOnly,
+    connectionStatus,
+    checkConnection,
+    syncLocalToCloud,
+    hasPendingSync
   } = useProduction();
 
   const isOperatorFromUrl = typeof window !== 'undefined' && (
@@ -180,8 +184,46 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = () => {
               )}
             </div>
 
-            {/* Right: Quick Action Modals */}
-            <div className="flex items-center gap-2 shrink-0">
+            {/* Right: Quick Action Modals & Cloud Status */}
+            <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
+              {/* Cloud & Offline Live Status Badge in Calculator Header */}
+              {connectionStatus === 'online' ? (
+                <button
+                  type="button"
+                  onClick={() => checkConnection()}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-950/50 hover:bg-emerald-950/80 text-emerald-300 text-xs font-bold border border-emerald-800/60 transition-all shadow-sm cursor-pointer whitespace-nowrap group"
+                  title="Nuvem Supabase Online: Apontamentos e tempos sincronizados em tempo real. Clique para testar conexão."
+                >
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse group-hover:scale-125 transition-transform" />
+                  <Cloud className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="font-mono">Nuvem Online</span>
+                </button>
+              ) : connectionStatus === 'syncing' ? (
+                <div
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-cyan-950/60 text-cyan-300 text-xs font-bold border border-cyan-800/60 shadow-sm whitespace-nowrap font-mono"
+                  title="Sincronizando com o Supabase..."
+                >
+                  <RefreshCw className="w-3.5 h-3.5 text-cyan-400 animate-spin" />
+                  <span>Sincronizando...</span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => syncLocalToCloud()}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-950/50 hover:bg-amber-900/50 text-amber-300 text-xs font-bold border border-amber-800/60 transition-all shadow-sm cursor-pointer whitespace-nowrap group"
+                  title="Modo Offline: Dados salvos em segurança no navegador (LocalStorage). Clique para tentar reconectar e subir os dados."
+                >
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                  <CloudOff className="w-3.5 h-3.5 text-amber-400" />
+                  <span className="font-mono">Offline (Salvo Local)</span>
+                  {hasPendingSync && (
+                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 border border-amber-500/40 text-amber-200 font-mono font-bold">
+                      Subir Nuvem
+                    </span>
+                  )}
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={() => setIsReferenceModalOpen(true)}

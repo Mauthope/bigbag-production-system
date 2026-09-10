@@ -110,21 +110,23 @@ export const Navbar: React.FC = () => {
 
                 {connectionStatus === 'online' ? (
                   <div
-                    className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-emerald-950/40 text-emerald-300 border border-emerald-800/30 font-mono"
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-emerald-950/40 text-emerald-300 border border-emerald-800/30 font-mono shadow-sm"
                     title="Nuvem Supabase Online: Apontamentos sincronizados em tempo real."
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    <span>Nuvem Online</span>
+                    <Cloud className="w-3 h-3 text-emerald-400" />
+                    <span className="hidden xs:inline">Nuvem Online</span>
                   </div>
                 ) : (
                   <button
                     type="button"
                     onClick={() => syncLocalToCloud()}
-                    className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-amber-950/50 text-amber-300 border border-amber-800/50 font-mono cursor-pointer hover:bg-amber-900/40 transition-colors"
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-amber-950/50 text-amber-300 border border-amber-800/50 font-mono cursor-pointer hover:bg-amber-900/40 transition-colors shadow-sm"
                     title="Modo Offline: Dados salvos com segurança no navegador (LocalStorage). Clique para tentar reconectar à nuvem."
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                    <span>Offline (Salvo Local)</span>
+                    <CloudOff className="w-3 h-3 text-amber-400" />
+                    <span className="hidden xs:inline">Offline (Salvo Local)</span>
                   </button>
                 )}
               </div>
@@ -154,11 +156,11 @@ export const Navbar: React.FC = () => {
 
             {/* Storage, Access Links & Backup Actions (Only in Full Mode) */}
             {!isOperatorMode && (
-              <div className="hidden xl:flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                 {/* Access Links Button */}
                 <button
                   onClick={() => setIsAccessModalOpen(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer shadow-sm bg-slate-900 border-slate-700/80 text-slate-300 hover:text-white hover:border-cyan-500/40"
+                  className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer shadow-sm bg-slate-900 border-slate-700/80 text-slate-300 hover:text-white hover:border-cyan-500/40"
                   title="Compartilhar ou alternar links de acesso (Operador vs Engenharia)"
                 >
                   <Link2 className="w-3.5 h-3.5 text-cyan-400" />
@@ -167,14 +169,14 @@ export const Navbar: React.FC = () => {
 
                 <button
                   onClick={() => setIsExportModalOpen(true)}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white bg-slate-900 border border-slate-700/60 hover:border-slate-600 transition-colors cursor-pointer"
+                  className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white bg-slate-900 border border-slate-700/60 hover:border-slate-600 transition-colors cursor-pointer"
                   title="Backup e Migração de Dados"
                 >
                   <Download className="w-3.5 h-3.5 text-cyan-400" />
                   <span>Backup</span>
                 </button>
 
-                {/* Cloud & Offline Live Status Badge */}
+                {/* Cloud & Offline Live Status Badge - ALWAYS VISIBLE */}
                 {connectionStatus === 'online' ? (
                   <button
                     type="button"
