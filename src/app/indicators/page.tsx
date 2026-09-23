@@ -121,8 +121,14 @@ export default function IndicatorsPage() {
     return operations.map(op => {
       // Ponto de Partida do Mês: A medição anterior oficial ou tempo de referência
       let baselineTime = op.time;
-      if (op.previousTime !== undefined && op.previousTime !== null) {
+      if (op.previousTime !== undefined && op.previousTime !== null && Math.abs(op.previousTime - op.time) > 0.0001) {
         baselineTime = op.previousTime;
+      } else if (op.history && op.history.length > 1) {
+        baselineTime = op.history[op.history.length - 2].time;
+      } else if (op.previousTime !== undefined && op.previousTime !== null) {
+        baselineTime = op.previousTime;
+      } else if (op.initialTime !== undefined && op.initialTime !== null) {
+        baselineTime = op.initialTime;
       }
 
       const currentTime = op.time;
@@ -312,9 +318,14 @@ export default function IndicatorsPage() {
   // Soma de todas as 118 opções de micro-operações cadastradas no catálogo no Marco Zero
   const marcoZeroCatalogTimeMinutes = useMemo(() => {
     const sum = enrichedOperations.reduce((acc, op) => {
-      const b = (op.previousTime !== undefined && op.previousTime !== null)
-        ? op.previousTime
-        : op.time;
+      let b = op.time;
+      if (op.initialTime !== undefined && op.initialTime !== null && op.initialTime > 0) {
+        b = op.initialTime;
+      } else if (op.history && op.history.length > 0) {
+        b = op.history[0].time;
+      } else if (op.previousTime !== undefined && op.previousTime !== null) {
+        b = op.previousTime;
+      }
       return acc + b;
     }, 0);
     return Number(sum.toFixed(2));
@@ -357,8 +368,7 @@ export default function IndicatorsPage() {
         for (let i = 1; i < op.history.length; i++) {
           const prevEntry = op.history[i - 1];
           const currEntry = op.history[i];
-          const isKaizenAction = currEntry.notes && currEntry.notes.toLowerCase().includes('kaizen');
-          if (isKaizenAction && currEntry.time < prevEntry.time) {
+          if (currEntry.time < prevEntry.time) {
             const savedMin = prevEntry.time - currEntry.time;
             const effVol = op.customVolume !== undefined && op.customVolume > 0 ? op.customVolume : monthlyVolume;
             const rate = sectorHourlyRates[op.category] !== undefined ? sectorHourlyRates[op.category] : defaultHourlyRate;
