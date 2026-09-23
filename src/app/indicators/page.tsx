@@ -10,7 +10,6 @@ import {
   Clock,
   Boxes,
   Users,
-  Search,
   SlidersHorizontal,
   CheckCircle2,
   AlertTriangle,
@@ -31,7 +30,6 @@ import {
 } from 'lucide-react';
 import { SectorCostModal } from '@/components/SectorCostModal';
 import { NewMonthModal } from '@/components/NewMonthModal';
-import { MonthlyVarianceChart } from '@/components/MonthlyVarianceChart';
 import { FinancialEvolutionChart } from '@/components/FinancialEvolutionChart';
 import { KaizenOpportunitiesModal } from '@/components/KaizenOpportunitiesModal';
 import { ComponentCategoryKey } from '@/types/production';
@@ -91,13 +89,6 @@ export default function IndicatorsPage() {
   const [isNewMonthModalOpen, setIsNewMonthModalOpen] = useState(false);
   const [isKaizenModalOpen, setIsKaizenModalOpen] = useState(false);
   const [kaizenModalTab, setKaizenModalTab] = useState<'open_opportunities' | 'completed_kaizens'>('open_opportunities');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<'changed' | 'all' | 'gain' | 'loss' | 'neutral'>('changed');
-  const [editingBaselineId, setEditingBaselineId] = useState<string | null>(null);
-  const [tempBaselineValue, setTempBaselineValue] = useState<string>('');
-  const [editingVolumeId, setEditingVolumeId] = useState<string | null>(null);
-  const [tempVolumeValue, setTempVolumeValue] = useState<string>('');
   const [showAllChanges, setShowAllChanges] = useState<boolean>(false);
 
   const currentCalendarMonthKey = getCurrentMonthKey();
@@ -179,22 +170,6 @@ export default function IndicatorsPage() {
       };
     });
   }, [operations, monthlyVolume, defaultHourlyRate, sectorHourlyRates]);
-
-  // Filtered operations
-  const filteredOperations = useMemo(() => {
-    return enrichedOperations.filter(op => {
-      const matchesSearch = op.name.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesCategory = selectedCategory === 'all' || op.category === selectedCategory;
-      const matchesStatus =
-        statusFilter === 'all' ||
-        (statusFilter === 'changed' && op.status !== 'neutral') ||
-        (statusFilter === 'gain' && op.status === 'gain') ||
-        (statusFilter === 'loss' && op.status === 'loss') ||
-        (statusFilter === 'neutral' && op.status === 'neutral');
-
-      return matchesSearch && matchesCategory && matchesStatus;
-    });
-  }, [enrichedOperations, searchTerm, selectedCategory, statusFilter]);
 
   // Aggregate KPI Metrics
   const metrics = useMemo(() => {
@@ -316,47 +291,102 @@ export default function IndicatorsPage() {
     return metrics;
   }, [isMonthClosed, activeMonthRecord, metrics]);
 
-  // Referência Teórica Fixa (Calculadora Kanban Original: 104,22 min)
+  // 1. Marco Teórico Base Fixado (Calculadora Kanban Original: 104,22 min)
   const theoreticalBaselineMinutes = THEORETICAL_BASELINE_MINUTES;
 
-  // Soma de todas as micro-operações cadastradas no catálogo no Marco Zero / 1ª Medição Real
-  const marcoZeroCatalogTimeMinutes = useMemo(() => {
-    const sum = enrichedOperations.reduce((acc, op) => acc + op.baselineTime, 0);
+  // 2. Somatório da Primeira Medição Real de Campo de cada item (Pico Máximo Inicial da Cronoanálise)
+  const firstRealMeasurementSumMinutes = useMemo(() => {
+    const sum = operations.reduce((acc, op) => {
+      const first = (op.history && op.history.length > 0)
+        ? op.history[0].time
+        : (op.previousTime && op.previousTime > 0.0001 ? op.previousTime : op.time);
+      return acc + Number(first || 0);
+    }, 0);
     return Number(sum.toFixed(2));
-  }, [enrichedOperations]);
+  }, [operations]);
 
-  // Soma atual de todas as micro-operações do catálogo
+  // 3. Tempo Atual do Catálogo (Menor Tempo / Pós-Kaizen)
   const currentCatalogTimeMinutes = useMemo(() => {
-    const sum = enrichedOperations.reduce((acc, op) => acc + op.currentTime, 0);
+    const sum = operations.reduce((acc, op) => acc + Number(op.time || 0), 0);
     return Number(sum.toFixed(2));
-  }, [enrichedOperations]);
+  }, [operations]);
 
-  // Comparação Teórico (104,22 min) vs 1ª Medição Real do Catálogo (230,08 min)
-  const { deltaTheoreticalVsReal, percentTheoreticalVsReal } = useMemo(() => {
-    const delta = marcoZeroCatalogTimeMinutes - theoreticalBaselineMinutes;
-    const pct = theoreticalBaselineMinutes > 0
-      ? Number(((delta / theoreticalBaselineMinutes) * 100).toFixed(1))
+  // Compatibilidade com variáveis anteriores
+  const marcoZeroCatalogTimeMinutes = firstRealMeasurementSumMinutes;
+
+  // Métricas de Evolução: Pico vs Atual vs Teórico
+  const {
+    picoDeltaVsTeorico,
+    picoPercentVsTeorico,
+    atualDeltaVsTeorico,
+    atualPercentVsTeorico,
+    netTimeReducedMinutes,
+    netPercentReductionFromPeak
+  } = useMemo(() => {
+    const picoDelta = firstRealMeasurementSumMinutes - theoreticalBaselineMinutes;
+    const picoPct = theoreticalBaselineMinutes > 0
+      ? Number(((picoDelta / theoreticalBaselineMinutes) * 100).toFixed(1))
       : 0;
+
+    const atualDelta = currentCatalogTimeMinutes - theoreticalBaselineMinutes;
+    const atualPct = theoreticalBaselineMinutes > 0
+      ? Number(((atualDelta / theoreticalBaselineMinutes) * 100).toFixed(1))
+      : 0;
+
+    const reducedMin = firstRealMeasurementSumMinutes - currentCatalogTimeMinutes;
+    const reducedPct = firstRealMeasurementSumMinutes > 0
+      ? Number(((reducedMin / firstRealMeasurementSumMinutes) * 100).toFixed(1))
+      : 0;
+
     return {
-      deltaTheoreticalVsReal: Number(delta.toFixed(2)),
-      percentTheoreticalVsReal: pct
+      picoDeltaVsTeorico: Number(picoDelta.toFixed(2)),
+      picoPercentVsTeorico: picoPct,
+      atualDeltaVsTeorico: Number(atualDelta.toFixed(2)),
+      atualPercentVsTeorico: atualPct,
+      netTimeReducedMinutes: Number(reducedMin.toFixed(2)),
+      netPercentReductionFromPeak: reducedPct
     };
-  }, [marcoZeroCatalogTimeMinutes, theoreticalBaselineMinutes]);
+  }, [firstRealMeasurementSumMinutes, currentCatalogTimeMinutes, theoreticalBaselineMinutes]);
 
   // Variação Kaizen Real (Atual vs 1ª Medição Real)
-  const { netVariationMinutes, percentVariationVsMarcoZero } = useMemo(() => {
-    const delta = currentCatalogTimeMinutes - marcoZeroCatalogTimeMinutes;
-    const pct = marcoZeroCatalogTimeMinutes > 0
-      ? Number(((delta / marcoZeroCatalogTimeMinutes) * 100).toFixed(1))
-      : 0;
+  const netVariationMinutes = -netTimeReducedMinutes;
+  const percentVariationVsMarcoZero = -netPercentReductionFromPeak;
+  const netVariationSeconds = Math.round(Math.abs(netTimeReducedMinutes) * 60);
 
-    return {
-      netVariationMinutes: Number(delta.toFixed(2)),
-      percentVariationVsMarcoZero: pct
-    };
-  }, [currentCatalogTimeMinutes, marcoZeroCatalogTimeMinutes]);
+  // Evolução de Tempo por Setor Industrial em relação ao Valor Base Teórico
+  const sectorTimeEvolution = useMemo(() => {
+    return categories.map(cat => {
+      const catOps = operations.filter(op => op.category === cat.key);
+      const theoreticalBase = THEORETICAL_SECTOR_BASELINES[cat.key] ?? 0;
+      
+      const firstReal = catOps.reduce((acc, op) => {
+        const first = (op.history && op.history.length > 0)
+          ? op.history[0].time
+          : (op.previousTime && op.previousTime > 0.0001 ? op.previousTime : op.time);
+        return acc + Number(first || 0);
+      }, 0);
 
-  const netVariationSeconds = Math.round(Math.abs(netVariationMinutes) * 60);
+      const current = catOps.reduce((acc, op) => acc + Number(op.time || 0), 0);
+      const deltaVsBase = current - theoreticalBase;
+      const pctVsBase = theoreticalBase > 0 ? ((deltaVsBase / theoreticalBase) * 100) : 0;
+      const kaizenSaved = firstReal - current;
+      const kaizenSavedPct = firstReal > 0 ? ((kaizenSaved / firstReal) * 100) : 0;
+
+      return {
+        key: cat.key,
+        name: cat.title,
+        color: cat.colorHex || '#06b6d4',
+        opsCount: catOps.length,
+        theoreticalBase: Number(theoreticalBase.toFixed(2)),
+        firstReal: Number(firstReal.toFixed(2)),
+        current: Number(current.toFixed(2)),
+        deltaVsBase: Number(deltaVsBase.toFixed(2)),
+        pctVsBase: Number(pctVsBase.toFixed(1)),
+        kaizenSaved: Number(kaizenSaved.toFixed(2)),
+        kaizenSavedPct: Number(kaizenSavedPct.toFixed(1))
+      };
+    });
+  }, [categories, operations]);
 
   // Maiores Reduções de Tempo (Ganhos Kaizen Conquistados)
   const topReductions = useMemo(() => {
@@ -428,46 +458,6 @@ export default function IndicatorsPage() {
   const handleErrorMarginChange = (val: string) => {
     const num = parseFloat(val.replace(',', '.'));
     updateFinancialConfig({ errorMarginPercent: isNaN(num) || num < 0 ? 0 : num });
-  };
-
-  // Inline baseline edit handler
-  const startEditingBaseline = (opId: string, currentBaseline: number) => {
-    setEditingBaselineId(opId);
-    setTempBaselineValue(currentBaseline.toFixed(2));
-  };
-
-  // Inline specific volume edit handlers
-  const startEditingVolume = (opId: string, currentVol: number) => {
-    setEditingVolumeId(opId);
-    setTempVolumeValue(currentVol.toString());
-  };
-
-  const saveEditedVolume = async (opId: string) => {
-    const num = parseInt(tempVolumeValue, 10);
-    if (!isNaN(num) && num > 0) {
-      await updateOperationCustomVolume(opId, num);
-    } else {
-      await updateOperationCustomVolume(opId, undefined);
-    }
-    setEditingVolumeId(null);
-  };
-
-  const resetVolumeToTotal = async (opId: string) => {
-    await updateOperationCustomVolume(opId, undefined);
-    setEditingVolumeId(null);
-  };
-
-  const saveEditedBaseline = async (opId: string) => {
-    const num = parseFloat(tempBaselineValue.replace(',', '.'));
-    if (!isNaN(num) && num >= 0) {
-      await updateOperationBaseline(opId, undefined, num);
-    }
-    setEditingBaselineId(null);
-  };
-
-  // Advance Kaizen: make current measurement the new baseline
-  const handleAdvanceBaseline = async (opId: string, currentTime: number) => {
-    await updateOperationBaseline(opId, undefined, currentTime);
   };
 
   // Excluir Oportunidade Kaizen: aceita o tempo atual sem Kaizen e alinha o baseline
@@ -734,15 +724,15 @@ export default function IndicatorsPage() {
       {/* 4 Summary KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         
-        {/* KPI 1: Tempo Global do Catálogo (Soma de todas as micro-operações) */}
+        {/* KPI 1: Tempo Teórico Base (Calculadora Kanban Original: 104,22 min) */}
         <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl relative overflow-hidden flex flex-col justify-between">
           <div className="flex items-center justify-between gap-2">
             <div>
               <span className="text-xs uppercase font-bold tracking-wider text-slate-400 block">
-                Tempo Global do Catálogo
+                Tempo Teórico Base
               </span>
               <span className="text-[10px] text-cyan-400 font-semibold">
-                (Soma das {enrichedOperations.length} micro-operações)
+                (Calculadora Kanban Original)
               </span>
             </div>
             <div className="p-2 rounded-xl border bg-cyan-500/10 border-cyan-500/20 text-cyan-400">
@@ -753,42 +743,32 @@ export default function IndicatorsPage() {
           <div className="mt-3">
             <div className="flex items-baseline gap-1">
               <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-cyan-300">
-                {currentCatalogTimeMinutes.toFixed(2).replace('.', ',')}
+                {theoreticalBaselineMinutes.toFixed(2).replace('.', ',')}
               </span>
-              <span className="text-xs font-bold text-slate-400">min totais</span>
+              <span className="text-xs font-bold text-slate-400">min base</span>
             </div>
             <div className="text-[11px] font-mono text-slate-400 mt-1">
-              ~{Math.floor(currentCatalogTimeMinutes / 60)}h {Math.round(currentCatalogTimeMinutes % 60)}m somando todos os postos
+              Ponto de partida teórico da fábrica ({operations.length} micro-operações)
             </div>
           </div>
 
           <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
-            <span className="text-slate-400">Ref. Teórica: {theoreticalBaselineMinutes.toFixed(2).replace('.', ',')}m</span>
-            {currentCatalogTimeMinutes < theoreticalBaselineMinutes ? (
-              <span className="font-mono font-bold text-emerald-400 flex items-center gap-1">
-                <ArrowDownRight className="w-3.5 h-3.5" />
-                -{(theoreticalBaselineMinutes - currentCatalogTimeMinutes).toFixed(2).replace('.', ',')} min vs Teórico
-              </span>
-            ) : currentCatalogTimeMinutes > theoreticalBaselineMinutes ? (
-              <span className="font-mono font-bold text-amber-400 flex items-center gap-1">
-                <ArrowUpRight className="w-3.5 h-3.5" />
-                +{(currentCatalogTimeMinutes - theoreticalBaselineMinutes).toFixed(2).replace('.', ',')} min vs Teórico
-              </span>
-            ) : (
-              <span className="font-mono text-cyan-400">Alinhado à Referência</span>
-            )}
+            <span className="text-slate-400">Origem:</span>
+            <span className="font-mono font-bold text-cyan-400">
+              Calculadora de Tempo Kanban
+            </span>
           </div>
         </div>
 
-        {/* KPI 2: Teórico vs 1ª Medição Real */}
+        {/* KPI 2: Somatório da 1ª Medição Real (Pico Inicial) */}
         <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl flex flex-col justify-between">
           <div className="flex items-center justify-between gap-2">
             <div>
               <span className="text-xs uppercase font-bold tracking-wider text-slate-400 block">
-                Teórico vs 1ª Medição Real
+                1ª Medição Real (Pico)
               </span>
               <span className="text-[10px] text-amber-400/90 font-medium">
-                (Gap inicial da cronoanálise de campo)
+                (Soma inicial da cronoanálise de campo)
               </span>
             </div>
             <div className="p-2 rounded-xl border bg-amber-500/10 border-amber-500/20 text-amber-400">
@@ -799,21 +779,20 @@ export default function IndicatorsPage() {
           <div className="mt-3">
             <div className="flex items-baseline gap-1">
               <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-amber-400">
-                +{percentTheoreticalVsReal.toFixed(1).replace('.', ',')}%
+                {firstRealMeasurementSumMinutes.toFixed(2).replace('.', ',')}
               </span>
-              <span className="text-xs font-bold text-slate-400">
-                desvio inicial
-              </span>
+              <span className="text-xs font-bold text-slate-400">min totais</span>
             </div>
-            <span className="text-[10px] text-slate-400 font-mono block mt-1">
-              1ª Medição Real: {marcoZeroCatalogTimeMinutes.toFixed(2).replace('.', ',')} min (+{deltaTheoreticalVsReal.toFixed(2).replace('.', ',')}m da teoria)
-            </span>
+            <div className="text-[11px] font-mono text-amber-300/80 mt-1 flex items-center gap-1">
+              <ArrowUpRight className="w-3.5 h-3.5" />
+              +{picoDeltaVsTeorico.toFixed(2).replace('.', ',')}m (+{picoPercentVsTeorico.toFixed(1).replace('.', ',')}%) vs Teórico (104,22m)
+            </div>
           </div>
 
           <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
-            <span className="text-slate-400">Marco Teórico:</span>
-            <span className="font-mono font-bold text-slate-300">
-              {theoreticalBaselineMinutes.toFixed(2).replace('.', ',')} min (Kanban)
+            <span className="text-slate-400">Desvio Inicial:</span>
+            <span className="font-mono font-bold text-amber-400">
+              +{picoPercentVsTeorico.toFixed(1).replace('.', ',')}% vs Teórico
             </span>
           </div>
         </div>
@@ -823,10 +802,10 @@ export default function IndicatorsPage() {
           <div className="flex items-center justify-between gap-2">
             <div>
               <span className="text-xs uppercase font-bold tracking-wider text-slate-400 block">
-                Ganho de Eficiência Kaizen
+                Evolução Temporal do Catálogo
               </span>
               <span className="text-[10px] text-emerald-400 font-medium">
-                (Evolução pós-cronoanálise de campo)
+                (Pico Máximo vs Tempo Atual)
               </span>
             </div>
             <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
@@ -835,23 +814,32 @@ export default function IndicatorsPage() {
           </div>
 
           <div className="mt-3">
-            <div className="flex items-baseline gap-1">
-              <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-emerald-400">
-                {percentVariationVsMarcoZero <= 0.001 ? '' : '+'}{percentVariationVsMarcoZero.toFixed(1).replace('.', ',')}%
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-cyan-300">
+                {currentCatalogTimeMinutes.toFixed(2).replace('.', ',')}
               </span>
-              <span className="text-xs font-bold text-emerald-300">
-                {percentVariationVsMarcoZero < -0.001 ? 'tempo reduzido' : 'estável'}
+              <span className="text-xs font-bold text-slate-400">min atuais</span>
+              <span className={`text-xs font-bold font-mono px-2 py-0.5 rounded-full border ${
+                atualDeltaVsTeorico > 0 
+                  ? 'bg-amber-950/80 text-amber-400 border-amber-800/60' 
+                  : 'bg-emerald-950/80 text-emerald-400 border-emerald-800/60'
+              }`}>
+                {atualPercentVsTeorico >= 0 ? '+' : ''}{atualPercentVsTeorico.toFixed(1).replace('.', ',')}% vs Teórico
               </span>
             </div>
-            <span className="text-[10px] text-slate-400 font-mono block mt-1">
-              -{Math.abs(netVariationMinutes).toFixed(2).replace('.', ',')} min (-{netVariationSeconds}s) poupados no catálogo
-            </span>
+            <div className="text-[10px] font-mono text-slate-400 mt-1.5 flex items-center justify-between">
+              <span>Pico: <strong className="text-amber-400">{firstRealMeasurementSumMinutes.toFixed(2).replace('.', ',')}m</strong></span>
+              <span>→</span>
+              <span>Atual: <strong className="text-cyan-300">{currentCatalogTimeMinutes.toFixed(2).replace('.', ',')}m</strong></span>
+              <span className="text-emerald-400 font-bold">(-{netPercentReductionFromPeak.toFixed(1).replace('.', ',')}%)</span>
+            </div>
           </div>
 
           <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
-            <span className="text-slate-400">Capacidade Liberada:</span>
-            <span className="text-emerald-400 font-mono font-bold">
-              {displayMetrics.totalMonthlyHoursSaved.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} h/mês (~{Math.abs(displayMetrics.equivalentOperatorsFreed).toFixed(1).replace('.', ',')} op.)
+            <span className="text-slate-400">Ganho Conquistado:</span>
+            <span className="text-emerald-400 font-mono font-bold flex items-center gap-1">
+              <ArrowDownRight className="w-3.5 h-3.5" />
+              -{netTimeReducedMinutes.toFixed(2).replace('.', ',')} min (-{netPercentReductionFromPeak.toFixed(1).replace('.', ',')}%)
             </span>
           </div>
         </div>
@@ -1164,36 +1152,27 @@ export default function IndicatorsPage() {
         </div>
       </div>
 
-      {/* 2. Monthly Performance Breakdown Chart (Comprovação Mês a Mês a partir da Última Medição) */}
-      <MonthlyVarianceChart
-        operations={enrichedOperations}
-        categories={categories}
-        monthlyVolume={monthlyVolume}
-        monthlyHistory={monthlyHistory}
-        activeMonthKey={activeMonthKey}
-        errorMarginPercent={errorMarginPercent}
-      />
 
-      {/* Sector Breakdown Visualization (Rank de Economia por Setor) */}
-      {metrics.sortedSectors.length > 0 && (
+      {/* Evolução de Tempo por Setor Industrial (vs Valor Teórico Base Original) */}
+      {sectorTimeEvolution.length > 0 && (
         <div className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <Layers className="w-4 h-4 text-emerald-400" />
+              <Layers className="w-4 h-4 text-cyan-400" />
               <h2 className="text-sm font-bold text-white uppercase tracking-wider">
-                Impacto Financeiro por Setor Industrial
+                Evolução de Tempo por Setor Industrial
               </h2>
             </div>
             <span className="text-xs text-slate-400">
-              Setores ordenados pela contribuição líquida
+              Comparativo de tempo (minutos) em relação à Base Teórica Original
             </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
-            {metrics.sortedSectors.map((sec, idx) => (
+            {sectorTimeEvolution.map(sec => (
               <div
-                key={idx}
-                className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 flex flex-col justify-between gap-2"
+                key={sec.key}
+                className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-slate-700 transition-colors flex flex-col justify-between gap-2.5"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -1201,22 +1180,63 @@ export default function IndicatorsPage() {
                     <span className="text-xs font-bold text-slate-200">{sec.name}</span>
                   </div>
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono font-bold">
-                    {sec.count} alt.
+                    {sec.opsCount} micro-op.
                   </span>
                 </div>
 
-                <div className="flex items-baseline justify-between mt-1">
-                  <span className="text-xs text-slate-400">Economia:</span>
-                  <span className={`text-sm font-extrabold font-mono ${sec.savings >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    {sec.savings >= 0 ? '+' : ''} R$ {sec.savings.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
+                <div className="grid grid-cols-3 gap-2 py-1.5 px-2 rounded-lg bg-slate-900/60 border border-slate-800/50 text-center font-mono">
+                  <div>
+                    <span className="text-[9px] uppercase tracking-wider text-slate-500 block">Base Teórica</span>
+                    <span className="text-xs font-semibold text-slate-300">{sec.theoreticalBase.toFixed(2).replace('.', ',')}m</span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] uppercase tracking-wider text-amber-500/80 block">1ª Med. (Pico)</span>
+                    <span className="text-xs font-semibold text-amber-400">{sec.firstReal.toFixed(2).replace('.', ',')}m</span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] uppercase tracking-wider text-cyan-400 block">Tempo Atual</span>
+                    <span className="text-xs font-bold text-cyan-300">{sec.current.toFixed(2).replace('.', ',')}m</span>
+                  </div>
                 </div>
 
-                <div className="flex items-center justify-between text-[11px] text-slate-400 border-t border-slate-800/50 pt-1.5">
-                  <span>Horas Poupadas:</span>
-                  <span className="font-mono text-cyan-300 font-semibold">
-                    {sec.hours.toFixed(1).replace('.', ',')} h/mês
-                  </span>
+                <div className="space-y-1 text-[11px] font-mono border-t border-slate-800/60 pt-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400 font-sans">Variação vs Teórico:</span>
+                    <span className={`font-bold flex items-center gap-0.5 ${
+                      sec.deltaVsBase > 0 ? 'text-amber-400' : sec.deltaVsBase < 0 ? 'text-emerald-400' : 'text-slate-400'
+                    }`}>
+                      {sec.deltaVsBase > 0 ? (
+                        <>
+                          <ArrowUpRight className="w-3 h-3" />
+                          +{sec.deltaVsBase.toFixed(2).replace('.', ',')}m (+{sec.pctVsBase.toFixed(1).replace('.', ',')}%)
+                        </>
+                      ) : sec.deltaVsBase < 0 ? (
+                        <>
+                          <ArrowDownRight className="w-3 h-3" />
+                          {sec.deltaVsBase.toFixed(2).replace('.', ',')}m ({sec.pctVsBase.toFixed(1).replace('.', ',')}%)
+                        </>
+                      ) : (
+                        '0,00m (0,0%)'
+                      )}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400 font-sans">Redução Kaizen (do pico):</span>
+                    {sec.kaizenSaved > 0.001 ? (
+                      <span className="font-bold text-emerald-400 flex items-center gap-0.5">
+                        <ArrowDownRight className="w-3 h-3" />
+                        -{sec.kaizenSaved.toFixed(2).replace('.', ',')}m (-{sec.kaizenSavedPct.toFixed(1).replace('.', ',')}%)
+                      </span>
+                    ) : sec.kaizenSaved < -0.001 ? (
+                      <span className="font-bold text-rose-400 flex items-center gap-0.5">
+                        <ArrowUpRight className="w-3 h-3" />
+                        +{Math.abs(sec.kaizenSaved).toFixed(2).replace('.', ',')}m
+                      </span>
+                    ) : (
+                      <span className="text-slate-500">Estável</span>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
@@ -1224,369 +1244,7 @@ export default function IndicatorsPage() {
         </div>
       )}
 
-      {/* Filter and Search Bar */}
-      <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-md flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-        
-        {/* Search */}
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Buscar operação por nome..."
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-950/80 border border-slate-800 text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500"
-          />
-        </div>
 
-        {/* Filter by Category */}
-        <div className="flex items-center gap-2">
-          <select
-            value={selectedCategory}
-            onChange={e => setSelectedCategory(e.target.value)}
-            className="px-3 py-2 rounded-xl bg-slate-950/80 border border-slate-800 text-xs font-semibold text-slate-300 focus:outline-none focus:border-cyan-500 cursor-pointer"
-          >
-            <option value="all">Todos os Setores ({categories.length})</option>
-            {categories.map(cat => (
-              <option key={cat.key} value={cat.key}>
-                {cat.title}
-              </option>
-            ))}
-          </select>
-
-          {/* Filter by Status */}
-          <select
-            value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value as any)}
-            className="px-3 py-2 rounded-xl bg-slate-950/80 border border-slate-800 text-xs font-semibold text-slate-300 focus:outline-none focus:border-cyan-500 cursor-pointer"
-          >
-            <option value="changed">Apenas c/ Mudança ({metrics.gainCount + metrics.lossCount})</option>
-            <option value="all">Todas as Operações ({operations.length})</option>
-            <option value="gain">Apenas Ganhos de Tempo ({metrics.gainCount})</option>
-            <option value="loss">Apenas Aumentos de Tempo ({metrics.lossCount})</option>
-            <option value="neutral">Sem Alteração ({metrics.neutralCount})</option>
-          </select>
-        </div>
-
-      </div>
-
-      {/* Operations Comparison Table */}
-      <div className="rounded-2xl bg-slate-900/95 border border-slate-800 shadow-2xl overflow-hidden">
-        
-        <div className="p-4 bg-slate-950/70 border-b border-slate-800 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <SlidersHorizontal className="w-4 h-4 text-cyan-400" />
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-              Tabela de Medições & Retorno Financeiro
-            </h3>
-            <span className={`text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border ${
-              statusFilter === 'changed'
-                ? 'bg-cyan-950/80 text-cyan-300 border-cyan-800'
-                : 'bg-slate-800 text-slate-300 border-slate-700'
-            }`}>
-              {filteredOperations.length} {statusFilter === 'changed' ? 'itens com mudança' : 'operações exibidas'}
-            </span>
-          </div>
-
-          <span className="text-xs text-slate-400 hidden sm:inline">
-            Ponto de Partida: <strong className="text-cyan-300">Última Medição Anterior (Kaizen)</strong>
-          </span>
-        </div>
-
-        <div className="overflow-x-auto custom-scrollbar">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="border-b border-slate-800 bg-slate-950/50 text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                <th className="p-3.5">Operação & Setor</th>
-                <th className="p-3.5 text-center">Ponto de Partida</th>
-                <th className="p-3.5 text-center">Nova Medição</th>
-                <th className="p-3.5 text-center">Variação (Δ)</th>
-                <th className="p-3.5 text-center">Qtd Aplicada / Mês</th>
-                <th className="p-3.5 text-center">Custo R$/h</th>
-                <th className="p-3.5 text-center">Horas Poupadas/Mês</th>
-                <th className="p-3.5 text-right">Impacto Mês (R$)</th>
-                <th className="p-3.5 text-right">Projeção Ano (R$)</th>
-                <th className="p-3.5 text-center">Ações Kaizen</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60 font-medium text-slate-300">
-              {filteredOperations.length === 0 ? (
-                <tr>
-                  <td colSpan={10} className="p-8 text-center text-slate-500">
-                    <p className="text-slate-400 font-medium">
-                      {statusFilter === 'changed'
-                        ? 'Nenhuma operação teve variação de tempo nesta medição.'
-                        : 'Nenhuma operação encontrada com os filtros selecionados.'}
-                    </p>
-                    {statusFilter === 'changed' && (
-                      <button
-                        type="button"
-                        onClick={() => setStatusFilter('all')}
-                        className="text-xs text-cyan-400 hover:text-cyan-300 underline font-semibold mt-2 inline-block cursor-pointer"
-                      >
-                        Exibir todas as operações da fábrica ({operations.length})
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ) : (
-                filteredOperations.map(op => {
-                  const cat = categoryMap[op.category];
-                  const isEditing = editingBaselineId === op.id;
-
-                  return (
-                    <tr
-                      key={op.id}
-                      className={`hover:bg-slate-800/40 transition-colors ${
-                        op.status === 'gain' ? 'bg-emerald-950/10' : op.status === 'loss' ? 'bg-rose-950/10' : ''
-                      }`}
-                    >
-                      {/* Name & Category */}
-                      <td className="p-3.5">
-                        <div className="flex flex-col gap-1">
-                          <span className="font-bold text-white text-xs">
-                            {op.name}
-                          </span>
-                          <div className="flex items-center gap-1.5">
-                            <span
-                              className="w-2 h-2 rounded-full shrink-0"
-                              style={{ backgroundColor: cat?.colorHex || '#06b6d4' }}
-                            />
-                            <span className="text-[10px] text-slate-400">
-                              {cat?.title || op.category}
-                            </span>
-                            {op.isDefault && (
-                              <span className="text-[9px] px-1 py-0.2 rounded bg-cyan-950 text-cyan-300 border border-cyan-800">
-                                Padrão
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Baseline Time (Ponto de Partida) */}
-                      <td className="p-3.5 text-center font-mono">
-                        {isEditing ? (
-                          <div className="flex items-center justify-center gap-1">
-                            <input
-                              type="number"
-                              step="0.05"
-                              min="0"
-                              value={tempBaselineValue}
-                              onChange={e => setTempBaselineValue(e.target.value)}
-                              className="w-16 px-1.5 py-0.5 rounded bg-slate-950 border border-cyan-500 text-cyan-300 text-center font-bold font-mono text-xs focus:outline-none"
-                              autoFocus
-                            />
-                            <button
-                              type="button"
-                              onClick={() => saveEditedBaseline(op.id)}
-                              className="p-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer"
-                              title="Salvar novo ponto de partida"
-                            >
-                              ✓
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setEditingBaselineId(null)}
-                              className="p-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-300 cursor-pointer"
-                              title="Cancelar"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => startEditingBaseline(op.id, op.baselineTime)}
-                            className="group flex items-center justify-center gap-1 mx-auto px-2 py-1 rounded hover:bg-slate-800 transition-colors cursor-pointer"
-                            title="Clique para editar manualmente o ponto de partida desta operação"
-                          >
-                            <span className="text-slate-300 font-bold group-hover:text-cyan-300">
-                              {op.baselineTime.toFixed(2).replace('.', ',')} min
-                            </span>
-                            <span className="text-[10px] text-slate-500 group-hover:text-cyan-400">
-                              (~{Math.round(op.baselineTime * 60)}s)
-                            </span>
-                          </button>
-                        )}
-                      </td>
-
-                      {/* Current Measurement Time */}
-                      <td className="p-3.5 text-center font-mono font-bold text-white">
-                        <span className="px-2 py-1 rounded bg-slate-950 border border-slate-800">
-                          {op.currentTime.toFixed(2).replace('.', ',')} min
-                        </span>
-                        <span className="text-[10px] text-slate-400 block mt-0.5">
-                          (~{Math.round(op.currentTime * 60)}s)
-                        </span>
-                      </td>
-
-                      {/* Delta Variation */}
-                      <td className="p-3.5 text-center font-mono">
-                        {op.status === 'gain' ? (
-                          <div className="inline-flex flex-col items-center">
-                            <span className="px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-800/60 font-bold text-[11px] flex items-center gap-1">
-                              <TrendingDown className="w-3 h-3 text-emerald-400" />
-                              -{(Math.abs(op.deltaMinutes) * 60).toFixed(0)}s ({op.percentChange.toFixed(1).replace('.', ',')}%)
-                            </span>
-                            <span className="text-[9px] text-emerald-400 font-bold mt-0.5">
-                              Ganho de Tempo (Diminuiu)
-                            </span>
-                          </div>
-                        ) : op.status === 'loss' ? (
-                          <div className="inline-flex flex-col items-center">
-                            <span className="px-2 py-0.5 rounded-full bg-rose-950/80 text-rose-300 border border-rose-800/60 font-bold text-[11px] flex items-center gap-1">
-                              <TrendingUp className="w-3 h-3 text-rose-400" />
-                              +{(op.deltaMinutes * 60).toFixed(0)}s (+{op.percentChange.toFixed(1).replace('.', ',')}%)
-                            </span>
-                            <span className="text-[9px] text-rose-400 font-bold mt-0.5">
-                              Aumento (Necessita Kaizen)
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-slate-500 font-semibold text-[11px]">
-                            0,00 min (Estável)
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Qtd Aplicada / Mês (Specific or Full Monthly Volume) */}
-                      <td className="p-3.5 text-center font-mono">
-                        {editingVolumeId === op.id ? (
-                          <div className="flex items-center justify-center gap-1">
-                            <input
-                              type="number"
-                              step="500"
-                              min="0"
-                              value={tempVolumeValue}
-                              onChange={e => setTempVolumeValue(e.target.value)}
-                              className="w-20 px-1.5 py-0.5 rounded bg-slate-950 border border-cyan-500 text-cyan-300 text-center font-bold font-mono text-xs focus:outline-none"
-                              autoFocus
-                              placeholder={`${monthlyVolume}`}
-                            />
-                            <button
-                              type="button"
-                              onClick={() => saveEditedVolume(op.id)}
-                              className="p-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer"
-                              title="Salvar quantidade específica desta operação"
-                            >
-                              ✓
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setEditingVolumeId(null)}
-                              className="p-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-300 cursor-pointer"
-                              title="Cancelar"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="inline-flex flex-col items-center">
-                            <button
-                              type="button"
-                              onClick={() => startEditingVolume(op.id, op.effectiveVolume)}
-                              className={`group flex items-center justify-center gap-1.5 px-2 py-1 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
-                                op.isCustomVolume
-                                  ? 'bg-cyan-950/70 border-cyan-500/50 text-cyan-300 hover:bg-cyan-900/60 shadow-sm'
-                                  : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:bg-slate-800/80 hover:border-slate-700'
-                              }`}
-                              title="Clique para definir uma quantidade específica de bags onde esta operação se aplica (se não for no volume total do mês)"
-                            >
-                              <span>{op.effectiveVolume.toLocaleString('pt-BR')} un</span>
-                              <span className="text-[10px] text-slate-500 group-hover:text-cyan-400">✏️</span>
-                            </button>
-                            <div className="flex items-center gap-1 mt-0.5">
-                              <span className={`text-[9px] font-semibold ${op.isCustomVolume ? 'text-cyan-400 font-bold' : 'text-slate-500'}`}>
-                                {op.isCustomVolume ? 'Qtd Específica' : 'Volume Total (100%)'}
-                              </span>
-                              {op.isCustomVolume && (
-                                <button
-                                  type="button"
-                                  onClick={() => resetVolumeToTotal(op.id)}
-                                  className="text-[9px] text-slate-400 hover:text-rose-400 underline cursor-pointer"
-                                  title="Restaurar para o volume total da fábrica"
-                                >
-                                  (redefinir)
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </td>
-
-                      {/* Hourly Rate */}
-                      <td className="p-3.5 text-center font-mono text-slate-400">
-                        R$ {op.hourlyRate.toFixed(2).replace('.', ',')}
-                      </td>
-
-                      {/* Monthly Hours Impacted */}
-                      <td className="p-3.5 text-center font-mono">
-                        <span className={`font-bold ${
-                          op.monthlyHoursImpacted > 0 ? 'text-cyan-400' : op.monthlyHoursImpacted < 0 ? 'text-rose-400' : 'text-slate-500'
-                        }`}>
-                          {op.monthlyHoursImpacted > 0 ? '+' : ''}{op.monthlyHoursImpacted.toFixed(1).replace('.', ',')} h
-                        </span>
-                      </td>
-
-                      {/* Monthly Financial Impact */}
-                      <td className="p-3.5 text-right font-mono">
-                        {op.status === 'gain' ? (
-                          <div>
-                            <span className="font-black text-xs text-emerald-400">
-                              + R$ {op.monthlyFinancialImpact.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </span>
-                            <span className="text-[9px] text-emerald-500 font-semibold block">
-                              Ganho no Indicador
-                            </span>
-                          </div>
-                        ) : op.status === 'loss' ? (
-                          <div>
-                            <span className="font-bold text-xs text-rose-400">
-                              ~ R$ {Math.abs(op.monthlyFinancialImpact).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </span>
-                            <span className="text-[9px] text-slate-400 font-medium block">
-                              Alerta Kaizen (não deduz)
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-slate-500 text-xs">
-                            R$ 0,00
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Annual Financial Impact */}
-                      <td className="p-3.5 text-right font-mono text-slate-400">
-                        <span className={`${
-                          op.annualFinancialImpact > 0 ? 'text-emerald-400/80 font-bold' : op.annualFinancialImpact < 0 ? 'text-rose-400/80 font-bold' : 'text-slate-600'
-                        }`}>
-                          {op.annualFinancialImpact > 0 ? '+ ' : op.annualFinancialImpact < 0 ? '- ' : ''}
-                          R$ {Math.abs(op.annualFinancialImpact).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
-                      </td>
-
-                      {/* Actions */}
-                      <td className="p-3.5 text-center">
-                        <button
-                          type="button"
-                          onClick={() => handleAdvanceBaseline(op.id, op.currentTime)}
-                          className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 hover:text-cyan-200 border border-slate-700 text-[10px] font-bold transition-all cursor-pointer whitespace-nowrap"
-                          title="Define a medição atual como o novo ponto de partida para as próximas comparações (Ciclo Kaizen)"
-                        >
-                          Fixar como Referência
-                        </button>
-                      </td>
-
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-
-      </div>
 
       {/* Sector Cost Customization Modal */}
       <SectorCostModal
