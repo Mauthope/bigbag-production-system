@@ -32,6 +32,7 @@ import { NewMonthModal } from '@/components/NewMonthModal';
 import { MonthlyVarianceChart } from '@/components/MonthlyVarianceChart';
 import { FinancialEvolutionChart } from '@/components/FinancialEvolutionChart';
 import { ComponentCategoryKey } from '@/types/production';
+import { getCurrentMonthKey, getMonthLabel, getNextMonthClosingDate } from '@/utils/monthAutomation';
 
 export default function IndicatorsPage() {
   const {
@@ -92,10 +93,13 @@ export default function IndicatorsPage() {
   const [editingVolumeId, setEditingVolumeId] = useState<string | null>(null);
   const [tempVolumeValue, setTempVolumeValue] = useState<string>('');
 
-  const activeMonthKey = financialConfig?.activeMonthKey || '2026-08';
+  const currentCalendarMonthKey = getCurrentMonthKey();
+  const activeMonthKey = financialConfig?.activeMonthKey || currentCalendarMonthKey;
   const monthlyHistory = financialConfig?.monthlyHistory || {};
   const activeMonthRecord = monthlyHistory[activeMonthKey];
   const isMonthClosed = activeMonthRecord?.isClosed ?? false;
+  const isViewingHistoricalMonth = activeMonthKey !== currentCalendarMonthKey;
+  const closingInfo = useMemo(() => getNextMonthClosingDate(activeMonthKey), [activeMonthKey]);
 
   const monthlyVolume = activeMonthRecord?.volume ?? (financialConfig?.monthlyVolume ?? 20000);
   const defaultHourlyRate = financialConfig?.defaultHourlyRate ?? 28.5;
@@ -282,6 +286,31 @@ export default function IndicatorsPage() {
     };
   }, [enrichedOperations, categoryMap, errorMarginPercent]);
 
+  // Se o mês selecionado estiver consolidado/fechado, exibe os valores congelados do fechamento
+  const displayMetrics = useMemo(() => {
+    if (isMonthClosed && activeMonthRecord) {
+      const totalSavings = activeMonthRecord.totalSavings ?? 0;
+      const grossSavings = activeMonthRecord.grossSavings ?? totalSavings;
+      const totalHoursSaved = activeMonthRecord.hoursSaved ?? 0;
+      const totalLosses = activeMonthRecord.totalLosses ?? 0;
+      const totalHoursLost = activeMonthRecord.hoursLost ?? 0;
+      const marginAmt = Math.max(0, grossSavings - totalSavings);
+      return {
+        ...metrics,
+        grossMonthlySavings: grossSavings,
+        errorMarginAmount: marginAmt,
+        totalMonthlySavings: totalSavings,
+        annualProjectedSavings: totalSavings * 12,
+        grossHoursSaved: totalHoursSaved,
+        totalMonthlyHoursSaved: totalHoursSaved,
+        grossLossesAmount: totalLosses,
+        grossLossesHours: totalHoursLost,
+        equivalentOperatorsFreed: totalHoursSaved / (22 * 8.5)
+      };
+    }
+    return metrics;
+  }, [isMonthClosed, activeMonthRecord, metrics]);
+
   // Overall cycle time calculations for continuous timeline
   const { totalActiveCycleTime, totalBaselineCycleTime } = useMemo(() => {
     let activeTotal = 0;
@@ -408,82 +437,121 @@ export default function IndicatorsPage() {
       </div>
 
       {/* Month Selector & Monthly Closing Bar */}
-      <div className="p-4 rounded-2xl bg-gradient-to-r from-slate-900/95 via-slate-900/80 to-slate-950/90 border border-cyan-500/25 shadow-lg flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+      <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-slate-900/95 via-slate-900/80 to-slate-950/90 border border-cyan-500/25 shadow-lg flex flex-col gap-3.5">
         
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-cyan-400" />
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
-              Mês de Referência:
-            </span>
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-cyan-400" />
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                Mês de Referência:
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <select
+                value={activeMonthKey}
+                onChange={e => changeActiveMonth(e.target.value)}
+                className="px-3.5 py-1.5 rounded-xl bg-slate-950 border border-slate-700 text-xs font-bold text-cyan-300 focus:outline-none focus:border-cyan-500 cursor-pointer shadow-inner font-mono"
+              >
+                {availableMonths.map(key => {
+                  const rec = monthlyHistory[key];
+                  const label = rec?.monthLabel || getMonthLabel(key);
+                  const closedTag = rec?.isClosed ? ' [Consolidado]' : ' [Em Aberto]';
+                  return (
+                    <option key={key} value={key}>
+                      {label} {closedTag}
+                    </option>
+                  );
+                })}
+              </select>
+
+              <span className={`text-[10px] px-2.5 py-1 rounded-full font-bold font-mono border flex items-center gap-1 ${
+                isMonthClosed
+                  ? 'bg-cyan-950/80 text-cyan-300 border-cyan-800/80'
+                  : 'bg-emerald-950/80 text-emerald-300 border-emerald-800/80'
+              }`}>
+                {isMonthClosed ? <Lock className="w-3 h-3 text-cyan-400" /> : <Unlock className="w-3 h-3 text-emerald-400" />}
+                <span>{isMonthClosed ? 'Mês Consolidado / Fechado' : 'Mês Ativo em Aberto'}</span>
+              </span>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            <select
-              value={activeMonthKey}
-              onChange={e => changeActiveMonth(e.target.value)}
-              className="px-3.5 py-1.5 rounded-xl bg-slate-950 border border-slate-700 text-xs font-bold text-cyan-300 focus:outline-none focus:border-cyan-500 cursor-pointer shadow-inner font-mono"
-            >
-              {availableMonths.map(key => {
-                const rec = monthlyHistory[key];
-                const label = rec?.monthLabel || key;
-                const closedTag = rec?.isClosed ? ' [Fechado]' : ' [Em Aberto]';
-                return (
-                  <option key={key} value={key}>
-                    {label} {closedTag}
-                  </option>
-                );
-              })}
-            </select>
+          {/* Month Actions */}
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            {isViewingHistoricalMonth && (
+              <button
+                type="button"
+                onClick={() => changeActiveMonth(currentCalendarMonthKey)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/40 text-xs font-bold transition-all cursor-pointer shadow-sm active:scale-95"
+              >
+                <ArrowRight className="w-3.5 h-3.5" />
+                <span>Voltar ao Mês Atual ({getMonthLabel(currentCalendarMonthKey)})</span>
+              </button>
+            )}
 
-            <span className={`text-[10px] px-2.5 py-1 rounded-full font-bold font-mono border flex items-center gap-1 ${
-              isMonthClosed
-                ? 'bg-cyan-950/80 text-cyan-300 border-cyan-800/80'
-                : 'bg-emerald-950/80 text-emerald-300 border-emerald-800/80'
-            }`}>
-              {isMonthClosed ? <Lock className="w-3 h-3 text-cyan-400" /> : <Unlock className="w-3 h-3 text-emerald-400" />}
-              <span>{isMonthClosed ? 'Mês Consolidado / Fechado' : 'Mês Ativo em Aberto'}</span>
-            </span>
+            <button
+              type="button"
+              onClick={handleToggleCloseMonth}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm ${
+                isMonthClosed
+                  ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                  : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700'
+              }`}
+              title={isMonthClosed ? 'Reabrir mês para novas alterações' : 'Consolidar antes da virada automática do mês'}
+            >
+              {isMonthClosed ? <Unlock className="w-3.5 h-3.5 text-amber-400" /> : <Lock className="w-3.5 h-3.5 text-slate-400" />}
+              <span>{isMonthClosed ? 'Reabrir Mês (Exceção)' : 'Fechar Antecipadamente'}</span>
+            </button>
+
+            {!isMonthClosed && (
+              <button
+                type="button"
+                onClick={resetCurrentMonthMeasurements}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-950/80 hover:bg-slate-800 text-slate-400 hover:text-cyan-300 border border-slate-800 text-xs font-bold transition-all cursor-pointer shadow-sm"
+                title="Fixa os tempos atuais como ponto de partida para começar a medir do zero neste mês"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Zerar Medições do Mês</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setIsNewMonthModalOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-cyan-300 hover:text-cyan-200 border border-cyan-500/30 hover:border-cyan-500/50 text-xs font-bold transition-all cursor-pointer shadow-sm"
+              title="Ajuste manual de ciclo ou parametrização de novo mês"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Ajustar Ciclo</span>
+            </button>
           </div>
         </div>
 
-        {/* Month Actions (New Month + Close/Reopen Month) */}
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={handleToggleCloseMonth}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm ${
-              isMonthClosed
-                ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
-                : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-emerald-950/40'
-            }`}
-            title={isMonthClosed ? 'Reabrir mês para novas alterações' : 'Consolidar e congelar o resultado deste mês'}
-          >
-            {isMonthClosed ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
-            <span>{isMonthClosed ? 'Reabrir Mês' : 'Consolidar / Fechar Mês'}</span>
-          </button>
-
-          {!isMonthClosed && (
-            <button
-              type="button"
-              onClick={resetCurrentMonthMeasurements}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-950/80 hover:bg-slate-800 text-slate-400 hover:text-cyan-300 border border-slate-800 text-xs font-bold transition-all cursor-pointer shadow-sm"
-              title="Fixa os tempos atuais como ponto de partida para começar a medir do zero neste mês"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Zerar Medições do Mês</span>
-            </button>
+        {/* Automation Status Banner */}
+        <div className="pt-2.5 border-t border-slate-800/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+          {!isMonthClosed ? (
+            <div className="flex items-center gap-2 text-cyan-300">
+              <Sparkles className="w-4 h-4 text-cyan-400 shrink-0 animate-pulse" />
+              <span>
+                <strong>Fechamento 100% Automático:</strong> Encerramento e consolidação programados para o último dia do mês (<strong>{closingInfo.lastDateFormatted} às 23:59</strong>). A virada do mês inicia o novo ciclo automaticamente com balanço zerado.
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-slate-400">
+              <Lock className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>
+                <strong>Mês Consolidado:</strong> Encerrado em <strong>{activeMonthRecord?.closedAt ? new Date(activeMonthRecord.closedAt + 'T12:00:00').toLocaleDateString('pt-BR') : closingInfo.lastDateFormatted}</strong>. Histórico congelado para auditoria e prestação de contas.
+              </span>
+            </div>
           )}
 
-          <button
-            type="button"
-            onClick={() => setIsNewMonthModalOpen(true)}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-cyan-300 hover:text-cyan-200 border border-cyan-500/30 hover:border-cyan-500/50 text-xs font-bold transition-all cursor-pointer shadow-sm"
-            title="Iniciar um novo mês com nova quantidade prevista de bags"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>+ Iniciar Novo Mês</span>
-          </button>
+          {!isMonthClosed && (
+            <div className="flex items-center gap-1.5 text-[11px] font-mono text-slate-400 shrink-0 sm:ml-auto">
+              <Clock className="w-3.5 h-3.5 text-cyan-400" />
+              <span>{closingInfo.isLastDay ? 'Hoje é o último dia do mês!' : `${closingInfo.daysRemaining} dias até a virada automática`}</span>
+            </div>
+          )}
         </div>
 
       </div>
@@ -580,7 +648,7 @@ export default function IndicatorsPage() {
                 Ganhos Financeiros do Mês
               </span>
               <span className="text-[10px] text-amber-400 font-semibold">
-                (Ajustado c/ -{metrics.errorMarginPercent}% margem de erro técnica)
+                (Ajustado c/ -{displayMetrics.errorMarginPercent}% margem de erro técnica)
               </span>
             </div>
             <div className="p-2 rounded-xl border bg-emerald-500/10 border-emerald-500/20 text-emerald-400">
@@ -592,14 +660,14 @@ export default function IndicatorsPage() {
             <div className="flex items-baseline gap-1">
               <span className="text-xs font-bold text-slate-400">R$</span>
               <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-emerald-400">
-                {metrics.totalMonthlySavings.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                {displayMetrics.totalMonthlySavings.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
               <span className="text-xs font-bold text-slate-400">/mês</span>
             </div>
             <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 mt-1.5 pt-1 border-t border-slate-800/60">
-              <span>Ganhos Brutos: R$ {metrics.grossMonthlySavings.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+              <span>Ganhos Brutos: R$ {displayMetrics.grossMonthlySavings.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
               <span className="text-amber-400 font-semibold">
-                -{metrics.errorMarginPercent}%: -R$ {metrics.errorMarginAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                -{displayMetrics.errorMarginPercent}%: -R$ {displayMetrics.errorMarginAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </span>
             </div>
           </div>
@@ -607,7 +675,7 @@ export default function IndicatorsPage() {
           <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
             <span className="text-slate-400">Projeção Anual:</span>
             <span className="font-mono font-bold text-emerald-400">
-              R$ {metrics.annualProjectedSavings.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / ano
+              R$ {displayMetrics.annualProjectedSavings.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / ano
             </span>
           </div>
         </div>
@@ -620,7 +688,7 @@ export default function IndicatorsPage() {
                 Horas de Mão-de-Obra / Mês
               </span>
               <span className="text-[10px] text-cyan-400/80 font-medium">
-                (Líquido c/ -{metrics.errorMarginPercent}% de erro)
+                (Líquido c/ -{displayMetrics.errorMarginPercent}% de erro)
               </span>
             </div>
             <div className="p-2 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
@@ -631,19 +699,19 @@ export default function IndicatorsPage() {
           <div className="mt-3">
             <div className="flex items-baseline gap-1">
               <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-cyan-400">
-                {metrics.totalMonthlyHoursSaved.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+                {displayMetrics.totalMonthlyHoursSaved.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
               </span>
               <span className="text-xs font-bold text-cyan-300">horas / mês</span>
             </div>
             <span className="text-[10px] text-slate-400 font-mono block mt-1">
-              Ganhos Brutos: {metrics.grossHoursSaved.toFixed(1).replace('.', ',')} h poupadas
+              Ganhos Brutos: {displayMetrics.grossHoursSaved.toFixed(1).replace('.', ',')} h poupadas
             </span>
           </div>
 
           <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
             <span className="text-slate-400">Capacidade Liberada:</span>
             <span className="text-cyan-300 font-mono font-bold">
-              ~{Math.abs(metrics.equivalentOperatorsFreed).toFixed(1).replace('.', ',')} operadores
+              ~{Math.abs(displayMetrics.equivalentOperatorsFreed).toFixed(1).replace('.', ',')} operadores
             </span>
           </div>
         </div>
@@ -662,12 +730,12 @@ export default function IndicatorsPage() {
           <div className="mt-3">
             <div className="flex items-baseline gap-1">
               <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-amber-300">
-                {metrics.totalTimeSavedPerBag.toFixed(2).replace('.', ',')}
+                {displayMetrics.totalTimeSavedPerBag.toFixed(2).replace('.', ',')}
               </span>
               <span className="text-xs font-bold text-amber-400">min / bag</span>
             </div>
             <span className="text-[11px] font-semibold text-slate-400 block mt-1">
-              Redução de ~{Math.round(metrics.totalTimeSavedPerBag * 60)} segundos no ciclo dos itens com ganho
+              Redução de ~{Math.round(displayMetrics.totalTimeSavedPerBag * 60)} segundos no ciclo dos itens com ganho
             </span>
           </div>
 
@@ -691,27 +759,27 @@ export default function IndicatorsPage() {
               </span>
             </div>
             <div className={`p-2 rounded-xl border ${
-              metrics.lossCount > 0
+              displayMetrics.lossCount > 0
                 ? 'bg-rose-500/10 border-rose-500/20 text-rose-400'
                 : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
             }`}>
-              {metrics.lossCount > 0 ? <AlertTriangle className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
+              {displayMetrics.lossCount > 0 ? <AlertTriangle className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
             </div>
           </div>
 
           <div className="mt-3">
-            {metrics.lossCount > 0 ? (
+            {displayMetrics.lossCount > 0 ? (
               <>
                 <div className="flex items-baseline gap-1.5">
                   <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-rose-400">
-                    {metrics.lossCount}
+                    {displayMetrics.lossCount}
                   </span>
                   <span className="text-xs font-bold text-rose-300">operações c/ aumento</span>
                 </div>
                 <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 mt-1.5 pt-1 border-t border-slate-800/60">
-                  <span>Desvio: +{metrics.grossLossesHours.toFixed(1).replace('.', ',')} h</span>
+                  <span>Desvio: +{displayMetrics.grossLossesHours.toFixed(1).replace('.', ',')} h</span>
                   <span className="text-rose-400 font-semibold">
-                    ~ R$ {metrics.grossLossesAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    ~ R$ {displayMetrics.grossLossesAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </span>
                 </div>
               </>
@@ -744,8 +812,8 @@ export default function IndicatorsPage() {
       <FinancialEvolutionChart
         monthlyHistory={monthlyHistory}
         activeMonthKey={activeMonthKey}
-        currentMonthNetSavings={metrics.totalMonthlySavings}
-        currentMonthHoursSaved={metrics.totalMonthlyHoursSaved}
+        currentMonthNetSavings={displayMetrics.totalMonthlySavings}
+        currentMonthHoursSaved={displayMetrics.totalMonthlyHoursSaved}
         totalCycleTimeMinutes={totalActiveCycleTime}
         baselineCycleTimeMinutes={totalBaselineCycleTime}
         errorMarginPercent={errorMarginPercent}

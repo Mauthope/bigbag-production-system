@@ -14,6 +14,12 @@ import {
 import { CATEGORIES_CONFIG, DEFAULT_CATEGORIES, DEFAULT_OPERATIONS, DEFAULT_CELL_CONFIG, DEFAULT_FINANCIAL_CONFIG } from '@/data/defaultData';
 import { storage as localStorageService } from '@/services/storage';
 import { StorageData } from '@/services/storage/types';
+import {
+  getCurrentMonthKey,
+  getMonthLabel,
+  getLastDayOfMonth,
+  checkAndPerformMonthRollover
+} from '@/utils/monthAutomation';
 
 interface ToastState {
   show: boolean;
@@ -45,6 +51,7 @@ interface ProductionContextType {
   startNewMonth: (monthKey: string, volume: number, monthLabel?: string) => Promise<void>;
   resetCurrentMonthMeasurements: () => Promise<void>;
   saveMonthlyClosing: (monthKey: string, summary: Partial<MonthlyClosingRecord>) => Promise<void>;
+  triggerMonthRolloverCheck: () => Promise<void>;
 
   // Operations Catalog
   operations: OperationItem[];
@@ -299,11 +306,29 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           localStorageService.getFinancialConfig ? localStorageService.getFinancialConfig() : Promise.resolve(DEFAULT_FINANCIAL_CONFIG)
         ]);
         setCategories(loadedCats);
-        setOperations(loadedOps);
         setTimeStudies(loadedStudies);
         setSelectedOperationIds(loadedSelection);
         if (loadedCell) setCellConfig(loadedCell);
-        if (loadedFin) setFinancialConfig(loadedFin);
+
+        // Verificação e virada automática de mês no arranque da aplicação
+        const effectiveFin = loadedFin || DEFAULT_FINANCIAL_CONFIG;
+        const rolloverResult = checkAndPerformMonthRollover(loadedOps, effectiveFin);
+
+        if (rolloverResult.rolledOver) {
+          console.log('[AutoMonthRollover on Init]', rolloverResult.message);
+          setOperations(rolloverResult.updatedOperations);
+          setFinancialConfig(rolloverResult.updatedFinConfig);
+          await Promise.all([
+            localStorageService.saveOperations(rolloverResult.updatedOperations),
+            localStorageService.saveFinancialConfig ? localStorageService.saveFinancialConfig(rolloverResult.updatedFinConfig) : Promise.resolve()
+          ]);
+        } else {
+          setOperations(rolloverResult.updatedOperations);
+          setFinancialConfig(rolloverResult.updatedFinConfig);
+          if (rolloverResult.updatedFinConfig !== effectiveFin && localStorageService.saveFinancialConfig) {
+            await localStorageService.saveFinancialConfig(rolloverResult.updatedFinConfig);
+          }
+        }
       } catch (err) {
         console.error('Error loading initial state:', err);
       } finally {
@@ -312,6 +337,56 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
     init();
   }, []);
+
+  // Referências sincronizadas para verificação periódica de virada de mês
+  const operationsRef = React.useRef(operations);
+  operationsRef.current = operations;
+  const financialConfigRef = React.useRef(financialConfig);
+  financialConfigRef.current = financialConfig;
+
+  const triggerMonthRolloverCheck = useCallback(async () => {
+    const currentOps = operationsRef.current;
+    const currentFin = financialConfigRef.current;
+    if (!currentOps || !currentFin) return;
+
+    const result = checkAndPerformMonthRollover(currentOps, currentFin);
+    if (result.rolledOver) {
+      setOperations(result.updatedOperations);
+      setFinancialConfig(result.updatedFinConfig);
+      await Promise.all([
+        localStorageService.saveOperations(result.updatedOperations),
+        localStorageService.saveFinancialConfig ? localStorageService.saveFinancialConfig(result.updatedFinConfig) : Promise.resolve()
+      ]);
+      showToast(result.message || 'Virada de mês automática concluída!', 'success');
+    }
+  }, [showToast]);
+
+  // Monitoramento contínuo: checa a cada 60s ou quando a aba ganha foco
+  useEffect(() => {
+    if (isLoading) return;
+
+    const interval = setInterval(() => {
+      triggerMonthRolloverCheck();
+    }, 60 * 1000);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        triggerMonthRolloverCheck();
+      }
+    };
+    const handleFocus = () => {
+      triggerMonthRolloverCheck();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [isLoading, triggerMonthRolloverCheck]);
 
   // Category / Block Management
   const addCategory = useCallback(async (catData: Omit<ComponentCategoryConfig, 'key'> & { key?: string }) => {
@@ -846,7 +921,9 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         hoursLost: summary.hoursLost !== undefined ? summary.hoursLost : (currentRec?.hoursLost || 0),
         netHours: summary.netHours !== undefined ? summary.netHours : (currentRec?.netHours || 0),
         isClosed: summary.isClosed !== undefined ? summary.isClosed : (currentRec?.isClosed || false),
-        closedAt: summary.isClosed ? new Date().toISOString().split('T')[0] : currentRec?.closedAt
+        closedAt: summary.isClosed
+          ? (summary.closedAt || getLastDayOfMonth(monthKey))
+          : currentRec?.closedAt
       };
 
       const updated: FinancialImpactConfig = {
@@ -894,6 +971,7 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         startNewMonth,
         resetCurrentMonthMeasurements,
         saveMonthlyClosing,
+        triggerMonthRolloverCheck,
         operations,
         isLoading,
         updateOperationTime,

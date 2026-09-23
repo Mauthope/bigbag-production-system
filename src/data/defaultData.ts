@@ -73,17 +73,22 @@ export const DEFAULT_CELL_CONFIG: CellProductionConfig = {
   shiftHours: 8.5
 };
 
+const defaultNow = new Date();
+const defaultMonthKey = `${defaultNow.getFullYear()}-${String(defaultNow.getMonth() + 1).padStart(2, '0')}`;
+const defaultMonthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+const defaultMonthLabel = `${defaultMonthNames[defaultNow.getMonth()]}/${defaultNow.getFullYear()}`;
+
 export const DEFAULT_FINANCIAL_CONFIG: FinancialImpactConfig = {
-  activeMonthKey: '2026-08',
+  activeMonthKey: defaultMonthKey,
   monthlyVolume: 20000,
   defaultHourlyRate: 28.50,
   sectorHourlyRates: {},
   comparisonBaselineMode: 'previous',
   errorMarginPercent: 5,
   monthlyHistory: {
-    '2026-08': {
-      monthKey: '2026-08',
-      monthLabel: 'Agosto/2026',
+    [defaultMonthKey]: {
+      monthKey: defaultMonthKey,
+      monthLabel: defaultMonthLabel,
       volume: 20000,
       defaultHourlyRate: 28.50,
       grossSavings: 0,
