@@ -87,6 +87,7 @@ export default function IndicatorsPage() {
   const [isSectorCostModalOpen, setIsSectorCostModalOpen] = useState(false);
   const [isNewMonthModalOpen, setIsNewMonthModalOpen] = useState(false);
   const [isKaizenModalOpen, setIsKaizenModalOpen] = useState(false);
+  const [kaizenModalTab, setKaizenModalTab] = useState<'open_opportunities' | 'completed_kaizens'>('open_opportunities');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'changed' | 'all' | 'gain' | 'loss' | 'neutral'>('changed');
@@ -856,7 +857,10 @@ export default function IndicatorsPage() {
 
         {/* KPI 4: Oportunidades Kaizen (Aumentos de Tempo) & Ganhos Auditados (Hub Monetário) */}
         <div
-          onClick={() => setIsKaizenModalOpen(true)}
+          onClick={() => {
+            setKaizenModalTab(displayMetrics.lossCount > 0 ? 'open_opportunities' : 'completed_kaizens');
+            setIsKaizenModalOpen(true);
+          }}
           role="button"
           tabIndex={0}
           title="Clique para auditar e gerenciar as Oportunidades e Ganhos Kaizen"
@@ -866,7 +870,7 @@ export default function IndicatorsPage() {
               : 'border-slate-800 hover:border-slate-700'
           }`}
         >
-          {/* Fundo de Iluminação Neon Vermelho */}
+          {/* Fundo de Iluminação Neon Vermelho para Desvios Ativos */}
           {displayMetrics.lossCount > 0 && (
             <div className="absolute -top-12 -right-12 w-36 h-36 bg-rose-500/20 rounded-full blur-2xl pointer-events-none group-hover:bg-rose-500/35 transition-all animate-pulse" />
           )}
@@ -889,60 +893,81 @@ export default function IndicatorsPage() {
             </div>
           </div>
 
-          <div className="mt-3 relative z-10">
+          {/* Métricas Principais: Exibe Ganhos Conquistados E Desvios em Aberto */}
+          <div className="mt-2.5 relative z-10 space-y-2">
+            <div>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-xs font-bold text-emerald-400">R$</span>
+                <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-emerald-400 drop-shadow-[0_0_12px_rgba(16,185,129,0.3)]">
+                  {totalKaizenAchievedSavings.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+                <span className="text-xs font-bold text-slate-400">/mês</span>
+              </div>
+              <div className="flex items-center justify-between text-[11px] text-emerald-300/90 font-mono mt-0.5">
+                <span className="flex items-center gap-1 font-semibold">
+                  <Sparkles className="w-3 h-3 text-emerald-400 shrink-0" />
+                  {completedKaizensList.length} tempos reduzidos
+                </span>
+                <span className="text-slate-400">
+                  +{displayMetrics.grossHoursSaved.toFixed(1).replace('.', ',')}h poupadas
+                </span>
+              </div>
+            </div>
+
+            {/* Alerta de Desvios com Aumento de Tempo */}
             {displayMetrics.lossCount > 0 ? (
-              <>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-rose-400 group-hover:text-rose-300 transition-colors drop-shadow-[0_0_12px_rgba(244,63,94,0.6)]">
-                    {displayMetrics.lossCount}
-                  </span>
-                  <span className="text-xs font-bold text-rose-300">desvios ativos</span>
-                </div>
-                <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 mt-1.5 pt-1 border-t border-slate-800/60">
-                  <span>Desvio: +{displayMetrics.grossLossesHours.toFixed(1).replace('.', ',')} h</span>
-                  <span className="text-rose-400 font-semibold">
-                    ~ R$ {displayMetrics.grossLossesAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              <div className="p-2 rounded-xl bg-rose-950/70 border border-rose-500/60 shadow-[0_0_15px_rgba(244,63,94,0.35)] flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping shrink-0" />
+                  <span className="font-bold text-rose-300">
+                    {displayMetrics.lossCount} {displayMetrics.lossCount === 1 ? 'desvio ativo' : 'desvios ativos'}
                   </span>
                 </div>
-              </>
-            ) : totalKaizenAchievedSavings > 0 ? (
-              <>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-xs font-bold text-emerald-400">R$</span>
-                  <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-emerald-400">
-                    {totalKaizenAchievedSavings.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                  <span className="text-xs font-bold text-slate-400">/mês</span>
-                </div>
-                <span className="text-[11px] text-emerald-300/80 block mt-1 font-mono">
-                  Ganho Real Kaizen ({completedKaizensList.length} pontos otimizados)
+                <span className="font-mono text-rose-400 font-bold text-[11px]">
+                  +{displayMetrics.grossLossesHours.toFixed(1).replace('.', ',')}h (~R$ {displayMetrics.grossLossesAmount.toLocaleString('pt-BR', { minimumFractionDigits: 0 })})
                 </span>
-              </>
+              </div>
             ) : (
-              <>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-emerald-400">
-                    0
-                  </span>
-                  <span className="text-xs font-bold text-emerald-300">desvios registrados</span>
-                </div>
-                <span className="text-[11px] text-slate-400 block mt-1">
-                  100% dos processos mantidos ou melhorados
-                </span>
-              </>
+              <div className="p-1.5 rounded-xl bg-emerald-950/30 border border-emerald-500/20 text-[11px] text-emerald-400/90 flex items-center justify-center gap-1.5 font-mono">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span>0 desvios ativos • Processos padronizados</span>
+              </div>
             )}
           </div>
 
+          {/* Rodapé do Card com Atalhos Diretos para as Abas */}
           <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs relative z-10">
-            <span className="text-slate-400">
-              {totalKaizenAchievedSavings > 0
-                ? `Ganho Real: R$ ${totalKaizenAchievedSavings.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/mês`
-                : 'Status Kaizen:'}
-            </span>
-            <span className={`text-[11px] font-bold flex items-center gap-1 group-hover:translate-x-0.5 transition-all ${
-              displayMetrics.lossCount > 0 ? 'text-rose-400 group-hover:text-rose-300' : 'text-cyan-400 group-hover:text-cyan-300'
-            }`}>
-              <span>{displayMetrics.lossCount > 0 ? 'Auditar & Aplicar Kaizen' : 'Gerenciar Kaizen'}</span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {displayMetrics.lossCount > 0 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setKaizenModalTab('open_opportunities');
+                    setIsKaizenModalOpen(true);
+                  }}
+                  className="px-2 py-0.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/50 text-[10px] font-bold transition-all cursor-pointer shadow-sm hover:scale-105 active:scale-95"
+                  title="Clique para auditar as oportunidades com aumento de tempo"
+                >
+                  Ver {displayMetrics.lossCount} Desvios
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setKaizenModalTab('completed_kaizens');
+                  setIsKaizenModalOpen(true);
+                }}
+                className="px-2 py-0.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/50 text-[10px] font-bold transition-all cursor-pointer shadow-sm hover:scale-105 active:scale-95"
+                title="Clique para ver os tempos reduzidos e ganhos catalogados"
+              >
+                Ver {completedKaizensList.length} Ganhos
+              </button>
+            </div>
+
+            <span className="text-[11px] font-bold flex items-center gap-1 text-cyan-400 group-hover:text-cyan-300 group-hover:translate-x-0.5 transition-all">
+              <span>Abrir Painel</span>
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
             </span>
           </div>
@@ -1409,6 +1434,7 @@ export default function IndicatorsPage() {
         defaultHourlyRate={defaultHourlyRate}
         onUpdateOperationTime={updateOperationTime}
         onExcludeOpportunity={handleExcludeKaizenOpportunity}
+        initialTab={kaizenModalTab}
       />
 
     </div>

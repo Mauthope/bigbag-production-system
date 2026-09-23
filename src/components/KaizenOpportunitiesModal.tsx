@@ -53,6 +53,7 @@ interface KaizenOpportunitiesModalProps {
     source?: 'cronoanalise' | 'manual'
   ) => Promise<void>;
   onExcludeOpportunity: (id: string, currentTime: number) => Promise<void>;
+  initialTab?: 'open_opportunities' | 'completed_kaizens';
 }
 
 export const KaizenOpportunitiesModal: React.FC<KaizenOpportunitiesModalProps> = ({
@@ -63,11 +64,23 @@ export const KaizenOpportunitiesModal: React.FC<KaizenOpportunitiesModalProps> =
   monthlyVolume,
   defaultHourlyRate,
   onUpdateOperationTime,
-  onExcludeOpportunity
+  onExcludeOpportunity,
+  initialTab = 'open_opportunities'
 }) => {
-  const [activeTab, setActiveTab] = useState<'open_opportunities' | 'completed_kaizens'>('open_opportunities');
+  const [activeTab, setActiveTab] = useState<'open_opportunities' | 'completed_kaizens'>(initialTab);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+
+  // Filtros específicos da aba de Kaizens Concluídos (Tempos Reduzidos)
+  const [completedSearchTerm, setCompletedSearchTerm] = useState('');
+  const [completedCategory, setCompletedCategory] = useState<string>('all');
+  const [completedSort, setCompletedSort] = useState<'recent' | 'savings' | 'saved_time'>('recent');
+
+  React.useEffect(() => {
+    if (isOpen && initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [isOpen, initialTab]);
   
   // Estado para registro inline de novo Kaizen
   const [recordingOpId, setRecordingOpId] = useState<string | null>(null);
@@ -119,15 +132,40 @@ export const KaizenOpportunitiesModal: React.FC<KaizenOpportunitiesModalProps> =
               monthlySavings: savings,
               monthlyHoursSaved: hours,
               notes: currEntry.notes || 'Kaizen: eliminação de micro-desperdício',
-              date: currEntry.date
+              date: currEntry.date || ''
             });
           }
         }
       }
     });
 
-    return list.sort((a, b) => b.monthlySavings - a.monthlySavings);
+    return list;
   }, [operations]);
+
+  // Filtro e Ordenação dos Kaizens Concluídos (Priorizando medições mais recentes de Setembro)
+  const filteredCompletedKaizens = useMemo(() => {
+    return completedKaizens
+      .filter(item => {
+        const matchSearch = item.op.name.toLowerCase().includes(completedSearchTerm.toLowerCase()) ||
+          item.notes.toLowerCase().includes(completedSearchTerm.toLowerCase());
+        const matchCat = completedCategory === 'all' || item.op.category === completedCategory;
+        return matchSearch && matchCat;
+      })
+      .sort((a, b) => {
+        if (completedSort === 'recent') {
+          const dateA = a.date || '1970-01-01';
+          const dateB = b.date || '1970-01-01';
+          if (dateB !== dateA) {
+            return dateB.localeCompare(dateA);
+          }
+          return b.monthlySavings - a.monthlySavings;
+        } else if (completedSort === 'savings') {
+          return b.monthlySavings - a.monthlySavings;
+        } else {
+          return b.savedMinutes - a.savedMinutes;
+        }
+      });
+  }, [completedKaizens, completedSearchTerm, completedCategory, completedSort]);
 
   // Totais agregados das oportunidades em aberto
   const totalOpenLossAmount = useMemo(() => {
@@ -221,20 +259,29 @@ export const KaizenOpportunitiesModal: React.FC<KaizenOpportunitiesModalProps> =
         {/* Header com Efeito Neon Vermelho e Identidade Kaizen */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-rose-500/20 bg-gradient-to-r from-rose-950/70 via-slate-950/90 to-slate-950/90">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-400 shadow-[0_0_15px_rgba(244,63,94,0.3)] animate-pulse">
+            <div className={`p-2.5 rounded-xl border transition-all ${
+              openOpportunities.length > 0
+                ? 'bg-rose-500/15 border-rose-500/40 text-rose-400 shadow-[0_0_15px_rgba(244,63,94,0.3)] animate-pulse'
+                : 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
+            }`}>
               <Flame className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-base sm:text-lg font-black text-white tracking-tight">
                   Painel de Oportunidades & Ganhos Kaizen
                 </h2>
-                <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30">
-                  {openOpportunities.length} {openOpportunities.length === 1 ? 'Desvio Ativo' : 'Desvios Ativos'}
-                </span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30">
+                    🔴 {openOpportunities.length} {openOpportunities.length === 1 ? 'Oportunidade (Aumento)' : 'Oportunidades (Aumentos)'}
+                  </span>
+                  <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
+                    🟢 {completedKaizens.length} Ganhos Conquistados (Reduções)
+                  </span>
+                </div>
               </div>
               <p className="text-xs text-slate-400">
-                Auditoria de operações que tiveram aumento de tempo e mensuração de ganhos por redução de ciclo.
+                Auditoria de operações que tiveram aumento de tempo e consolidação dos ganhos reais por tempos reduzidos.
               </p>
             </div>
           </div>
@@ -248,10 +295,18 @@ export const KaizenOpportunitiesModal: React.FC<KaizenOpportunitiesModalProps> =
           </button>
         </div>
 
-        {/* 3 KPIs Resumo no Topo do Modal */}
+        {/* 3 KPIs Resumo no Topo do Modal (interativos para alternar abas) */}
         <div className="p-4 sm:p-5 bg-slate-950/60 border-b border-slate-800 grid grid-cols-1 sm:grid-cols-3 gap-3">
           
-          <div className="p-3.5 rounded-xl bg-slate-900/90 border border-rose-500/30 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setActiveTab('open_opportunities')}
+            className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
+              activeTab === 'open_opportunities'
+                ? 'bg-rose-950/40 border-rose-500/80 shadow-[0_0_15px_rgba(244,63,94,0.25)] ring-1 ring-rose-500/50'
+                : 'bg-slate-900/90 border-slate-800 hover:border-slate-700'
+            }`}
+          >
             <div>
               <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
                 Desvios em Aberto
@@ -260,21 +315,24 @@ export const KaizenOpportunitiesModal: React.FC<KaizenOpportunitiesModalProps> =
                 <span className="text-xl font-black font-mono text-rose-400">
                   {openOpportunities.length}
                 </span>
-                <span className="text-xs text-rose-300 font-semibold">operações</span>
+                <span className="text-xs text-rose-300 font-semibold">aumentos registrados</span>
               </div>
+              <span className="text-[10px] text-rose-400/80 font-mono block mt-0.5">
+                Clique para auditar
+              </span>
             </div>
             <div className="p-2 rounded-lg bg-rose-500/10 text-rose-400">
               <AlertTriangle className="w-4 h-4" />
             </div>
-          </div>
+          </button>
 
-          <div className="p-3.5 rounded-xl bg-slate-900/90 border border-rose-500/30 flex items-center justify-between">
+          <div className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 flex items-center justify-between">
             <div>
               <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
-                Custo / Oportunidade Kaizen
+                Custo Adicional dos Desvios
               </span>
               <div className="flex items-baseline gap-1 mt-0.5">
-                <span className="text-xs font-bold text-rose-400">R$</span>
+                <span className="text-xs font-bold text-rose-400">~ R$</span>
                 <span className="text-xl font-black font-mono text-rose-300">
                   {totalOpenLossAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
@@ -289,26 +347,34 @@ export const KaizenOpportunitiesModal: React.FC<KaizenOpportunitiesModalProps> =
             </div>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-slate-900/90 border border-emerald-500/30 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setActiveTab('completed_kaizens')}
+            className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
+              activeTab === 'completed_kaizens'
+                ? 'bg-emerald-950/40 border-emerald-500/80 shadow-[0_0_15px_rgba(16,185,129,0.25)] ring-1 ring-emerald-500/50'
+                : 'bg-slate-900/90 border-slate-800 hover:border-slate-700'
+            }`}
+          >
             <div>
               <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
                 Ganhos Kaizen Conquistados
               </span>
               <div className="flex items-baseline gap-1 mt-0.5">
-                <span className="text-xs font-bold text-emerald-400">R$</span>
+                <span className="text-xs font-bold text-emerald-400">+R$</span>
                 <span className="text-xl font-black font-mono text-emerald-400">
                   {totalKaizenAchievedSavings.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
                 <span className="text-[10px] text-slate-400 font-mono">/mês</span>
               </div>
-              <span className="text-[10px] text-emerald-400/80 font-mono block mt-0.5">
-                {completedKaizens.length} melhorias Kaizen executadas
+              <span className="text-[10px] text-emerald-400/90 font-mono block mt-0.5">
+                {completedKaizens.length} tempos reduzidos catalogados
               </span>
             </div>
             <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
               <Sparkles className="w-4 h-4" />
             </div>
-          </div>
+          </button>
 
         </div>
 
@@ -323,8 +389,13 @@ export const KaizenOpportunitiesModal: React.FC<KaizenOpportunitiesModalProps> =
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            <AlertTriangle className="w-4 h-4" />
-            <span>Oportunidades em Aberto ({openOpportunities.length})</span>
+            <AlertTriangle className="w-4 h-4 text-rose-400" />
+            <div className="flex items-center gap-1.5">
+              <span>Oportunidades em Aberto</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-rose-500/20 text-rose-300 font-mono text-[10px]">
+                {openOpportunities.length} aumentos
+              </span>
+            </div>
           </button>
 
           <button
@@ -336,8 +407,13 @@ export const KaizenOpportunitiesModal: React.FC<KaizenOpportunitiesModalProps> =
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            <CheckCircle2 className="w-4 h-4" />
-            <span>Kaizens Concluídos ({completedKaizens.length})</span>
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <div className="flex items-center gap-1.5">
+              <span>Ganhos Kaizen Conquistados</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 font-mono text-[10px]">
+                {completedKaizens.length} reduções
+              </span>
+            </div>
           </button>
         </div>
 
@@ -595,34 +671,91 @@ export const KaizenOpportunitiesModal: React.FC<KaizenOpportunitiesModalProps> =
           {activeTab === 'completed_kaizens' && (
             <div className="space-y-4">
               
-              <div className="p-3 rounded-xl bg-emerald-950/30 border border-emerald-500/30 text-xs text-emerald-300 flex items-center gap-2.5">
-                <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>
-                  Histórico de melhorias onde o tempo foi reduzido a partir de desvios ou medições anteriores, consolidando a economia de ciclo conquistada pela equipe.
+              <div className="p-3.5 rounded-xl bg-emerald-950/30 border border-emerald-500/30 text-xs text-emerald-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5">
+                  <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>
+                    Todas as operações com tempos reduzidos por novas medições (Kaizen). As medições mais recentes de Setembro aparecem ordenadas no topo.
+                  </span>
+                </div>
+                <span className="font-mono font-bold text-emerald-400 shrink-0">
+                  Total: +R$ {totalKaizenAchievedSavings.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/mês
                 </span>
               </div>
 
-              {completedKaizens.length === 0 ? (
+              {/* Filtros e Busca de Kaizens Concluídos */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                <div className="relative flex-1 max-w-xs">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={completedSearchTerm}
+                    onChange={e => setCompletedSearchTerm(e.target.value)}
+                    placeholder="Buscar ganho / operação..."
+                    className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5">
+                    <Filter className="w-3.5 h-3.5 text-slate-400" />
+                    <select
+                      value={completedCategory}
+                      onChange={e => setCompletedCategory(e.target.value)}
+                      className="px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs font-bold text-slate-300 focus:outline-none focus:border-emerald-500 cursor-pointer"
+                    >
+                      <option value="all">Todos os Setores ({completedKaizens.length})</option>
+                      {categories.map(cat => (
+                        <option key={cat.key} value={cat.key}>
+                          {cat.title}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <select
+                    value={completedSort}
+                    onChange={e => setCompletedSort(e.target.value as any)}
+                    className="px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs font-bold text-cyan-300 focus:outline-none focus:border-emerald-500 cursor-pointer font-mono"
+                  >
+                    <option value="recent">Mais Recentes Primeiro (Setembro/2026)</option>
+                    <option value="savings">Maior Economia (R$/mês)</option>
+                    <option value="saved_time">Maior Redução de Tempo</option>
+                  </select>
+                </div>
+              </div>
+
+              {filteredCompletedKaizens.length === 0 ? (
                 <div className="p-10 text-center rounded-2xl bg-slate-950/40 border border-slate-800 space-y-2">
                   <div className="w-12 h-12 rounded-xl bg-slate-800 text-slate-400 flex items-center justify-center mx-auto">
                     <Clock className="w-6 h-6" />
                   </div>
-                  <h3 className="text-sm font-bold text-white">Nenhum Kaizen concluído registrado ainda</h3>
+                  <h3 className="text-sm font-bold text-white">Nenhum ganho Kaizen encontrado</h3>
                   <p className="text-xs text-slate-400 max-w-md mx-auto">
-                    Assim que novas medições reduzirem o tempo de operações que tiveram aumento, o ganho de produtividade será catalogado aqui.
+                    {completedSearchTerm || completedCategory !== 'all'
+                      ? 'Nenhum resultado corresponde aos filtros aplicados.'
+                      : 'Assim que novas medições reduzirem o tempo de operações, o ganho de produtividade será catalogado aqui.'}
                   </p>
                 </div>
               ) : (
                 <div className="space-y-2.5">
-                  {completedKaizens.map((item, idx) => {
+                  <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 px-1">
+                    <span>Exibindo {filteredCompletedKaizens.length} de {completedKaizens.length} reduções catalogadas</span>
+                    <span>Ordenado por: {completedSort === 'recent' ? 'Data mais recente' : completedSort === 'savings' ? 'Maior ganho R$' : 'Tempo reduzido'}</span>
+                  </div>
+
+                  {filteredCompletedKaizens.map((item, idx) => {
                     const cat = categoryMap[item.op.category];
+                    const isRecent = item.date && item.date >= '2026-09-21';
                     return (
                       <div
                         key={idx}
-                        className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                        className={`p-3.5 rounded-xl bg-slate-950/60 border transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                          isRecent ? 'border-cyan-500/40 bg-gradient-to-r from-slate-950/90 via-cyan-950/15 to-slate-950/90' : 'border-slate-800'
+                        }`}
                       >
                         <div className="space-y-1">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span
                               className="w-2.5 h-2.5 rounded-full shrink-0"
                               style={{ backgroundColor: cat?.colorHex || '#10b981' }}
@@ -631,8 +764,19 @@ export const KaizenOpportunitiesModal: React.FC<KaizenOpportunitiesModalProps> =
                               {item.op.name}
                             </h4>
                             <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 font-mono">
-                              {item.date}
+                              {cat?.title || item.op.category}
                             </span>
+                            {item.date && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 font-mono">
+                                {item.date}
+                              </span>
+                            )}
+                            {isRecent && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold font-mono flex items-center gap-1">
+                                <Sparkles className="w-2.5 h-2.5" />
+                                Medição Recente
+                              </span>
+                            )}
                           </div>
                           <p className="text-[11px] text-slate-400">
                             {item.notes}
@@ -641,9 +785,12 @@ export const KaizenOpportunitiesModal: React.FC<KaizenOpportunitiesModalProps> =
 
                         <div className="flex items-center gap-4 shrink-0 font-mono text-xs">
                           <div className="text-right">
-                            <span className="text-[10px] uppercase font-bold text-slate-500 block">Redução de Tempo</span>
+                            <span className="text-[10px] uppercase font-bold text-slate-500 block">Redução de Ciclo</span>
                             <span className="text-slate-300">
                               {item.previousPeakTime.toFixed(2)} min → <strong className="text-emerald-400">{item.reducedTime.toFixed(2)} min</strong> (-{Math.round(item.savedMinutes * 60)}s)
+                            </span>
+                            <span className="text-[10px] text-cyan-400/90 block mt-0.5">
+                              +{item.monthlyHoursSaved.toFixed(1).replace('.', ',')}h/mês poupadas
                             </span>
                           </div>
 
@@ -651,6 +798,9 @@ export const KaizenOpportunitiesModal: React.FC<KaizenOpportunitiesModalProps> =
                             <span className="text-[10px] uppercase font-bold text-slate-500 block">Ganho Mensal</span>
                             <span className="text-sm font-black text-emerald-400">
                               +R$ {item.monthlySavings.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/mês
+                            </span>
+                            <span className="text-[10px] text-slate-500 block mt-0.5">
+                              {item.op.effectiveVolume.toLocaleString('pt-BR')} bags × R$ {item.op.hourlyRate}/h
                             </span>
                           </div>
                         </div>
