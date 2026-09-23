@@ -313,19 +313,71 @@ export default function IndicatorsPage() {
     return metrics;
   }, [isMonthClosed, activeMonthRecord, metrics]);
 
-  // Overall cycle time calculations for continuous timeline
-  const { totalActiveCycleTime, totalBaselineCycleTime } = useMemo(() => {
+  // Overall cycle time calculations for continuous timeline & macro cards
+  const { totalActiveCycleTime, totalBaselineCycleTime, totalInitialCycleTime } = useMemo(() => {
     let activeTotal = 0;
     let baselineTotal = 0;
+    let initialTotal = 0;
     enrichedOperations.forEach(op => {
       activeTotal += op.currentTime;
-      baselineTotal += op.initialTime !== undefined ? op.initialTime : op.baselineTime;
+      baselineTotal += op.baselineTime;
+      initialTotal += op.initialTime !== undefined ? op.initialTime : op.baselineTime;
     });
     return {
       totalActiveCycleTime: activeTotal,
-      totalBaselineCycleTime: baselineTotal
+      totalBaselineCycleTime: baselineTotal,
+      totalInitialCycleTime: initialTotal
     };
   }, [enrichedOperations]);
+
+  const cycleTimeDeltaMinutes = totalActiveCycleTime - totalBaselineCycleTime;
+  const cycleTimeDeltaSeconds = Math.round(Math.abs(cycleTimeDeltaMinutes) * 60);
+  const cycleTimePercentChange = totalBaselineCycleTime > 0
+    ? ((totalActiveCycleTime - totalBaselineCycleTime) / totalBaselineCycleTime) * 100
+    : 0;
+
+  const totalCycleTimeReductionFromInitial = totalInitialCycleTime - totalActiveCycleTime;
+  const totalPercentChangeFromInitial = totalInitialCycleTime > 0
+    ? ((totalActiveCycleTime - totalInitialCycleTime) / totalInitialCycleTime) * 100
+    : 0;
+
+  // Ganhos Reais de Kaizen Conquistados (multiplicado pelo volume e custo de cada ponto específico)
+  const completedKaizensList = useMemo(() => {
+    const list: Array<{
+      opId: string;
+      name: string;
+      savedMinutes: number;
+      monthlySavings: number;
+    }> = [];
+
+    operations.forEach(op => {
+      if (op.history && op.history.length > 1) {
+        for (let i = 1; i < op.history.length; i++) {
+          const prevEntry = op.history[i - 1];
+          const currEntry = op.history[i];
+          if (currEntry.time < prevEntry.time) {
+            const savedMin = prevEntry.time - currEntry.time;
+            const effVol = op.customVolume !== undefined && op.customVolume > 0 ? op.customVolume : monthlyVolume;
+            const rate = sectorHourlyRates[op.category] !== undefined ? sectorHourlyRates[op.category] : defaultHourlyRate;
+            const hours = (savedMin * effVol) / 60;
+            const savings = hours * rate;
+            list.push({
+              opId: op.id,
+              name: op.name,
+              savedMinutes: savedMin,
+              monthlySavings: savings
+            });
+          }
+        }
+      }
+    });
+
+    return list;
+  }, [operations, monthlyVolume, sectorHourlyRates, defaultHourlyRate]);
+
+  const totalKaizenAchievedSavings = useMemo(() => {
+    return completedKaizensList.reduce((acc, item) => acc + item.monthlySavings, 0);
+  }, [completedKaizensList]);
 
   // Handlers for parameters
   const handleVolumeChange = (val: string) => {
@@ -418,15 +470,15 @@ export default function IndicatorsPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-2xl bg-gradient-to-br from-slate-900/95 via-slate-900/80 to-slate-950/95 border border-slate-800 shadow-2xl backdrop-blur-xl">
         <div className="space-y-1.5">
           <div className="flex items-center gap-2.5">
-            <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-              <TrendingUp className="w-5 h-5" />
+            <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
+              <Clock className="w-5 h-5" />
             </div>
             <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-              Indicador de Ganhos de Tempo & Impacto Financeiro
+              Evolução de Tempo por Big Bag & Oportunidades Kaizen
             </h1>
           </div>
           <p className="text-xs sm:text-sm text-slate-400 max-w-3xl leading-relaxed">
-            Monitoramento de <strong>Retorno sobre Melhoria (ROI Industrial)</strong>. Compara a medição anterior com a medição atual de cada micro-etapa para quantificar horas poupadas e impacto financeiro real (\(R\$\)).
+            Acompanhamento contínuo do <strong>Tempo de Fabricação por Big Bag</strong> e da sua <strong>evolução percentual mês a mês</strong>. O impacto financeiro (\(R\$\)) é apurado de forma estrita nas <strong>Oportunidades Kaizen</strong>, quantificando o retorno real sobre os pontos otimizados por nova cronoanálise.
           </p>
         </div>
 
@@ -636,10 +688,10 @@ export default function IndicatorsPage() {
 
         </div>
 
-        {/* Informative Note: Monthly calculation always uses last measurement */}
+        {/* Informative Note */}
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-950/60 border border-slate-800 text-xs text-slate-400">
           <span className="w-2 h-2 rounded-full bg-cyan-400 shrink-0" />
-          <span>Apuração mensal baseada na <strong>Última Medição Anterior</strong></span>
+          <span>Monitoramento temporal do ciclo por Big Bag & Retorno financeiro restrito ao Kaizen</span>
         </div>
 
       </div>
@@ -647,47 +699,99 @@ export default function IndicatorsPage() {
       {/* 4 Summary KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         
-        {/* KPI 1: Ganhos Financeiros do Mês (ROI Real) */}
+        {/* KPI 1: Tempo de Ciclo por Big Bag */}
         <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl relative overflow-hidden flex flex-col justify-between">
           <div className="flex items-center justify-between gap-2">
             <div>
               <span className="text-xs uppercase font-bold tracking-wider text-slate-400 block">
-                Ganhos Financeiros do Mês
+                Tempo de Ciclo por Bag
               </span>
-              <span className="text-[10px] text-amber-400 font-semibold">
-                (Ajustado c/ -{displayMetrics.errorMarginPercent}% margem de erro técnica)
+              <span className="text-[10px] text-cyan-400 font-semibold">
+                (Tempo total acumulado de fabricação)
               </span>
             </div>
-            <div className="p-2 rounded-xl border bg-emerald-500/10 border-emerald-500/20 text-emerald-400">
-              <ArrowUpRight className="w-5 h-5" />
+            <div className="p-2 rounded-xl border bg-cyan-500/10 border-cyan-500/20 text-cyan-400">
+              <Clock className="w-5 h-5" />
             </div>
           </div>
 
           <div className="mt-3">
             <div className="flex items-baseline gap-1">
-              <span className="text-xs font-bold text-slate-400">R$</span>
-              <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-emerald-400">
-                {displayMetrics.totalMonthlySavings.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-cyan-300">
+                {totalActiveCycleTime.toFixed(2).replace('.', ',')}
               </span>
-              <span className="text-xs font-bold text-slate-400">/mês</span>
+              <span className="text-xs font-bold text-slate-400">min / bag</span>
             </div>
-            <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 mt-1.5 pt-1 border-t border-slate-800/60">
-              <span>Ganhos Brutos: R$ {displayMetrics.grossMonthlySavings.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-              <span className="text-amber-400 font-semibold">
-                -{displayMetrics.errorMarginPercent}%: -R$ {displayMetrics.errorMarginAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </span>
+            <div className="text-[11px] font-mono text-slate-400 mt-1">
+              ~{Math.floor(totalActiveCycleTime)}m {Math.round((totalActiveCycleTime % 1) * 60)}s por unidade produzida
             </div>
           </div>
 
           <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
-            <span className="text-slate-400">Projeção Anual:</span>
-            <span className="font-mono font-bold text-emerald-400">
-              R$ {displayMetrics.annualProjectedSavings.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / ano
+            <span className="text-slate-400">Ref: {totalBaselineCycleTime.toFixed(2).replace('.', ',')}m</span>
+            {cycleTimeDeltaMinutes < -0.001 ? (
+              <span className="font-mono font-bold text-emerald-400 flex items-center gap-1">
+                <ArrowDownRight className="w-3.5 h-3.5" />
+                -{Math.abs(cycleTimeDeltaMinutes).toFixed(2).replace('.', ',')} min (-{cycleTimeDeltaSeconds}s)
+              </span>
+            ) : cycleTimeDeltaMinutes > 0.001 ? (
+              <span className="font-mono font-bold text-rose-400 flex items-center gap-1">
+                <ArrowUpRight className="w-3.5 h-3.5" />
+                +{cycleTimeDeltaMinutes.toFixed(2).replace('.', ',')} min (+{cycleTimeDeltaSeconds}s)
+              </span>
+            ) : (
+              <span className="font-mono text-slate-400">Ciclo estável</span>
+            )}
+          </div>
+        </div>
+
+        {/* KPI 2: Evolução Percentual do Ciclo */}
+        <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl flex flex-col justify-between">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <span className="text-xs uppercase font-bold tracking-wider text-slate-400 block">
+                Evolução Percentual (% Tempo)
+              </span>
+              <span className="text-[10px] text-slate-400 font-medium">
+                (Variação de ciclo no mês corrente)
+              </span>
+            </div>
+            <div className={`p-2 rounded-xl border ${
+              cycleTimePercentChange <= 0.001
+                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+            }`}>
+              {cycleTimePercentChange <= 0.001 ? <TrendingDown className="w-5 h-5" /> : <TrendingUp className="w-5 h-5" />}
+            </div>
+          </div>
+
+          <div className="mt-3">
+            <div className="flex items-baseline gap-1">
+              <span className={`text-2xl sm:text-3xl font-black font-mono tracking-tight ${
+                cycleTimePercentChange <= 0.001 ? 'text-emerald-400' : 'text-rose-400'
+              }`}>
+                {cycleTimePercentChange <= 0.001 ? '' : '+'}{cycleTimePercentChange.toFixed(1).replace('.', ',')}%
+              </span>
+              <span className="text-xs font-bold text-slate-400">
+                {cycleTimePercentChange <= 0.001 ? 'tempo reduzido' : 'tempo acrescido'}
+              </span>
+            </div>
+            <span className="text-[10px] text-slate-400 font-mono block mt-1">
+              {cycleTimePercentChange <= 0.001 ? 'Ganho contínuo de produtividade' : 'Desvio detectado nas micro-operações'}
+            </span>
+          </div>
+
+          <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+            <span className="text-slate-400">Marco Zero:</span>
+            <span className={`font-mono font-bold ${
+              totalPercentChangeFromInitial <= 0.001 ? 'text-emerald-400' : 'text-rose-400'
+            }`}>
+              {totalPercentChangeFromInitial <= 0.001 ? '' : '+'}{totalPercentChangeFromInitial.toFixed(1).replace('.', ',')}% acumulado
             </span>
           </div>
         </div>
 
-        {/* KPI 2: Horas-Homem Poupadas / Mês */}
+        {/* KPI 3: Horas de Mão-de-Obra / Mês */}
         <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl flex flex-col justify-between">
           <div className="flex items-center justify-between gap-2">
             <div>
@@ -695,11 +799,11 @@ export default function IndicatorsPage() {
                 Horas de Mão-de-Obra / Mês
               </span>
               <span className="text-[10px] text-cyan-400/80 font-medium">
-                (Líquido c/ -{displayMetrics.errorMarginPercent}% de erro)
+                (Tempo fabril poupado por velocidade)
               </span>
             </div>
-            <div className="p-2 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
-              <Clock className="w-5 h-5" />
+            <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
+              <Users className="w-5 h-5" />
             </div>
           </div>
 
@@ -711,7 +815,7 @@ export default function IndicatorsPage() {
               <span className="text-xs font-bold text-cyan-300">horas / mês</span>
             </div>
             <span className="text-[10px] text-slate-400 font-mono block mt-1">
-              Ganhos Brutos: {displayMetrics.grossHoursSaved.toFixed(1).replace('.', ',')} h poupadas
+              Volume Base: {monthlyVolume.toLocaleString('pt-BR')} bags/mês
             </span>
           </div>
 
@@ -723,43 +827,12 @@ export default function IndicatorsPage() {
           </div>
         </div>
 
-        {/* KPI 3: Variação de Tempo por Bag */}
-        <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl flex flex-col justify-between">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-xs uppercase font-bold tracking-wider text-slate-400">
-              Ganho de Tempo por Bag
-            </span>
-            <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
-              <Boxes className="w-5 h-5" />
-            </div>
-          </div>
-
-          <div className="mt-3">
-            <div className="flex items-baseline gap-1">
-              <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-amber-300">
-                {displayMetrics.totalTimeSavedPerBag.toFixed(2).replace('.', ',')}
-              </span>
-              <span className="text-xs font-bold text-amber-400">min / bag</span>
-            </div>
-            <span className="text-[11px] font-semibold text-slate-400 block mt-1">
-              Redução de ~{Math.round(displayMetrics.totalTimeSavedPerBag * 60)} segundos no ciclo dos itens com ganho
-            </span>
-          </div>
-
-          <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
-            <span className="text-slate-400">Volume Base:</span>
-            <span className="text-amber-300 font-mono font-bold">
-              {monthlyVolume.toLocaleString('pt-BR')} un/mês
-            </span>
-          </div>
-        </div>
-
-        {/* KPI 4: Oportunidades Kaizen (Aumentos de Tempo) com Brilho Neon Vermelho */}
+        {/* KPI 4: Oportunidades Kaizen (Aumentos de Tempo) & Ganhos Auditados (Hub Monetário) */}
         <div
           onClick={() => setIsKaizenModalOpen(true)}
           role="button"
           tabIndex={0}
-          title="Clique para auditar e gerenciar as Oportunidades Kaizen"
+          title="Clique para auditar e gerenciar as Oportunidades e Ganhos Kaizen"
           className={`p-4 rounded-2xl bg-slate-900/90 border shadow-xl flex flex-col justify-between cursor-pointer transition-all duration-300 relative overflow-hidden group hover:scale-[1.015] active:scale-[0.99] ${
             displayMetrics.lossCount > 0
               ? 'border-rose-500/80 shadow-[0_0_35px_rgba(244,63,94,0.45)] ring-1 ring-rose-500/50 hover:shadow-[0_0_50px_rgba(244,63,94,0.7)] hover:border-rose-400 bg-gradient-to-br from-slate-900 via-rose-950/30 to-slate-950'
@@ -774,10 +847,10 @@ export default function IndicatorsPage() {
           <div className="flex items-center justify-between gap-2 relative z-10">
             <div>
               <span className="text-xs uppercase font-bold tracking-wider text-slate-400 block group-hover:text-slate-200 transition-colors">
-                Oportunidades Kaizen
+                Oportunidades & Ganhos Kaizen
               </span>
-              <span className="text-[10px] text-slate-400 font-semibold">
-                (Aumentos de Tempo Identificados)
+              <span className="text-[10px] text-amber-400/90 font-semibold">
+                (Hub Monetário R$ das Ações Realizadas)
               </span>
             </div>
             <div className={`p-2 rounded-xl border transition-transform group-hover:scale-110 ${
@@ -785,7 +858,7 @@ export default function IndicatorsPage() {
                 ? 'bg-rose-500/20 border-rose-500/60 text-rose-300 shadow-[0_0_15px_rgba(244,63,94,0.5)] animate-pulse'
                 : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
             }`}>
-              {displayMetrics.lossCount > 0 ? <AlertTriangle className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
+              {displayMetrics.lossCount > 0 ? <AlertTriangle className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
             </div>
           </div>
 
@@ -796,7 +869,7 @@ export default function IndicatorsPage() {
                   <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-rose-400 group-hover:text-rose-300 transition-colors drop-shadow-[0_0_12px_rgba(244,63,94,0.6)]">
                     {displayMetrics.lossCount}
                   </span>
-                  <span className="text-xs font-bold text-rose-300">operações c/ aumento</span>
+                  <span className="text-xs font-bold text-rose-300">desvios ativos</span>
                 </div>
                 <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 mt-1.5 pt-1 border-t border-slate-800/60">
                   <span>Desvio: +{displayMetrics.grossLossesHours.toFixed(1).replace('.', ',')} h</span>
@@ -804,6 +877,19 @@ export default function IndicatorsPage() {
                     ~ R$ {displayMetrics.grossLossesAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </span>
                 </div>
+              </>
+            ) : totalKaizenAchievedSavings > 0 ? (
+              <>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-xs font-bold text-emerald-400">R$</span>
+                  <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-emerald-400">
+                    {totalKaizenAchievedSavings.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                  <span className="text-xs font-bold text-slate-400">/mês</span>
+                </div>
+                <span className="text-[11px] text-emerald-300/80 block mt-1 font-mono">
+                  Ganho Real Kaizen ({completedKaizensList.length} pontos otimizados)
+                </span>
               </>
             ) : (
               <>
@@ -821,9 +907,15 @@ export default function IndicatorsPage() {
           </div>
 
           <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs relative z-10">
-            <span className="text-slate-400">Status Kaizen:</span>
-            <span className="text-[11px] font-bold text-rose-400 flex items-center gap-1 group-hover:text-rose-300 transition-colors">
-              <span>Auditar & Aplicar Kaizen</span>
+            <span className="text-slate-400">
+              {totalKaizenAchievedSavings > 0
+                ? `Ganho Real: R$ ${totalKaizenAchievedSavings.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/mês`
+                : 'Status Kaizen:'}
+            </span>
+            <span className={`text-[11px] font-bold flex items-center gap-1 group-hover:translate-x-0.5 transition-all ${
+              displayMetrics.lossCount > 0 ? 'text-rose-400 group-hover:text-rose-300' : 'text-cyan-400 group-hover:text-cyan-300'
+            }`}>
+              <span>{displayMetrics.lossCount > 0 ? 'Auditar & Aplicar Kaizen' : 'Gerenciar Kaizen'}</span>
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
             </span>
           </div>
@@ -831,15 +923,16 @@ export default function IndicatorsPage() {
 
       </div>
 
-      {/* 1. Continuous Financial Evolution Chart (Estilo Índice Financeiro / Dólar) */}
+      {/* 1. Continuous Evolution Chart (Engenharia de Tempos & Kaizen) */}
       <FinancialEvolutionChart
         monthlyHistory={monthlyHistory}
         activeMonthKey={activeMonthKey}
         currentMonthNetSavings={displayMetrics.totalMonthlySavings}
         currentMonthHoursSaved={displayMetrics.totalMonthlyHoursSaved}
         totalCycleTimeMinutes={totalActiveCycleTime}
-        baselineCycleTimeMinutes={totalBaselineCycleTime}
+        baselineCycleTimeMinutes={totalInitialCycleTime > 0 ? totalInitialCycleTime : totalBaselineCycleTime}
         errorMarginPercent={errorMarginPercent}
+        totalKaizenCompletedSavings={totalKaizenAchievedSavings}
       />
 
       {/* 2. Monthly Performance Breakdown Chart (Comprovação Mês a Mês a partir da Última Medição) */}

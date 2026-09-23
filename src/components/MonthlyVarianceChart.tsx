@@ -65,7 +65,7 @@ export const MonthlyVarianceChart: React.FC<MonthlyVarianceChartProps> = ({
   errorMarginPercent = 5
 }) => {
   const [isMounted, setIsMounted] = useState(false);
-  const [metric, setMetric] = useState<ChartMetric>('financial');
+  const [metric, setMetric] = useState<ChartMetric>('seconds');
   const [selectedSector, setSelectedSector] = useState<string>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('monthly_summary');
   const [showOnlyChanged, setShowOnlyChanged] = useState<boolean>(true);
@@ -328,8 +328,32 @@ export const MonthlyVarianceChart: React.FC<MonthlyVarianceChartProps> = ({
             </button>
           </div>
 
-          {/* Metric Selector (R$ vs Horas vs Segundos) */}
+          {/* Metric Selector (Segundos vs Horas vs R$) */}
           <div className="flex items-center p-1 rounded-xl bg-slate-950/90 border border-slate-800">
+            <button
+              type="button"
+              onClick={() => setMetric('seconds')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                metric === 'seconds'
+                  ? 'bg-cyan-500 text-slate-950 font-black shadow-md'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Boxes className="w-3.5 h-3.5" />
+              <span>Segundos / Bag</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMetric('hours')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                metric === 'hours'
+                  ? 'bg-amber-500 text-slate-950 font-black shadow-md'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Clock className="w-3.5 h-3.5" />
+              <span>Horas Poupadas</span>
+            </button>
             <button
               type="button"
               onClick={() => setMetric('financial')}
@@ -341,30 +365,6 @@ export const MonthlyVarianceChart: React.FC<MonthlyVarianceChartProps> = ({
             >
               <DollarSign className="w-3.5 h-3.5" />
               <span>R$ Mensal</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setMetric('hours')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                metric === 'hours'
-                  ? 'bg-cyan-500 text-slate-950 font-black shadow-md'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Clock className="w-3.5 h-3.5" />
-              <span>Horas Poupadas</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setMetric('seconds')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                metric === 'seconds'
-                  ? 'bg-amber-500 text-slate-950 font-black shadow-md'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Boxes className="w-3.5 h-3.5" />
-              <span>Segundos / Bag</span>
             </button>
           </div>
 

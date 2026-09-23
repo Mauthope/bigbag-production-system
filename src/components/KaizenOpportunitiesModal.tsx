@@ -452,8 +452,11 @@ export const KaizenOpportunitiesModal: React.FC<KaizenOpportunitiesModalProps> =
 
                           <div className="p-2 rounded-lg bg-slate-900/80">
                             <span className="text-[10px] uppercase font-bold text-slate-500 block">Impacto Financeiro</span>
-                            <span className="text-xs font-mono font-bold text-rose-400">
+                            <span className="text-xs font-mono font-bold text-rose-400 block">
                               ~ R$ {Math.abs(op.monthlyFinancialImpact).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/mês
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-mono block mt-0.5">
+                              {op.effectiveVolume.toLocaleString('pt-BR')} bags/mês no ponto
                             </span>
                           </div>
                         </div>
@@ -544,12 +547,15 @@ export const KaizenOpportunitiesModal: React.FC<KaizenOpportunitiesModalProps> =
 
                             {/* Prévia do Ganho Kaizen em Tempo Real */}
                             {previewGainMinutes > 0 && (
-                              <div className="p-2.5 rounded-lg bg-emerald-950/50 border border-emerald-500/30 flex items-center justify-between text-xs font-mono text-emerald-300">
+                              <div className="p-2.5 rounded-lg bg-emerald-950/50 border border-emerald-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs font-mono text-emerald-300">
                                 <span>
                                   🌱 Ganho Conquistado: -{previewGainMinutes.toFixed(2)} min/bag (-{Math.round(previewGainMinutes * 60)}s)
                                 </span>
-                                <span className="font-bold">
-                                  +R$ {previewGainSavings.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/mês (+{previewGainHours.toFixed(1)} h)
+                                <span className="font-bold flex items-center gap-1.5 flex-wrap">
+                                  <span>+R$ {previewGainSavings.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/mês</span>
+                                  <span className="text-[10px] text-emerald-400/80 font-normal">
+                                    ({op.effectiveVolume.toLocaleString('pt-BR')} bags × {previewGainHours.toFixed(1)}h)
+                                  </span>
                                 </span>
                               </div>
                             )}
