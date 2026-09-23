@@ -316,19 +316,9 @@ export default function IndicatorsPage() {
     return metrics;
   }, [isMonthClosed, activeMonthRecord, metrics]);
 
-  // Soma de todas as 118 opções de micro-operações cadastradas no catálogo no Marco Zero
+  // Soma de todas as 118 opções de micro-operações cadastradas no catálogo no Marco Zero / Linha de Base
   const marcoZeroCatalogTimeMinutes = useMemo(() => {
-    const sum = enrichedOperations.reduce((acc, op) => {
-      let b = op.time;
-      if (op.initialTime !== undefined && op.initialTime !== null && op.initialTime > 0) {
-        b = op.initialTime;
-      } else if (op.history && op.history.length > 0) {
-        b = op.history[0].time;
-      } else if (op.previousTime !== undefined && op.previousTime !== null) {
-        b = op.previousTime;
-      }
-      return acc + b;
-    }, 0);
+    const sum = enrichedOperations.reduce((acc, op) => acc + op.baselineTime, 0);
     return Number(sum.toFixed(2));
   }, [enrichedOperations]);
 
