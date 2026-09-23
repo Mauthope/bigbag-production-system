@@ -31,6 +31,7 @@ import { SectorCostModal } from '@/components/SectorCostModal';
 import { NewMonthModal } from '@/components/NewMonthModal';
 import { MonthlyVarianceChart } from '@/components/MonthlyVarianceChart';
 import { FinancialEvolutionChart } from '@/components/FinancialEvolutionChart';
+import { KaizenOpportunitiesModal } from '@/components/KaizenOpportunitiesModal';
 import { ComponentCategoryKey } from '@/types/production';
 import { getCurrentMonthKey, getMonthLabel, getNextMonthClosingDate } from '@/utils/monthAutomation';
 
@@ -85,6 +86,7 @@ export default function IndicatorsPage() {
 
   const [isSectorCostModalOpen, setIsSectorCostModalOpen] = useState(false);
   const [isNewMonthModalOpen, setIsNewMonthModalOpen] = useState(false);
+  const [isKaizenModalOpen, setIsKaizenModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'changed' | 'all' | 'gain' | 'loss' | 'neutral'>('changed');
@@ -378,6 +380,11 @@ export default function IndicatorsPage() {
 
   // Advance Kaizen: make current measurement the new baseline
   const handleAdvanceBaseline = async (opId: string, currentTime: number) => {
+    await updateOperationBaseline(opId, undefined, currentTime);
+  };
+
+  // Excluir Oportunidade Kaizen: aceita o tempo atual sem Kaizen e alinha o baseline
+  const handleExcludeKaizenOpportunity = async (opId: string, currentTime: number) => {
     await updateOperationBaseline(opId, undefined, currentTime);
   };
 
@@ -747,31 +754,46 @@ export default function IndicatorsPage() {
           </div>
         </div>
 
-        {/* KPI 4: Oportunidades Kaizen (Aumentos de Tempo) */}
-        <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl flex flex-col justify-between">
-          <div className="flex items-center justify-between gap-2">
+        {/* KPI 4: Oportunidades Kaizen (Aumentos de Tempo) com Brilho Neon Vermelho */}
+        <div
+          onClick={() => setIsKaizenModalOpen(true)}
+          role="button"
+          tabIndex={0}
+          title="Clique para auditar e gerenciar as Oportunidades Kaizen"
+          className={`p-4 rounded-2xl bg-slate-900/90 border shadow-xl flex flex-col justify-between cursor-pointer transition-all duration-300 relative overflow-hidden group hover:scale-[1.015] active:scale-[0.99] ${
+            displayMetrics.lossCount > 0
+              ? 'border-rose-500/80 shadow-[0_0_35px_rgba(244,63,94,0.45)] ring-1 ring-rose-500/50 hover:shadow-[0_0_50px_rgba(244,63,94,0.7)] hover:border-rose-400 bg-gradient-to-br from-slate-900 via-rose-950/30 to-slate-950'
+              : 'border-slate-800 hover:border-slate-700'
+          }`}
+        >
+          {/* Fundo de Iluminação Neon Vermelho */}
+          {displayMetrics.lossCount > 0 && (
+            <div className="absolute -top-12 -right-12 w-36 h-36 bg-rose-500/20 rounded-full blur-2xl pointer-events-none group-hover:bg-rose-500/35 transition-all animate-pulse" />
+          )}
+
+          <div className="flex items-center justify-between gap-2 relative z-10">
             <div>
-              <span className="text-xs uppercase font-bold tracking-wider text-slate-400 block">
+              <span className="text-xs uppercase font-bold tracking-wider text-slate-400 block group-hover:text-slate-200 transition-colors">
                 Oportunidades Kaizen
               </span>
               <span className="text-[10px] text-slate-400 font-semibold">
                 (Aumentos de Tempo Identificados)
               </span>
             </div>
-            <div className={`p-2 rounded-xl border ${
+            <div className={`p-2 rounded-xl border transition-transform group-hover:scale-110 ${
               displayMetrics.lossCount > 0
-                ? 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+                ? 'bg-rose-500/20 border-rose-500/60 text-rose-300 shadow-[0_0_15px_rgba(244,63,94,0.5)] animate-pulse'
                 : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
             }`}>
               {displayMetrics.lossCount > 0 ? <AlertTriangle className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
             </div>
           </div>
 
-          <div className="mt-3">
+          <div className="mt-3 relative z-10">
             {displayMetrics.lossCount > 0 ? (
               <>
                 <div className="flex items-baseline gap-1.5">
-                  <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-rose-400">
+                  <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-rose-400 group-hover:text-rose-300 transition-colors drop-shadow-[0_0_12px_rgba(244,63,94,0.6)]">
                     {displayMetrics.lossCount}
                   </span>
                   <span className="text-xs font-bold text-rose-300">operações c/ aumento</span>
@@ -798,10 +820,11 @@ export default function IndicatorsPage() {
             )}
           </div>
 
-          <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+          <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs relative z-10">
             <span className="text-slate-400">Status Kaizen:</span>
-            <span className="text-[10px] text-slate-400 italic">
-              Não deduzido dos ganhos
+            <span className="text-[11px] font-bold text-rose-400 flex items-center gap-1 group-hover:text-rose-300 transition-colors">
+              <span>Auditar & Aplicar Kaizen</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
             </span>
           </div>
         </div>
@@ -1253,6 +1276,18 @@ export default function IndicatorsPage() {
       <NewMonthModal
         isOpen={isNewMonthModalOpen}
         onClose={() => setIsNewMonthModalOpen(false)}
+      />
+
+      {/* Kaizen Opportunities & Reduction Gains Modal */}
+      <KaizenOpportunitiesModal
+        isOpen={isKaizenModalOpen}
+        onClose={() => setIsKaizenModalOpen(false)}
+        operations={enrichedOperations}
+        categories={categories}
+        monthlyVolume={monthlyVolume}
+        defaultHourlyRate={defaultHourlyRate}
+        onUpdateOperationTime={updateOperationTime}
+        onExcludeOpportunity={handleExcludeKaizenOpportunity}
       />
 
     </div>
