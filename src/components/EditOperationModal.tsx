@@ -16,7 +16,7 @@ export const EditOperationModal: React.FC<EditOperationModalProps> = ({
   isOpen,
   onClose
 }) => {
-  const { categories, updateOperation, showToast } = useProduction();
+  const { categories, updateOperation, updateOperationTime, showToast } = useProduction();
 
   const [name, setName] = useState('');
   const [time, setTime] = useState<number>(0);
@@ -45,14 +45,31 @@ export const EditOperationModal: React.FC<EditOperationModalProps> = ({
       return;
     }
 
+    const timeNum = Number(time);
+    const timeChanged = Math.abs(timeNum - operation.time) > 0.0001;
+
+    // Se o tempo mudou, chamar updateOperationTime para manter histórico e registrar kaizen se houver aumento
+    if (timeChanged) {
+      await updateOperationTime(
+        operation.id,
+        timeNum,
+        'Ajuste manual via edição de operação em Tempos & Parâmetros',
+        'manual'
+      );
+    }
+
     await updateOperation(operation.id, {
       name: name.trim(),
-      time: Number(time),
+      time: timeNum,
       category: category || operation.category,
       isDefault
     });
 
-    showToast(`Operação "${name.trim()}" atualizada com sucesso!`, 'success');
+    if (timeChanged && timeNum > operation.time) {
+      showToast(`Operação atualizada! Aumento de tempo registrado como Oportunidade Kaizen 🔴`, 'info');
+    } else {
+      showToast(`Operação "${name.trim()}" atualizada com sucesso!`, 'success');
+    }
     onClose();
   };
 

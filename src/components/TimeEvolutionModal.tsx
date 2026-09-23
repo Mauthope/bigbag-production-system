@@ -148,6 +148,18 @@ export const TimeEvolutionModal: React.FC<TimeEvolutionModalProps> = ({
                 >
                   {config.title}
                 </span>
+                {isWorse && (
+                  <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 flex items-center gap-1 shadow-sm shadow-rose-950">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                    Oportunidade Kaizen (+{Math.round(deltaMinutes * 60)}s)
+                  </span>
+                )}
+                {isImproved && (
+                  <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1 shadow-sm shadow-emerald-950">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    Ganho Kaizen Concluído (-{Math.round(Math.abs(deltaMinutes) * 60)}s)
+                  </span>
+                )}
               </div>
               <p className="text-xs text-slate-400">
                 Operação: <strong className="text-slate-200">{operation.name}</strong> &bull; Acompanhamento de melhorias ao longo do tempo

@@ -561,12 +561,14 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const updateOperationHistory = useCallback(async (id: string, history: OperationTimeHistoryEntry[]) => {
     const latestTime = history.length > 0 ? history[history.length - 1].time : undefined;
+    const priorTime = history.length > 1 ? history[history.length - 2].time : undefined;
 
     const updated = operations.map(op => {
       if (op.id === id) {
         return {
           ...op,
           time: latestTime !== undefined ? latestTime : op.time,
+          ...(priorTime !== undefined ? { previousTime: priorTime } : {}),
           history,
           updatedAt: new Date().toISOString()
         };

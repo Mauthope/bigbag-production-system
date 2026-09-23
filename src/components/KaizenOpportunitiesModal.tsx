@@ -329,21 +329,20 @@ export const KaizenOpportunitiesModal: React.FC<KaizenOpportunitiesModalProps> =
           <div className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 flex items-center justify-between">
             <div>
               <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
-                Custo Adicional dos Desvios
+                Tempo Total Excedente
               </span>
               <div className="flex items-baseline gap-1 mt-0.5">
-                <span className="text-xs font-bold text-rose-400">~ R$</span>
-                <span className="text-xl font-black font-mono text-rose-300">
-                  {totalOpenLossAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                <span className="text-xl font-black font-mono text-rose-400">
+                  +{totalOpenLossHours.toFixed(1).replace('.', ',')}
                 </span>
-                <span className="text-[10px] text-slate-400 font-mono">/mês</span>
+                <span className="text-xs text-rose-300 font-semibold">horas/mês</span>
               </div>
               <span className="text-[10px] text-slate-400 font-mono block mt-0.5">
-                +{totalOpenLossHours.toFixed(1).replace('.', ',')} horas/mês impactadas
+                Desvio total acumulado nos pontos com aumento
               </span>
             </div>
             <div className="p-2 rounded-lg bg-rose-500/10 text-rose-400">
-              <DollarSign className="w-4 h-4" />
+              <Clock className="w-4 h-4" />
             </div>
           </div>
 
@@ -358,17 +357,16 @@ export const KaizenOpportunitiesModal: React.FC<KaizenOpportunitiesModalProps> =
           >
             <div>
               <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
-                Ganhos Kaizen Conquistados
+                Melhorias Kaizen Concluídas
               </span>
               <div className="flex items-baseline gap-1 mt-0.5">
-                <span className="text-xs font-bold text-emerald-400">+R$</span>
                 <span className="text-xl font-black font-mono text-emerald-400">
-                  {totalKaizenAchievedSavings.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {completedKaizens.length}
                 </span>
-                <span className="text-[10px] text-slate-400 font-mono">/mês</span>
+                <span className="text-xs text-emerald-300 font-semibold">tempos reduzidos</span>
               </div>
               <span className="text-[10px] text-emerald-400/90 font-mono block mt-0.5">
-                {completedKaizens.length} tempos reduzidos catalogados
+                Clique para ver os tempos que baixaram
               </span>
             </div>
             <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
@@ -520,19 +518,22 @@ export const KaizenOpportunitiesModal: React.FC<KaizenOpportunitiesModalProps> =
                           </div>
 
                           <div className="p-2 rounded-lg bg-slate-900/80">
-                            <span className="text-[10px] uppercase font-bold text-slate-500 block">Horas Perdidas</span>
+                            <span className="text-[10px] uppercase font-bold text-slate-500 block">Tempo Excedente</span>
                             <span className="text-xs font-mono font-bold text-rose-400">
                               +{Math.abs(op.monthlyHoursImpacted).toFixed(1).replace('.', ',')} h/mês
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-mono block mt-0.5">
+                              +{Math.round(Math.abs(op.deltaMinutes) * 60)}s / bag
                             </span>
                           </div>
 
                           <div className="p-2 rounded-lg bg-slate-900/80">
-                            <span className="text-[10px] uppercase font-bold text-slate-500 block">Impacto Financeiro</span>
+                            <span className="text-[10px] uppercase font-bold text-slate-500 block">Aumento Percentual</span>
                             <span className="text-xs font-mono font-bold text-rose-400 block">
-                              ~ R$ {Math.abs(op.monthlyFinancialImpact).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/mês
+                              +{op.percentChange.toFixed(1).replace('.', ',')}%
                             </span>
                             <span className="text-[10px] text-slate-400 font-mono block mt-0.5">
-                              {op.effectiveVolume.toLocaleString('pt-BR')} bags/mês no ponto
+                              Volume: {op.effectiveVolume.toLocaleString('pt-BR')} bags/mês
                             </span>
                           </div>
                         </div>

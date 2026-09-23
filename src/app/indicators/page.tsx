@@ -855,15 +855,15 @@ export default function IndicatorsPage() {
           </div>
         </div>
 
-        {/* KPI 4: Oportunidades Kaizen (Aumentos de Tempo) & Ganhos Auditados (Hub Monetário) */}
+        {/* KPI 4: Oportunidades Kaizen (Aumentos de Tempo & Desvios) - Foco em TEMPO (SEM R$) */}
         <div
           onClick={() => {
-            setKaizenModalTab(displayMetrics.lossCount > 0 ? 'open_opportunities' : 'completed_kaizens');
+            setKaizenModalTab('open_opportunities');
             setIsKaizenModalOpen(true);
           }}
           role="button"
           tabIndex={0}
-          title="Clique para auditar e gerenciar as Oportunidades e Ganhos Kaizen"
+          title="Clique para auditar e gerenciar as Oportunidades Kaizen (operações com aumento de tempo)"
           className={`p-4 rounded-2xl bg-slate-900/90 border shadow-xl flex flex-col justify-between cursor-pointer transition-all duration-300 relative overflow-hidden group hover:scale-[1.015] active:scale-[0.99] ${
             displayMetrics.lossCount > 0
               ? 'border-rose-500/80 shadow-[0_0_35px_rgba(244,63,94,0.45)] ring-1 ring-rose-500/50 hover:shadow-[0_0_50px_rgba(244,63,94,0.7)] hover:border-rose-400 bg-gradient-to-br from-slate-900 via-rose-950/30 to-slate-950'
@@ -878,10 +878,10 @@ export default function IndicatorsPage() {
           <div className="flex items-center justify-between gap-2 relative z-10">
             <div>
               <span className="text-xs uppercase font-bold tracking-wider text-slate-400 block group-hover:text-slate-200 transition-colors">
-                Oportunidades & Ganhos Kaizen
+                Oportunidades Kaizen
               </span>
-              <span className="text-[10px] text-amber-400/90 font-semibold">
-                (Hub Monetário R$ das Ações Realizadas)
+              <span className="text-[10px] text-rose-400/90 font-semibold">
+                (Aumentos de Tempo Registrados)
               </span>
             </div>
             <div className={`p-2 rounded-xl border transition-transform group-hover:scale-110 ${
@@ -893,81 +893,54 @@ export default function IndicatorsPage() {
             </div>
           </div>
 
-          {/* Métricas Principais: Exibe Ganhos Conquistados E Desvios em Aberto */}
-          <div className="mt-2.5 relative z-10 space-y-2">
-            <div>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-xs font-bold text-emerald-400">R$</span>
-                <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-emerald-400 drop-shadow-[0_0_12px_rgba(16,185,129,0.3)]">
-                  {totalKaizenAchievedSavings.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-                <span className="text-xs font-bold text-slate-400">/mês</span>
-              </div>
-              <div className="flex items-center justify-between text-[11px] text-emerald-300/90 font-mono mt-0.5">
-                <span className="flex items-center gap-1 font-semibold">
-                  <Sparkles className="w-3 h-3 text-emerald-400 shrink-0" />
-                  {completedKaizensList.length} tempos reduzidos
-                </span>
-                <span className="text-slate-400">
-                  +{displayMetrics.grossHoursSaved.toFixed(1).replace('.', ',')}h poupadas
-                </span>
-              </div>
-            </div>
-
-            {/* Alerta de Desvios com Aumento de Tempo */}
+          {/* Métrica Central: Foco Exclusivo em TEMPO e Oportunidades (SEM R$) */}
+          <div className="mt-3 relative z-10">
             {displayMetrics.lossCount > 0 ? (
-              <div className="p-2 rounded-xl bg-rose-950/70 border border-rose-500/60 shadow-[0_0_15px_rgba(244,63,94,0.35)] flex items-center justify-between text-xs">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping shrink-0" />
-                  <span className="font-bold text-rose-300">
-                    {displayMetrics.lossCount} {displayMetrics.lossCount === 1 ? 'desvio ativo' : 'desvios ativos'}
+              <>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl sm:text-4xl font-black font-mono tracking-tight text-rose-400 group-hover:text-rose-300 transition-colors drop-shadow-[0_0_15px_rgba(244,63,94,0.6)]">
+                    {displayMetrics.lossCount}
+                  </span>
+                  <span className="text-xs font-bold text-rose-300 uppercase tracking-wide">
+                    {displayMetrics.lossCount === 1 ? 'desvio ativo' : 'desvios ativos'}
                   </span>
                 </div>
-                <span className="font-mono text-rose-400 font-bold text-[11px]">
-                  +{displayMetrics.grossLossesHours.toFixed(1).replace('.', ',')}h (~R$ {displayMetrics.grossLossesAmount.toLocaleString('pt-BR', { minimumFractionDigits: 0 })})
-                </span>
-              </div>
+                <div className="flex items-center justify-between text-[11px] font-mono text-slate-300 mt-2 pt-2 border-t border-slate-800/80">
+                  <span className="text-rose-300 font-semibold flex items-center gap-1">
+                    <TrendingUp className="w-3.5 h-3.5 text-rose-400" />
+                    +{displayMetrics.grossLossesHours.toFixed(1).replace('.', ',')}h excedentes
+                  </span>
+                  <span className="text-slate-400">
+                    +{Math.round(displayMetrics.totalTimeLostPerBag * 60)}s por bag
+                  </span>
+                </div>
+              </>
             ) : (
-              <div className="p-1.5 rounded-xl bg-emerald-950/30 border border-emerald-500/20 text-[11px] text-emerald-400/90 flex items-center justify-center gap-1.5 font-mono">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span>0 desvios ativos • Processos padronizados</span>
-              </div>
+              <>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl sm:text-4xl font-black font-mono tracking-tight text-emerald-400">
+                    0
+                  </span>
+                  <span className="text-xs font-bold text-emerald-300">
+                    desvios ativos
+                  </span>
+                </div>
+                <span className="text-[11px] text-slate-400 block mt-2 pt-2 border-t border-slate-800/80 font-mono">
+                  100% dos tempos mantidos ou reduzidos
+                </span>
+              </>
             )}
           </div>
 
-          {/* Rodapé do Card com Atalhos Diretos para as Abas */}
+          {/* Rodapé do Card: Ação Direta para Auditar no Pop-up */}
           <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs relative z-10">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {displayMetrics.lossCount > 0 && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setKaizenModalTab('open_opportunities');
-                    setIsKaizenModalOpen(true);
-                  }}
-                  className="px-2 py-0.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/50 text-[10px] font-bold transition-all cursor-pointer shadow-sm hover:scale-105 active:scale-95"
-                  title="Clique para auditar as oportunidades com aumento de tempo"
-                >
-                  Ver {displayMetrics.lossCount} Desvios
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setKaizenModalTab('completed_kaizens');
-                  setIsKaizenModalOpen(true);
-                }}
-                className="px-2 py-0.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/50 text-[10px] font-bold transition-all cursor-pointer shadow-sm hover:scale-105 active:scale-95"
-                title="Clique para ver os tempos reduzidos e ganhos catalogados"
-              >
-                Ver {completedKaizensList.length} Ganhos
-              </button>
-            </div>
-
-            <span className="text-[11px] font-bold flex items-center gap-1 text-cyan-400 group-hover:text-cyan-300 group-hover:translate-x-0.5 transition-all">
-              <span>Abrir Painel</span>
+            <span className="text-slate-400 font-mono text-[11px]">
+              {displayMetrics.lossCount > 0 ? 'Requer Ação Kaizen' : 'Processos Padronizados'}
+            </span>
+            <span className={`text-[11px] font-bold flex items-center gap-1 group-hover:translate-x-0.5 transition-all ${
+              displayMetrics.lossCount > 0 ? 'text-rose-400 group-hover:text-rose-300' : 'text-cyan-400 group-hover:text-cyan-300'
+            }`}>
+              <span>{displayMetrics.lossCount > 0 ? 'Auditar Oportunidades' : 'Gerenciar Kaizen'}</span>
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
             </span>
           </div>

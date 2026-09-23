@@ -113,16 +113,48 @@ export default function SettingsPage() {
   const [newOpCategory, setNewOpCategory] = useState<string>('alca');
   const [newOpName, setNewOpName] = useState('');
   const [newOpTime, setNewOpTime] = useState<number>(0.5);
+  const [filterOpportunitiesOnly, setFilterOpportunitiesOnly] = useState(false);
+
+  // Determinar status Kaizen da operação comparando com medição anterior/histórico
+  const getOpKaizenStatus = (op: typeof operations[0]) => {
+    let baselineTime = op.time;
+    if (op.previousTime !== undefined && op.previousTime !== null && Math.abs(op.previousTime - op.time) > 0.0001) {
+      baselineTime = op.previousTime;
+    } else if (op.history && op.history.length > 1) {
+      baselineTime = op.history[op.history.length - 2].time;
+    } else if (op.previousTime !== undefined && op.previousTime !== null) {
+      baselineTime = op.previousTime;
+    } else if (op.initialTime !== undefined && op.initialTime !== null) {
+      baselineTime = op.initialTime;
+    }
+    const diff = op.time - baselineTime;
+    const isOpportunity = diff > 0.001;
+    const isGain = diff < -0.001;
+    return {
+      baselineTime,
+      diff,
+      diffSeconds: Math.round(diff * 60),
+      isOpportunity,
+      isGain
+    };
+  };
+
+  const kaizenOpportunitiesCount = useMemo(() => {
+    return operations.filter(op => getOpKaizenStatus(op).isOpportunity).length;
+  }, [operations]);
 
   const filteredOperations = useMemo(() => {
     return operations.filter(op => {
+      if (filterOpportunitiesOnly && !getOpKaizenStatus(op).isOpportunity) {
+        return false;
+      }
       const matchesCategory = selectedCategory === 'all' || op.category === selectedCategory;
       const matchesSearch =
         op.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         op.id.toLowerCase().includes(searchTerm.toLowerCase());
       return matchesCategory && matchesSearch;
     });
-  }, [operations, selectedCategory, searchTerm]);
+  }, [operations, selectedCategory, searchTerm, filterOpportunitiesOnly]);
 
   const handleTimeChange = (id: string, value: number) => {
     setEditingTimes(prev => ({ ...prev, [id]: value }));
@@ -130,7 +162,14 @@ export default function SettingsPage() {
 
   const handleSaveTime = async (id: string) => {
     if (editingTimes[id] !== undefined) {
-      await updateOperationTime(id, editingTimes[id], 'Ajuste manual direto na tabela', 'manual');
+      const op = operations.find(o => o.id === id);
+      const newTime = editingTimes[id];
+      const isIncrease = op && newTime > (op.time + 0.0001);
+
+      await updateOperationTime(id, newTime, 'Ajuste manual direto na tabela', 'manual');
+      if (isIncrease) {
+        showToast('Tempo aumentado! Registrado automaticamente como Oportunidade Kaizen 🔴', 'info');
+      }
       setEditingTimes(prev => {
         const next = { ...prev };
         delete next[id];
@@ -329,25 +368,53 @@ export default function SettingsPage() {
           />
         </div>
 
-        {/* Category Pills */}
+        {/* Category Pills & Kaizen Filter */}
         <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 custom-scrollbar">
           <button
-            onClick={() => setSelectedCategory('all')}
+            onClick={() => {
+              setSelectedCategory('all');
+              setFilterOpportunitiesOnly(false);
+            }}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors shrink-0 cursor-pointer ${
-              selectedCategory === 'all'
+              selectedCategory === 'all' && !filterOpportunitiesOnly
                 ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold'
                 : 'bg-slate-950/60 text-slate-400 hover:text-slate-200 border border-slate-800'
             }`}
           >
             Todos ({operations.length})
           </button>
+
+          {/* Botão de Filtro Rápido: Oportunidades Kaizen (Aumentos de Tempo) */}
+          <button
+            onClick={() => setFilterOpportunitiesOnly(prev => !prev)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer border ${
+              filterOpportunitiesOnly
+                ? 'bg-rose-500/25 text-rose-300 border-rose-500 font-bold shadow-[0_0_15px_rgba(244,63,94,0.3)] ring-1 ring-rose-500/50'
+                : kaizenOpportunitiesCount > 0
+                ? 'bg-rose-950/20 text-rose-400 border-rose-800/40 hover:bg-rose-900/30 hover:border-rose-700/60'
+                : 'bg-slate-950/60 text-slate-500 border-slate-800/60'
+            }`}
+            title="Filtrar apenas operações que tiveram aumento de tempo (Oportunidades Kaizen ativas)"
+          >
+            <span className={`w-2 h-2 rounded-full ${kaizenOpportunitiesCount > 0 ? 'bg-rose-500 animate-pulse' : 'bg-slate-600'}`} />
+            <span>Oportunidades Kaizen</span>
+            <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full font-bold ${
+              filterOpportunitiesOnly ? 'bg-rose-500 text-slate-950' : 'bg-rose-500/20 text-rose-300'
+            }`}>
+              {kaizenOpportunitiesCount}
+            </span>
+          </button>
+
           {categories.map(cat => {
             const count = operations.filter(o => o.category === cat.key).length;
-            const isSelected = selectedCategory === cat.key;
+            const isSelected = selectedCategory === cat.key && !filterOpportunitiesOnly;
             return (
               <button
                 key={cat.key}
-                onClick={() => setSelectedCategory(cat.key)}
+                onClick={() => {
+                  setSelectedCategory(cat.key);
+                  setFilterOpportunitiesOnly(false);
+                }}
                 className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors shrink-0 flex items-center gap-1.5 cursor-pointer ${
                   isSelected
                     ? 'border text-white shadow-sm font-bold'
@@ -490,13 +557,42 @@ export default function SettingsPage() {
                       </button>
                     </td>
 
-                    {/* Sparkline Stock-Market Trend Mini-Chart Column */}
+                    {/* Sparkline Stock-Market Trend Mini-Chart Column & Kaizen Status */}
                     <td className="py-3 px-4 text-center">
-                      <Sparkline
-                        history={op.history}
-                        currentTime={op.time}
-                        onClick={() => setSelectedOpForHistory(op)}
-                      />
+                      {(() => {
+                        const kaizen = getOpKaizenStatus(op);
+                        return (
+                          <div className="flex flex-col items-center gap-1.5 py-1">
+                            <Sparkline
+                              history={op.history}
+                              currentTime={op.time}
+                              onClick={() => setSelectedOpForHistory(op)}
+                            />
+                            {kaizen.isOpportunity && (
+                              <button
+                                type="button"
+                                onClick={() => setSelectedOpForHistory(op)}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-500/15 text-rose-300 border border-rose-500/40 hover:bg-rose-500/25 transition-all cursor-pointer shadow-sm shadow-rose-950"
+                                title="Tempo aumentou em relação à medição anterior. Registrado como Oportunidade Kaizen no Painel de Indicadores."
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                                <span>Oportunidade (+{kaizen.diffSeconds}s)</span>
+                              </button>
+                            )}
+                            {kaizen.isGain && (
+                              <button
+                                type="button"
+                                onClick={() => setSelectedOpForHistory(op)}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/25 transition-all cursor-pointer shadow-sm shadow-emerald-950"
+                                title="Tempo reduzido! Ganho Kaizen registrado."
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                                <span>Ganho Kaizen (-{Math.abs(kaizen.diffSeconds)}s)</span>
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </td>
 
                     {/* Standard Time Input */}
