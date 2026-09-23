@@ -210,6 +210,23 @@ export const CATEGORIES_CONFIG: Record<string, ComponentCategoryConfig> = DEFAUL
   {} as Record<string, ComponentCategoryConfig>
 );
 
+// Baseline Teórica Original de Referência (Calculadora Kanban Pré-Cronoanálise)
+export const THEORETICAL_BASELINE_MINUTES = 104.22;
+
+export const THEORETICAL_SECTOR_BASELINES: Record<string, number> = {
+  alca: 12.50,
+  fundo: 15.60,
+  topo: 15.55,
+  travas: 8.90,
+  fechamento: 14.75,
+  valvFundo: 4.00,
+  valvTopo: 4.00,
+  saia: 0.65,
+  valvCustom: 1.10,
+  outras: 8.80,
+  preparacao: 18.37
+};
+
 export const DEFAULT_OPERATIONS: OperationItem[] = [
   // ALÇA
   {

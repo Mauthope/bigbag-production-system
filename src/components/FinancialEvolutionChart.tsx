@@ -21,9 +21,12 @@ import {
   Sparkles,
   Percent,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  Filter,
+  Layers
 } from 'lucide-react';
 import { MonthlyClosingRecord } from '@/types/production';
+import { THEORETICAL_BASELINE_MINUTES, THEORETICAL_SECTOR_BASELINES } from '@/data/defaultData';
 
 interface FinancialEvolutionChartProps {
   monthlyHistory: Record<string, MonthlyClosingRecord>;
@@ -32,11 +35,15 @@ interface FinancialEvolutionChartProps {
   currentBagTimeMinutes?: number; // compatibilidade retroativa
   marcoZeroCatalogTimeMinutes?: number; // Soma de todas as micro-operações no Marco Zero (ex: 151.85 min)
   marcoZeroBagTimeMinutes?: number; // compatibilidade retroativa
+  theoreticalBaselineMinutes?: number; // 104.22 min (Calculadora Kanban)
+  firstRealMeasurementTimeMinutes?: number; // 230.08 min (1ª Cronoanálise)
   netVariationMinutes: number; // Variação líquida em minutos vs Marco Zero
   percentVariationVsMarcoZero: number; // Variação % vs Marco Zero
   totalKaizenCompletedSavings?: number; // Ganhos Reais Auditados Kaizen (R$)
   errorMarginPercent?: number;
   operationsCount?: number; // Total de operações cadastradas (ex: 118)
+  operations?: any[]; // Lista de operações para filtro setorial
+  categories?: any[]; // Categorias para filtro setorial
 }
 
 export type EvolutionMetric = 'percent_change' | 'cycle_time' | 'kaizen_savings';
@@ -48,87 +55,149 @@ export const FinancialEvolutionChart: React.FC<FinancialEvolutionChartProps> = (
   currentBagTimeMinutes,
   marcoZeroCatalogTimeMinutes,
   marcoZeroBagTimeMinutes,
+  theoreticalBaselineMinutes = THEORETICAL_BASELINE_MINUTES,
+  firstRealMeasurementTimeMinutes,
   netVariationMinutes,
   percentVariationVsMarcoZero,
   totalKaizenCompletedSavings = 0,
-  operationsCount = 118
+  operationsCount = 118,
+  operations = [],
+  categories = []
 }) => {
   const [isMounted, setIsMounted] = useState(false);
-  // Padrão definido para Variação em relação ao Marco Zero (%)
-  const [selectedMetric, setSelectedMetric] = useState<EvolutionMetric>('percent_change');
+  // Padrão definido para Tempo Total Catálogo (min) para visualizar a curva oscilando
+  const [selectedMetric, setSelectedMetric] = useState<EvolutionMetric>('cycle_time');
+  const [selectedSector, setSelectedSector] = useState<string>('all');
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
   const activeCatalogTime = currentCatalogTimeMinutes ?? currentBagTimeMinutes ?? 151.85;
-  const baseCatalogTime = (marcoZeroCatalogTimeMinutes && marcoZeroCatalogTimeMinutes > 0)
-    ? marcoZeroCatalogTimeMinutes
-    : (marcoZeroBagTimeMinutes && marcoZeroBagTimeMinutes > 0)
-    ? marcoZeroBagTimeMinutes
-    : 151.85;
 
-  // Construção da linha do tempo contínua do Marco Zero até o mês ativo
-  const timelineData = useMemo(() => {
-    const keys = Object.keys(monthlyHistory).sort();
-    if (!keys.includes(activeMonthKey)) {
-      keys.push(activeMonthKey);
+  // Filtragem e cálculos dinâmicos por Setor / Componente
+  const filteredOps = useMemo(() => {
+    if (!operations || operations.length === 0) return [];
+    if (selectedSector === 'all') return operations;
+    return operations.filter((op: any) => op.category === selectedSector);
+  }, [operations, selectedSector]);
+
+  const activeSectorOpsCount = selectedSector === 'all' ? operationsCount : filteredOps.length;
+
+  const currentSectorCategory = useMemo(() => {
+    return categories.find((c: any) => c.key === selectedSector);
+  }, [categories, selectedSector]);
+
+  const sectorName = selectedSector === 'all'
+    ? 'Todos os Componentes'
+    : (currentSectorCategory?.title || selectedSector);
+
+  // 1. Tempo Teórico de Engenharia do Setor
+  const sectorTheoretical = useMemo(() => {
+    if (selectedSector === 'all') return theoreticalBaselineMinutes;
+    return THEORETICAL_SECTOR_BASELINES[selectedSector] ?? 0;
+  }, [selectedSector, theoreticalBaselineMinutes]);
+
+  // 2. Tempo da 1ª Medição Real Apurada do Setor
+  const sectorFirstReal = useMemo(() => {
+    if (!filteredOps.length) {
+      return firstRealMeasurementTimeMinutes ?? (marcoZeroCatalogTimeMinutes || 230.08);
     }
-    keys.sort();
+    const sum = filteredOps.reduce((acc: number, op: any) => {
+      const first = (op.history && op.history.length > 0) ? op.history[0].time : op.baselineTime;
+      return acc + (first !== undefined && first !== null ? Number(first) : Number(op.time));
+    }, 0);
+    return Number(sum.toFixed(2));
+  }, [filteredOps, firstRealMeasurementTimeMinutes, marcoZeroCatalogTimeMinutes]);
 
-    const marcoZeroKey = keys[0]; // Primeiro mês cadastrado é o Marco Zero (Agosto/2026)
+  // 3. Tempo Atual do Setor
+  const sectorCurrent = useMemo(() => {
+    if (!filteredOps.length) return activeCatalogTime;
+    const sum = filteredOps.reduce((acc: number, op: any) => acc + Number(op.currentTime || op.time || 0), 0);
+    return Number(sum.toFixed(2));
+  }, [filteredOps, activeCatalogTime]);
 
-    return keys.map(key => {
-      const rec = monthlyHistory[key];
-      const isMarcoZero = key === marcoZeroKey;
-      const isCurrent = key === activeMonthKey;
+  // Cálculos de desvio e redução
+  const sectorInitialRealDelta = sectorFirstReal - sectorTheoretical;
+  const sectorInitialRealPct = sectorTheoretical > 0
+    ? Number(((sectorInitialRealDelta / sectorTheoretical) * 100).toFixed(1))
+    : 0;
 
-      let cycleTime = baseCatalogTime;
-      let percentVariation = 0;
-      let variationMinutes = 0;
-      let kaizenSavings = 0;
+  const sectorCurrentDeltaVsTeorico = sectorCurrent - sectorTheoretical;
+  const sectorCurrentPctVsTeorico = sectorTheoretical > 0
+    ? Number(((sectorCurrentDeltaVsTeorico / sectorTheoretical) * 100).toFixed(1))
+    : 0;
 
-      if (isMarcoZero) {
-        // Marco Zero é a referência absoluta de partida da fábrica (0% de variação)
-        cycleTime = baseCatalogTime;
-        percentVariation = 0;
-        variationMinutes = 0;
-        kaizenSavings = 0;
-      } else if (isCurrent) {
-        // Mês atual ativo: mede a variação em relação ao Marco Zero
-        cycleTime = activeCatalogTime > 0 ? activeCatalogTime : baseCatalogTime;
-        percentVariation = percentVariationVsMarcoZero;
-        variationMinutes = netVariationMinutes;
-        kaizenSavings = totalKaizenCompletedSavings;
-      } else {
-        // Mês histórico encerrado
-        const historicalTime = rec?.netHours ? baseCatalogTime - (rec.netHours * 60) / (rec.volume || 20000) : baseCatalogTime;
-        cycleTime = historicalTime;
-        variationMinutes = cycleTime - baseCatalogTime;
-        percentVariation = baseCatalogTime > 0 ? Number(((variationMinutes / baseCatalogTime) * 100).toFixed(1)) : 0;
-        kaizenSavings = rec?.totalSavings ?? 0;
-      }
+  const sectorKaizenReductionMin = sectorFirstReal - sectorCurrent;
+  const sectorKaizenReductionPct = sectorFirstReal > 0
+    ? Number(((sectorKaizenReductionMin / sectorFirstReal) * 100).toFixed(1))
+    : 0;
 
-      return {
-        key,
-        dateLabel: rec?.monthLabel ? rec.monthLabel.split('/')[0] : key,
-        fullLabel: isMarcoZero ? `${rec?.monthLabel || key} (Marco Zero)` : (rec?.monthLabel || key),
-        cycleTime: Number(cycleTime.toFixed(2)),
-        percentVariation: Number(percentVariation.toFixed(1)),
-        variationMinutes: Number(variationMinutes.toFixed(2)),
-        kaizenSavings: Number(kaizenSavings.toFixed(2)),
-        volume: rec?.volume ?? 20000,
-        isMarcoZero,
-        isCurrent
-      };
+  // Construção da linha do tempo contínua:
+  // Ponto 1: Marco Zero Teórico (104,22 min ou subtotal do setor)
+  // Ponto 2: 1ª Cronoanálise Real (~230,08 min ou subtotal do setor)
+  // Ponto 3: Mês Vigente Pós-Kaizen (151,56 min ou subtotal do setor)
+  const timelineData = useMemo(() => {
+    const points = [];
+
+    // Ponto 1: Marco Zero Teórico (Calculadora Kanban Pré-Cronoanálise)
+    points.push({
+      key: 'marco-zero-teorico',
+      dateLabel: 'Teórico',
+      fullLabel: `Marco Zero Teórico (${sectorTheoretical.toFixed(2)}m)`,
+      cycleTime: sectorTheoretical,
+      percentVariation: 0,
+      variationMinutes: 0,
+      kaizenSavings: 0,
+      volume: 20000,
+      isTheoretical: true,
+      isFirstReal: false,
+      isCurrent: false
     });
+
+    // Ponto 2: 1ª Cronoanálise Real em Chão de Fábrica
+    points.push({
+      key: 'cronoanalise-inicial',
+      dateLabel: '1ª Medição',
+      fullLabel: `1ª Cronoanálise Real (${sectorFirstReal.toFixed(2)}m)`,
+      cycleTime: sectorFirstReal,
+      percentVariation: sectorInitialRealPct,
+      variationMinutes: Number(sectorInitialRealDelta.toFixed(2)),
+      kaizenSavings: 0,
+      volume: 20000,
+      isTheoretical: false,
+      isFirstReal: true,
+      isCurrent: false
+    });
+
+    // Ponto 3: Mês Vigente Pós-Kaizen (Setembro/2026)
+    const activeLabel = monthlyHistory[activeMonthKey]?.monthLabel || 'Setembro/2026';
+    points.push({
+      key: activeMonthKey,
+      dateLabel: activeLabel.split('/')[0],
+      fullLabel: `${activeLabel} (Atual: ${sectorCurrent.toFixed(2)}m)`,
+      cycleTime: sectorCurrent,
+      percentVariation: sectorCurrentPctVsTeorico,
+      variationMinutes: Number(sectorCurrentDeltaVsTeorico.toFixed(2)),
+      kaizenSavings: selectedSector === 'all' ? Number(totalKaizenCompletedSavings.toFixed(2)) : 0,
+      volume: monthlyHistory[activeMonthKey]?.volume ?? 20000,
+      isTheoretical: false,
+      isFirstReal: false,
+      isCurrent: true
+    });
+
+    return points;
   }, [
-    monthlyHistory,
+    sectorTheoretical,
+    sectorFirstReal,
+    sectorCurrent,
+    sectorInitialRealDelta,
+    sectorInitialRealPct,
+    sectorCurrentDeltaVsTeorico,
+    sectorCurrentPctVsTeorico,
     activeMonthKey,
-    activeCatalogTime,
-    baseCatalogTime,
-    netVariationMinutes,
-    percentVariationVsMarcoZero,
+    monthlyHistory,
+    selectedSector,
     totalKaizenCompletedSavings
   ]);
 
@@ -158,47 +227,67 @@ export const FinancialEvolutionChart: React.FC<FinancialEvolutionChartProps> = (
               <h2 className="text-base sm:text-lg font-bold text-white tracking-tight flex items-center gap-2">
                 Curva Contínua de Evolução Histórica
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-950 border border-cyan-800 text-cyan-300 font-mono font-bold">
-                  Variação vs Marco Zero
+                  Partida: {sectorTheoretical.toFixed(2)}m (Teórico)
                 </span>
               </h2>
               <p className="text-xs text-slate-400">
-                Acompanhamento mês a mês da variação de tempo e produtividade em relação ao ponto de partida
+                Acompanhe a trajetória de tempo: do Marco Zero Teórico (104m) até a 1ª cronoanálise e as reduções Kaizen
               </p>
             </div>
           </div>
         </div>
 
-        {/* Metric Selector Buttons */}
+        {/* Metric & Sector Filter Controls */}
         <div className="flex flex-wrap items-center gap-2.5">
-          <div className="flex items-center p-1 rounded-xl bg-slate-950/90 border border-slate-800">
-            {/* Botão 1: Variação vs Marco Zero (%) - Padrão */}
-            <button
-              type="button"
-              onClick={() => setSelectedMetric('percent_change')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                selectedMetric === 'percent_change'
-                  ? 'bg-cyan-500 text-slate-950 font-black shadow-md'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="Acompanhar se o tempo aumentou ou diminuiu percentualmente em relação ao Marco Zero"
+          
+          {/* Filtro Setorial (Setor / Componente) */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-950/90 border border-slate-800">
+            <Filter className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Setor:</span>
+            <select
+              value={selectedSector}
+              onChange={e => setSelectedSector(e.target.value)}
+              className="bg-transparent text-xs font-bold text-white focus:outline-none cursor-pointer"
             >
-              <Percent className="w-3.5 h-3.5" />
-              <span>% Variação vs Marco Zero</span>
-            </button>
+              <option value="all" className="bg-slate-900 text-white">Todos os Componentes (Geral)</option>
+              {categories.map((cat: any) => (
+                <option key={cat.key} value={cat.key} className="bg-slate-900 text-white">
+                  {cat.title} ({THEORETICAL_SECTOR_BASELINES[cat.key] ? `${THEORETICAL_SECTOR_BASELINES[cat.key].toFixed(2)}m` : ''})
+                </option>
+              ))}
+            </select>
+          </div>
 
-            {/* Botão 2: Tempo Total Catálogo (min) */}
+          {/* Metric Selector Buttons */}
+          <div className="flex items-center p-1 rounded-xl bg-slate-950/90 border border-slate-800">
+            {/* Botão 1: Tempo Total Catálogo (min) - Padrão para ver oscilação */}
             <button
               type="button"
               onClick={() => setSelectedMetric('cycle_time')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                 selectedMetric === 'cycle_time'
+                  ? 'bg-cyan-500 text-slate-950 font-black shadow-md'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Acompanhar a evolução em minutos partindo de 104m, subindo na 1ª medição e descendo com o Kaizen"
+            >
+              <Clock className="w-3.5 h-3.5" />
+              <span>Tempo em Minutos</span>
+            </button>
+
+            {/* Botão 2: Variação vs Teórico (%) */}
+            <button
+              type="button"
+              onClick={() => setSelectedMetric('percent_change')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                selectedMetric === 'percent_change'
                   ? 'bg-emerald-500 text-slate-950 font-black shadow-md'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
-              title={`Acompanhar a soma dos tempos de todas as ${operationsCount} micro-operações cadastradas no catálogo`}
+              title="Acompanhar a variação percentual (%) em relação ao Marco Zero Teórico"
             >
-              <Clock className="w-3.5 h-3.5" />
-              <span>Tempo Total Catálogo (min)</span>
+              <Percent className="w-3.5 h-3.5" />
+              <span>% Variação vs Teórico</span>
             </button>
 
             {/* Botão 3: Ganhos Reais Kaizen (R$) */}
@@ -216,33 +305,30 @@ export const FinancialEvolutionChart: React.FC<FinancialEvolutionChartProps> = (
               <span>Ganhos Reais Kaizen (R$)</span>
             </button>
           </div>
+
         </div>
 
       </div>
 
-      {/* 3 Summary Ticker Cards */}
+      {/* 3 Summary Ticker Cards for Selected Sector */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         
-        {/* Card 1: Tempo Global do Catálogo */}
+        {/* Card 1: Tempo Atual do Setor */}
         <div className="p-3.5 rounded-xl bg-slate-950/70 border border-cyan-500/20 flex items-center justify-between">
           <div>
             <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
-              Tempo Global do Catálogo
+              Tempo Atual ({sectorName})
             </span>
             <div className="flex items-baseline gap-1 mt-0.5">
               <span className="text-xl font-black font-mono text-cyan-300 tracking-tight">
-                {activeCatalogTime.toFixed(2).replace('.', ',')} min
+                {sectorCurrent.toFixed(2).replace('.', ',')} min
               </span>
               <span className="text-xs text-slate-400 font-mono">
-                ({operationsCount} operações)
+                ({activeSectorOpsCount} ops)
               </span>
             </div>
             <span className="text-[10px] font-mono text-cyan-400/90 block mt-1">
-              {netVariationMinutes > 0
-                ? `+${netVariationMinutes.toFixed(2).replace('.', ',')} min vs Marco Zero`
-                : netVariationMinutes < 0
-                ? `-${Math.abs(netVariationMinutes).toFixed(2).replace('.', ',')} min vs Marco Zero`
-                : 'Em conformidade com o Marco Zero'}
+              Ref. Teórica: {sectorTheoretical.toFixed(2).replace('.', ',')}m ({sectorCurrentDeltaVsTeorico >= 0 ? '+' : ''}{sectorCurrentDeltaVsTeorico.toFixed(2).replace('.', ',')}m)
             </span>
           </div>
           <div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-400">
@@ -250,73 +336,49 @@ export const FinancialEvolutionChart: React.FC<FinancialEvolutionChartProps> = (
           </div>
         </div>
 
-        {/* Card 2: Eficiência Global vs Marco Zero */}
-        <div className="p-3.5 rounded-xl bg-slate-950/70 border border-emerald-500/20 flex items-center justify-between">
-          <div>
-            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
-              Eficiência Global vs Marco Zero
-            </span>
-            <div className="flex items-baseline gap-1 mt-0.5">
-              <span className={`text-xl font-black font-mono tracking-tight ${
-                percentVariationVsMarcoZero < 0
-                  ? 'text-emerald-400'
-                  : percentVariationVsMarcoZero > 0
-                  ? 'text-rose-400'
-                  : 'text-slate-300'
-              }`}>
-                {percentVariationVsMarcoZero > 0 ? '+' : ''}{percentVariationVsMarcoZero.toFixed(1).replace('.', ',')}%
-              </span>
-              <span className="text-xs text-slate-400 font-mono">
-                {percentVariationVsMarcoZero < 0 ? 'tempo reduzido' : percentVariationVsMarcoZero > 0 ? 'tempo acrescido' : 'estável'}
-              </span>
-            </div>
-            <span className="text-[10px] font-mono text-slate-400 block mt-1">
-              {percentVariationVsMarcoZero < 0
-                ? 'Melhoria contínua de eficiência global'
-                : percentVariationVsMarcoZero > 0
-                ? 'Desvio global detectado nas operações'
-                : 'Ponto de partida oficial da fábrica'}
-            </span>
-          </div>
-          <div className={`p-2 rounded-lg ${
-            percentVariationVsMarcoZero < 0
-              ? 'bg-emerald-500/10 text-emerald-400'
-              : percentVariationVsMarcoZero > 0
-              ? 'bg-rose-500/10 text-rose-400'
-              : 'bg-slate-800 text-slate-400'
-          }`}>
-            {percentVariationVsMarcoZero < 0 ? (
-              <TrendingDown className="w-5 h-5" />
-            ) : percentVariationVsMarcoZero > 0 ? (
-              <TrendingUp className="w-5 h-5" />
-            ) : (
-              <CheckCircle2 className="w-5 h-5" />
-            )}
-          </div>
-        </div>
-
-        {/* Card 3: Ganhos Reais Auditados Kaizen (R$) */}
+        {/* Card 2: Teórico vs 1ª Medição Real */}
         <div className="p-3.5 rounded-xl bg-slate-950/70 border border-amber-500/20 flex items-center justify-between">
           <div>
-            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block flex items-center gap-1">
-              Ganhos Kaizen Conquistados
-              <span className="text-[9px] px-1 rounded bg-amber-950 text-amber-300 border border-amber-800">
-                Auditado
-              </span>
+            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
+              Teórico vs 1ª Medição Real
             </span>
             <div className="flex items-baseline gap-1 mt-0.5">
-              <span className="text-xs text-amber-400 font-bold">R$</span>
-              <span className="text-xl font-black font-mono text-amber-400 tracking-tight">
-                {totalKaizenCompletedSavings.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <span className="text-xl font-black font-mono text-amber-300 tracking-tight">
+                +{sectorInitialRealPct.toFixed(1).replace('.', ',')}%
               </span>
-              <span className="text-xs text-slate-400">/mês</span>
+              <span className="text-xs text-slate-400 font-mono">
+                desvio inicial
+              </span>
             </div>
             <span className="text-[10px] font-mono text-slate-400 block mt-1">
-              Multiplicado pelo volume de cada ponto específico
+              Estimativa {sectorTheoretical.toFixed(2).replace('.', ',')}m → Real {sectorFirstReal.toFixed(2).replace('.', ',')}m
             </span>
           </div>
           <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400">
-            <Sparkles className="w-5 h-5" />
+            <Layers className="w-5 h-5" />
+          </div>
+        </div>
+
+        {/* Card 3: Ganho de Eficiência Kaizen */}
+        <div className="p-3.5 rounded-xl bg-slate-950/70 border border-emerald-500/20 flex items-center justify-between">
+          <div>
+            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
+              Ganho Kaizen Conquistado
+            </span>
+            <div className="flex items-baseline gap-1 mt-0.5">
+              <span className="text-xl font-black font-mono text-emerald-400 tracking-tight">
+                -{sectorKaizenReductionPct.toFixed(1).replace('.', ',')}%
+              </span>
+              <span className="text-xs text-slate-400 font-mono">
+                tempo reduzido
+              </span>
+            </div>
+            <span className="text-[10px] font-mono text-emerald-400/90 block mt-1">
+              De {sectorFirstReal.toFixed(2).replace('.', ',')}m para {sectorCurrent.toFixed(2).replace('.', ',')}m (-{sectorKaizenReductionMin.toFixed(2).replace('.', ',')} min)
+            </span>
+          </div>
+          <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
+            <TrendingDown className="w-5 h-5" />
           </div>
         </div>
 
@@ -405,12 +467,12 @@ export const FinancialEvolutionChart: React.FC<FinancialEvolutionChartProps> = (
 
               {selectedMetric === 'cycle_time' && (
                 <ReferenceLine
-                  y={baseCatalogTime}
+                  y={sectorTheoretical}
                   stroke="#06b6d4"
                   strokeWidth={1.5}
                   strokeDasharray="4 4"
                   label={{
-                    value: `Ref Marco Zero (${baseCatalogTime.toFixed(1)}m)`,
+                    value: `Ref. Teórica (${sectorTheoretical.toFixed(1)}m)`,
                     fill: '#06b6d4',
                     fontSize: 10,
                     position: 'insideTopRight'
@@ -524,7 +586,7 @@ export const FinancialEvolutionChart: React.FC<FinancialEvolutionChartProps> = (
           <span>Linha de base referenciada no <strong>Marco Zero (Agosto/2026)</strong>. Acompanhamento ininterrupto mês a mês.</span>
         </span>
         <span className="text-[11px] text-slate-500 font-mono">
-          Tempo Total Marco Zero ({operationsCount} operações): <strong>{baseCatalogTime.toFixed(2)} min</strong>
+          Ref. Teórica ({activeSectorOpsCount} ops): <strong>{sectorTheoretical.toFixed(2)} min</strong> | 1ª Cronoanálise Real: <strong>{sectorFirstReal.toFixed(2)} min</strong>
         </span>
       </div>
 

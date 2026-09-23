@@ -25,7 +25,9 @@ import {
   Lock,
   Unlock,
   Plus,
-  RotateCcw
+  RotateCcw,
+  Activity,
+  ChevronUp
 } from 'lucide-react';
 import { SectorCostModal } from '@/components/SectorCostModal';
 import { NewMonthModal } from '@/components/NewMonthModal';
@@ -34,6 +36,7 @@ import { FinancialEvolutionChart } from '@/components/FinancialEvolutionChart';
 import { KaizenOpportunitiesModal } from '@/components/KaizenOpportunitiesModal';
 import { ComponentCategoryKey } from '@/types/production';
 import { getCurrentMonthKey, getMonthLabel, getNextMonthClosingDate } from '@/utils/monthAutomation';
+import { THEORETICAL_BASELINE_MINUTES, THEORETICAL_SECTOR_BASELINES } from '@/data/defaultData';
 
 export default function IndicatorsPage() {
   const {
@@ -95,6 +98,7 @@ export default function IndicatorsPage() {
   const [tempBaselineValue, setTempBaselineValue] = useState<string>('');
   const [editingVolumeId, setEditingVolumeId] = useState<string | null>(null);
   const [tempVolumeValue, setTempVolumeValue] = useState<string>('');
+  const [showAllChanges, setShowAllChanges] = useState<boolean>(false);
 
   const currentCalendarMonthKey = getCurrentMonthKey();
   const activeMonthKey = financialConfig?.activeMonthKey || currentCalendarMonthKey;
@@ -316,19 +320,34 @@ export default function IndicatorsPage() {
     return metrics;
   }, [isMonthClosed, activeMonthRecord, metrics]);
 
-  // Soma de todas as 118 opções de micro-operações cadastradas no catálogo no Marco Zero / Linha de Base
+  // Referência Teórica Fixa (Calculadora Kanban Original: 104,22 min)
+  const theoreticalBaselineMinutes = THEORETICAL_BASELINE_MINUTES;
+
+  // Soma de todas as micro-operações cadastradas no catálogo no Marco Zero / 1ª Medição Real
   const marcoZeroCatalogTimeMinutes = useMemo(() => {
     const sum = enrichedOperations.reduce((acc, op) => acc + op.baselineTime, 0);
     return Number(sum.toFixed(2));
   }, [enrichedOperations]);
 
-  // Soma atual de todas as 118 opções de micro-operações do catálogo
+  // Soma atual de todas as micro-operações do catálogo
   const currentCatalogTimeMinutes = useMemo(() => {
     const sum = enrichedOperations.reduce((acc, op) => acc + op.currentTime, 0);
     return Number(sum.toFixed(2));
   }, [enrichedOperations]);
 
-  // Variação global vs Marco Zero (mede a eficiência da fábrica como um todo)
+  // Comparação Teórico (104,22 min) vs 1ª Medição Real do Catálogo (230,08 min)
+  const { deltaTheoreticalVsReal, percentTheoreticalVsReal } = useMemo(() => {
+    const delta = marcoZeroCatalogTimeMinutes - theoreticalBaselineMinutes;
+    const pct = theoreticalBaselineMinutes > 0
+      ? Number(((delta / theoreticalBaselineMinutes) * 100).toFixed(1))
+      : 0;
+    return {
+      deltaTheoreticalVsReal: Number(delta.toFixed(2)),
+      percentTheoreticalVsReal: pct
+    };
+  }, [marcoZeroCatalogTimeMinutes, theoreticalBaselineMinutes]);
+
+  // Variação Kaizen Real (Atual vs 1ª Medição Real)
   const { netVariationMinutes, percentVariationVsMarcoZero } = useMemo(() => {
     const delta = currentCatalogTimeMinutes - marcoZeroCatalogTimeMinutes;
     const pct = marcoZeroCatalogTimeMinutes > 0
@@ -342,6 +361,20 @@ export default function IndicatorsPage() {
   }, [currentCatalogTimeMinutes, marcoZeroCatalogTimeMinutes]);
 
   const netVariationSeconds = Math.round(Math.abs(netVariationMinutes) * 60);
+
+  // Maiores Reduções de Tempo (Ganhos Kaizen Conquistados)
+  const topReductions = useMemo(() => {
+    return enrichedOperations
+      .filter(op => op.deltaMinutes < -0.001)
+      .sort((a, b) => a.deltaMinutes - b.deltaMinutes);
+  }, [enrichedOperations]);
+
+  // Maiores Aumentos de Tempo (Oportunidades Kaizen em Aberto)
+  const topIncreases = useMemo(() => {
+    return enrichedOperations
+      .filter(op => op.deltaMinutes > 0.001)
+      .sort((a, b) => b.deltaMinutes - a.deltaMinutes);
+  }, [enrichedOperations]);
 
   // Ganhos Reais de Kaizen Conquistados (multiplicado pelo volume e custo de cada ponto específico)
   const completedKaizensList = useMemo(() => {
@@ -705,7 +738,7 @@ export default function IndicatorsPage() {
       {/* 4 Summary KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         
-        {/* KPI 1: Tempo Global do Catálogo (Soma das 118 micro-operações) */}
+        {/* KPI 1: Tempo Global do Catálogo (Soma de todas as micro-operações) */}
         <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl relative overflow-hidden flex flex-col justify-between">
           <div className="flex items-center justify-between gap-2">
             <div>
@@ -734,113 +767,95 @@ export default function IndicatorsPage() {
           </div>
 
           <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
-            <span className="text-slate-400">Marco Zero: {marcoZeroCatalogTimeMinutes.toFixed(2).replace('.', ',')}m</span>
-            {netVariationMinutes < -0.001 ? (
+            <span className="text-slate-400">Ref. Teórica: {theoreticalBaselineMinutes.toFixed(2).replace('.', ',')}m</span>
+            {currentCatalogTimeMinutes < theoreticalBaselineMinutes ? (
               <span className="font-mono font-bold text-emerald-400 flex items-center gap-1">
                 <ArrowDownRight className="w-3.5 h-3.5" />
-                -{Math.abs(netVariationMinutes).toFixed(2).replace('.', ',')} min (-{netVariationSeconds}s)
+                -{(theoreticalBaselineMinutes - currentCatalogTimeMinutes).toFixed(2).replace('.', ',')} min vs Teórico
               </span>
-            ) : netVariationMinutes > 0.001 ? (
-              <span className="font-mono font-bold text-rose-400 flex items-center gap-1">
+            ) : currentCatalogTimeMinutes > theoreticalBaselineMinutes ? (
+              <span className="font-mono font-bold text-amber-400 flex items-center gap-1">
                 <ArrowUpRight className="w-3.5 h-3.5" />
-                +{netVariationMinutes.toFixed(2).replace('.', ',')} min (+{netVariationSeconds}s)
+                +{(currentCatalogTimeMinutes - theoreticalBaselineMinutes).toFixed(2).replace('.', ',')} min vs Teórico
               </span>
             ) : (
-              <span className="font-mono text-slate-400">Eficiência estável (Marco Zero)</span>
+              <span className="font-mono text-cyan-400">Alinhado à Referência</span>
             )}
           </div>
         </div>
 
-        {/* KPI 2: Eficiência Global vs Marco Zero */}
+        {/* KPI 2: Teórico vs 1ª Medição Real */}
         <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl flex flex-col justify-between">
           <div className="flex items-center justify-between gap-2">
             <div>
               <span className="text-xs uppercase font-bold tracking-wider text-slate-400 block">
-                Eficiência Global vs Marco Zero
+                Teórico vs 1ª Medição Real
               </span>
-              <span className="text-[10px] text-slate-400 font-medium">
-                (Variação em todas as {enrichedOperations.length} operações)
+              <span className="text-[10px] text-amber-400/90 font-medium">
+                (Gap inicial da cronoanálise de campo)
               </span>
             </div>
-            <div className={`p-2 rounded-xl border ${
-              percentVariationVsMarcoZero <= 0.001
-                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
-            }`}>
-              {percentVariationVsMarcoZero <= 0.001 ? <TrendingDown className="w-5 h-5" /> : <TrendingUp className="w-5 h-5" />}
+            <div className="p-2 rounded-xl border bg-amber-500/10 border-amber-500/20 text-amber-400">
+              <Activity className="w-5 h-5" />
             </div>
           </div>
 
           <div className="mt-3">
             <div className="flex items-baseline gap-1">
-              <span className={`text-2xl sm:text-3xl font-black font-mono tracking-tight ${
-                percentVariationVsMarcoZero <= 0.001 ? 'text-emerald-400' : 'text-rose-400'
-              }`}>
-                {percentVariationVsMarcoZero <= 0.001 ? '' : '+'}{percentVariationVsMarcoZero.toFixed(1).replace('.', ',')}%
+              <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-amber-400">
+                +{percentTheoreticalVsReal.toFixed(1).replace('.', ',')}%
               </span>
               <span className="text-xs font-bold text-slate-400">
-                {percentVariationVsMarcoZero < -0.001 ? 'tempo reduzido' : percentVariationVsMarcoZero > 0.001 ? 'tempo acrescido' : 'estável'}
+                desvio inicial
               </span>
             </div>
             <span className="text-[10px] text-slate-400 font-mono block mt-1">
-              {percentVariationVsMarcoZero < -0.001
-                ? 'Ganho contínuo de eficiência global'
-                : percentVariationVsMarcoZero > 0.001
-                ? 'Aumento global de tempo nas operações'
-                : 'Catálogo alinhado com o Marco Zero'}
+              1ª Medição Real: {marcoZeroCatalogTimeMinutes.toFixed(2).replace('.', ',')} min (+{deltaTheoreticalVsReal.toFixed(2).replace('.', ',')}m da teoria)
             </span>
           </div>
 
           <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
-            <span className="text-slate-400">Status Fábrica:</span>
-            <span className={`font-mono font-bold ${
-              percentVariationVsMarcoZero < -0.001
-                ? 'text-emerald-400'
-                : percentVariationVsMarcoZero > 0.001
-                ? 'text-rose-400'
-                : 'text-cyan-400'
-            }`}>
-              {percentVariationVsMarcoZero < -0.001
-                ? 'Mais Eficiente'
-                : percentVariationVsMarcoZero > 0.001
-                ? 'Perda de Eficiência'
-                : 'Marco Zero (Equilibrado)'}
+            <span className="text-slate-400">Marco Teórico:</span>
+            <span className="font-mono font-bold text-slate-300">
+              {theoreticalBaselineMinutes.toFixed(2).replace('.', ',')} min (Kanban)
             </span>
           </div>
         </div>
 
-        {/* KPI 3: Horas de Mão-de-Obra / Mês */}
+        {/* KPI 3: Ganho Real de Eficiência Kaizen */}
         <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl flex flex-col justify-between">
           <div className="flex items-center justify-between gap-2">
             <div>
               <span className="text-xs uppercase font-bold tracking-wider text-slate-400 block">
-                Horas de Mão-de-Obra / Mês
+                Ganho de Eficiência Kaizen
               </span>
-              <span className="text-[10px] text-cyan-400/80 font-medium">
-                (Tempo fabril poupado por velocidade)
+              <span className="text-[10px] text-emerald-400 font-medium">
+                (Evolução pós-cronoanálise de campo)
               </span>
             </div>
-            <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
-              <Users className="w-5 h-5" />
+            <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+              <TrendingDown className="w-5 h-5" />
             </div>
           </div>
 
           <div className="mt-3">
             <div className="flex items-baseline gap-1">
-              <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-cyan-400">
-                {displayMetrics.totalMonthlyHoursSaved.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+              <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-emerald-400">
+                {percentVariationVsMarcoZero <= 0.001 ? '' : '+'}{percentVariationVsMarcoZero.toFixed(1).replace('.', ',')}%
               </span>
-              <span className="text-xs font-bold text-cyan-300">horas / mês</span>
+              <span className="text-xs font-bold text-emerald-300">
+                {percentVariationVsMarcoZero < -0.001 ? 'tempo reduzido' : 'estável'}
+              </span>
             </div>
             <span className="text-[10px] text-slate-400 font-mono block mt-1">
-              Volume Base: {monthlyVolume.toLocaleString('pt-BR')} bags/mês
+              -{Math.abs(netVariationMinutes).toFixed(2).replace('.', ',')} min (-{netVariationSeconds}s) poupados no catálogo
             </span>
           </div>
 
           <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
             <span className="text-slate-400">Capacidade Liberada:</span>
-            <span className="text-cyan-300 font-mono font-bold">
-              ~{Math.abs(displayMetrics.equivalentOperatorsFreed).toFixed(1).replace('.', ',')} operadores
+            <span className="text-emerald-400 font-mono font-bold">
+              {displayMetrics.totalMonthlyHoursSaved.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} h/mês (~{Math.abs(displayMetrics.equivalentOperatorsFreed).toFixed(1).replace('.', ',')} op.)
             </span>
           </div>
         </div>
@@ -944,12 +959,214 @@ export default function IndicatorsPage() {
         activeMonthKey={activeMonthKey}
         currentCatalogTimeMinutes={currentCatalogTimeMinutes}
         marcoZeroCatalogTimeMinutes={marcoZeroCatalogTimeMinutes}
+        theoreticalBaselineMinutes={theoreticalBaselineMinutes}
+        firstRealMeasurementTimeMinutes={marcoZeroCatalogTimeMinutes}
+        operations={enrichedOperations}
+        categories={categories}
         netVariationMinutes={netVariationMinutes}
         percentVariationVsMarcoZero={percentVariationVsMarcoZero}
         totalKaizenCompletedSavings={totalKaizenAchievedSavings}
         errorMarginPercent={errorMarginPercent}
         operationsCount={enrichedOperations.length}
       />
+
+      {/* Ranking das Maiores Mudanças de Tempo (Ganhos Kaizen vs Oportunidades) */}
+      <div className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <SlidersHorizontal className="w-4 h-4 text-cyan-400" />
+              <h2 className="text-sm font-bold text-white uppercase tracking-wider">
+                Ranking das Maiores Mudanças de Tempo
+              </h2>
+            </div>
+            <p className="text-xs text-slate-400">
+              Auditoria de desempenho: pontos com maiores reduções conquistadas (Ganhos Kaizen) vs pontos que sofreram aumento (Oportunidades em Aberto).
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowAllChanges(!showAllChanges)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 text-xs font-bold transition-all cursor-pointer shadow-sm shrink-0 self-start sm:self-auto"
+          >
+            {showAllChanges ? (
+              <>
+                <ChevronUp className="w-3.5 h-3.5" />
+                <span>Mostrar Apenas Top 5</span>
+              </>
+            ) : (
+              <>
+                <ChevronDown className="w-3.5 h-3.5" />
+                <span>Ver Todas as Mudanças ({topReductions.length + topIncreases.length})</span>
+              </>
+            )}
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          
+          {/* Coluna 1: Top Reduções de Tempo (Ganhos Kaizen Conquistados) */}
+          <div className="rounded-xl bg-slate-950/70 border border-emerald-500/25 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                  <TrendingDown className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-wider">
+                    Maiores Reduções de Tempo (Ganhos)
+                  </h3>
+                  <span className="text-[10px] text-slate-400">
+                    Otimizações confirmadas por cronoanálise
+                  </span>
+                </div>
+              </div>
+              <span className="text-xs px-2.5 py-0.5 rounded-full font-mono font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-800">
+                {topReductions.length} itens otimizados
+              </span>
+            </div>
+
+            {topReductions.length === 0 ? (
+              <p className="text-xs text-slate-500 py-4 text-center">
+                Nenhuma redução registrada no ciclo atual.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {(showAllChanges ? topReductions : topReductions.slice(0, 5)).map((op, idx) => {
+                  const cat = categoryMap[op.category];
+                  return (
+                    <div
+                      key={op.id}
+                      className="p-3 rounded-xl bg-slate-900/80 border border-slate-800/80 hover:border-emerald-500/40 transition-colors flex items-center justify-between gap-3"
+                    >
+                      <div className="flex items-start gap-2.5 min-w-0">
+                        <span className="text-[11px] font-mono font-bold text-slate-500 shrink-0 mt-0.5">
+                          #{idx + 1}
+                        </span>
+                        <div className="min-w-0">
+                          <span className="text-xs font-bold text-slate-100 block truncate" title={op.name}>
+                            {op.name}
+                          </span>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span
+                              className="w-1.5 h-1.5 rounded-full shrink-0"
+                              style={{ backgroundColor: cat?.colorHex || '#10b981' }}
+                            />
+                            <span className="text-[10px] text-slate-400 truncate">
+                              {cat?.title || op.category}
+                            </span>
+                            <span className="text-[10px] font-mono text-slate-400">
+                              • {op.baselineTime.toFixed(2).replace('.', ',')}m → {op.currentTime.toFixed(2).replace('.', ',')}m
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <span className="px-2 py-0.5 rounded-full font-mono font-bold text-[11px] bg-emerald-950/90 text-emerald-300 border border-emerald-800/80 inline-flex items-center gap-1">
+                          <TrendingDown className="w-3 h-3 text-emerald-400" />
+                          {op.deltaMinutes.toFixed(2).replace('.', ',')}m ({op.percentChange.toFixed(1).replace('.', ',')}%)
+                        </span>
+                        <span className="text-[10px] font-mono text-cyan-300 block mt-1">
+                          +{op.monthlyHoursImpacted.toFixed(1).replace('.', ',')} h/mês poupadas
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Coluna 2: Top Aumentos de Tempo (Oportunidades Kaizen em Aberto) */}
+          <div className="rounded-xl bg-slate-950/70 border border-rose-500/30 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400">
+                  <AlertTriangle className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold text-rose-400 uppercase tracking-wider">
+                    Maiores Aumentos de Tempo (Oportunidades)
+                  </h3>
+                  <span className="text-[10px] text-slate-400">
+                    Gargalos identificados que demandam ação Kaizen
+                  </span>
+                </div>
+              </div>
+              <span className="text-xs px-2.5 py-0.5 rounded-full font-mono font-bold bg-rose-950/80 text-rose-300 border border-rose-800">
+                {topIncreases.length} desvios registrados
+              </span>
+            </div>
+
+            {topIncreases.length === 0 ? (
+              <p className="text-xs text-slate-500 py-4 text-center">
+                Nenhum aumento registrado. Todos os tempos mantidos ou reduzidos!
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {(showAllChanges ? topIncreases : topIncreases.slice(0, 5)).map((op, idx) => {
+                  const cat = categoryMap[op.category];
+                  return (
+                    <div
+                      key={op.id}
+                      className="p-3 rounded-xl bg-slate-900/80 border border-slate-800/80 hover:border-rose-500/40 transition-colors flex items-center justify-between gap-3"
+                    >
+                      <div className="flex items-start gap-2.5 min-w-0">
+                        <span className="text-[11px] font-mono font-bold text-slate-500 shrink-0 mt-0.5">
+                          #{idx + 1}
+                        </span>
+                        <div className="min-w-0">
+                          <span className="text-xs font-bold text-slate-100 block truncate" title={op.name}>
+                            {op.name}
+                          </span>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span
+                              className="w-1.5 h-1.5 rounded-full shrink-0"
+                              style={{ backgroundColor: cat?.colorHex || '#f43f5e' }}
+                            />
+                            <span className="text-[10px] text-slate-400 truncate">
+                              {cat?.title || op.category}
+                            </span>
+                            <span className="text-[10px] font-mono text-slate-400">
+                              • {op.baselineTime.toFixed(2).replace('.', ',')}m → {op.currentTime.toFixed(2).replace('.', ',')}m
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <span className="px-2 py-0.5 rounded-full font-mono font-bold text-[11px] bg-rose-950/90 text-rose-300 border border-rose-800/80 inline-flex items-center gap-1">
+                          <TrendingUp className="w-3 h-3 text-rose-400" />
+                          +{op.deltaMinutes.toFixed(2).replace('.', ',')}m (+{op.percentChange.toFixed(1).replace('.', ',')}%)
+                        </span>
+                        <div className="flex items-center justify-end gap-2 mt-1">
+                          <span className="text-[10px] font-mono text-rose-300">
+                            +{Math.abs(op.monthlyHoursImpacted).toFixed(1).replace('.', ',')} h/mês
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setKaizenModalTab('open_opportunities');
+                              setIsKaizenModalOpen(true);
+                            }}
+                            className="text-[10px] font-bold text-cyan-400 hover:text-cyan-300 underline cursor-pointer"
+                            title="Auditar e tratar esta oportunidade no painel Kaizen"
+                          >
+                            Tratar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+        </div>
+      </div>
 
       {/* 2. Monthly Performance Breakdown Chart (Comprovação Mês a Mês a partir da Última Medição) */}
       <MonthlyVarianceChart
