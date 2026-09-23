@@ -116,7 +116,7 @@ export default function SettingsPage() {
   const [newOpTime, setNewOpTime] = useState<number>(0.5);
   const [filterOpportunitiesOnly, setFilterOpportunitiesOnly] = useState(false);
 
-  // Determinar status Kaizen da operação comparando com medição anterior/histórico real
+  // Determinar status Kaizen da operação respeitando o ciclo formal de Kaizen
   const getOpKaizenStatus = (op: typeof operations[0]) => {
     let baselineTime = op.time;
     if (op.previousTime !== undefined && op.previousTime !== null && Math.abs(op.previousTime - op.time) > 0.0001 && op.previousTime > 0.0001) {
@@ -125,13 +125,21 @@ export default function SettingsPage() {
       baselineTime = op.history[op.history.length - 2].time;
     }
     const diff = op.time - baselineTime;
-    const isOpportunity = diff > 0.001;
-    const isGain = diff < -0.001;
+
+    // Regras de Status Kaizen:
+    // - isGain: Apenas quando há Kaizen formalmente registrado e concluído
+    // - isRegistered: Ação Kaizen registrada aguardando nova medição
+    // - isOpportunity: Aumento em aberto sem descarte nem conclusão
+    const isGain = op.kaizenAction?.status === 'completed';
+    const isRegistered = op.kaizenAction?.status === 'registered';
+    const isOpportunity = diff > 0.001 && op.kaizenAction?.status !== 'lost' && !isGain;
+
     return {
       baselineTime,
       diff,
       diffSeconds: Math.round(diff * 60),
       isOpportunity,
+      isRegistered,
       isGain
     };
   };
@@ -567,7 +575,18 @@ export default function SettingsPage() {
                               baselineTime={getOperationBaselineTime(op)}
                               onClick={() => setSelectedOpForHistory(op)}
                             />
-                            {kaizen.isOpportunity && (
+                            {kaizen.isRegistered && (
+                              <button
+                                type="button"
+                                onClick={() => setSelectedOpForHistory(op)}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 text-amber-300 border border-amber-500/40 hover:bg-amber-500/25 transition-all cursor-pointer shadow-sm shadow-amber-950"
+                                title="Ação Kaizen registrada! Aguardando nova medição para validação do ganho."
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                                <span>Kaizen Registrado 🟡</span>
+                              </button>
+                            )}
+                            {kaizen.isOpportunity && !kaizen.isRegistered && (
                               <button
                                 type="button"
                                 onClick={() => setSelectedOpForHistory(op)}
@@ -583,7 +602,7 @@ export default function SettingsPage() {
                                 type="button"
                                 onClick={() => setSelectedOpForHistory(op)}
                                 className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/25 transition-all cursor-pointer shadow-sm shadow-emerald-950"
-                                title="Tempo reduzido! Ganho Kaizen registrado."
+                                title="Ganho Kaizen Conquistado! Redução comprovada por nova cronoanálise."
                               >
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                                 <span>Ganho Kaizen (-{Math.abs(kaizen.diffSeconds)}s)</span>

@@ -7,6 +7,7 @@ import {
   OperationItem,
   TimeStudy,
   OperationTimeHistoryEntry,
+  KaizenAction,
   CellProductionConfig,
   FinancialImpactConfig,
   MonthlyClosingRecord
@@ -52,6 +53,11 @@ interface ProductionContextType {
   resetCurrentMonthMeasurements: () => Promise<void>;
   saveMonthlyClosing: (monthKey: string, summary: Partial<MonthlyClosingRecord>) => Promise<void>;
   triggerMonthRolloverCheck: () => Promise<void>;
+
+  // Kaizen Operations & Lifecycle
+  registerKaizenAction: (operationId: string, description?: string, responsible?: string) => Promise<void>;
+  discardKaizenOpportunity: (operationId: string, reason?: string) => Promise<void>;
+  completeKaizenWithMeasurement: (operationId: string, newTime: number, notes?: string, responsible?: string) => Promise<void>;
 
   // Operations Catalog
   operations: OperationItem[];
@@ -473,6 +479,71 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     showToast('Restaurado para as Operações Padrão!', 'success');
   }, [operations, showToast]);
 
+  // Kaizen Operations & Lifecycle
+  const registerKaizenAction = useCallback(async (
+    operationId: string,
+    description: string = 'Melhoria Lean de Processo',
+    responsible: string = 'Eng. de Processos'
+  ) => {
+    const updated = operations.map(op => {
+      if (op.id === operationId) {
+        const baseline = op.previousTime ?? (op.initialTime ?? op.time);
+        const action: KaizenAction = {
+          id: `kaizen-action-${Date.now()}`,
+          operationId: op.id,
+          status: 'registered',
+          registeredAt: new Date().toISOString(),
+          opportunityTime: op.time,
+          baselineTime: baseline,
+          actionDescription: description.trim() || 'Melhoria Lean de Processo',
+          responsible: responsible.trim() || 'Eng. de Processos'
+        };
+        return {
+          ...op,
+          kaizenAction: action,
+          updatedAt: new Date().toISOString()
+        };
+      }
+      return op;
+    });
+
+    setOperations(updated);
+    await localStorageService.saveOperations(updated);
+    showToast('Ação Kaizen registrada! Realize a nova medição para comprovar os ganhos.', 'info');
+  }, [operations, showToast]);
+
+  const discardKaizenOpportunity = useCallback(async (
+    operationId: string,
+    reason: string = 'Oportunidade encerrada sem realização de Kaizen'
+  ) => {
+    const updated = operations.map(op => {
+      if (op.id === operationId) {
+        const baseline = op.previousTime ?? (op.initialTime ?? op.time);
+        const lostAction: KaizenAction = {
+          id: `kaizen-lost-${Date.now()}`,
+          operationId: op.id,
+          status: 'lost',
+          registeredAt: op.kaizenAction?.registeredAt || new Date().toISOString(),
+          opportunityTime: op.time,
+          baselineTime: baseline,
+          lostAt: new Date().toISOString(),
+          lostReason: reason
+        };
+        return {
+          ...op,
+          kaizenAction: lostAction,
+          kaizenHistory: [...(op.kaizenHistory || []), lostAction],
+          updatedAt: new Date().toISOString()
+        };
+      }
+      return op;
+    });
+
+    setOperations(updated);
+    await localStorageService.saveOperations(updated);
+    showToast('Oportunidade encerrada como perdida.', 'info');
+  }, [operations, showToast]);
+
   // Operations Operations (Settings)
   const updateOperationTime = useCallback(async (
     id: string,
@@ -480,6 +551,9 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     notes?: string,
     source: 'cronoanalise' | 'manual' = 'manual'
   ) => {
+    let toastMsg = 'Tempo padrão atualizado e marco histórico registrado!';
+    let toastType: 'success' | 'info' | 'error' = 'success';
+
     const updated = operations.map(op => {
       if (op.id === id) {
         const existingHistory = op.history || [
@@ -493,13 +567,75 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           }
         ];
 
+        const parsedNew = Number(newTime);
+        const currentTime = op.time;
+        const baselineTime = op.previousTime ?? (op.initialTime ?? op.time);
+        const wasOpportunity = currentTime > (baselineTime + 0.001);
+
+        let updatedKaizenAction = op.kaizenAction;
+        let updatedKaizenHistory = op.kaizenHistory ? [...op.kaizenHistory] : [];
+        let isKaizenGain = false;
+
+        // 1. Cenário: Ação Kaizen estava formalmente registrada
+        if (op.kaizenAction && op.kaizenAction.status === 'registered') {
+          if (parsedNew < op.kaizenAction.opportunityTime) {
+            // GANHO KAIZEN CONQUISTADO!
+            const savedMin = op.kaizenAction.opportunityTime - parsedNew;
+            const completedKaizen: KaizenAction = {
+              ...op.kaizenAction,
+              status: 'completed',
+              completedAt: new Date().toISOString(),
+              newMeasuredTime: parsedNew,
+              savedMinutes: Number(savedMin.toFixed(2))
+            };
+            updatedKaizenAction = completedKaizen;
+            updatedKaizenHistory.push(completedKaizen);
+            isKaizenGain = true;
+            toastMsg = `🎉 Ganho Kaizen Conquistado para "${op.name}"! Redução de ${savedMin.toFixed(2)} min confirmada pela nova medição!`;
+            toastType = 'success';
+          } else {
+            toastMsg = `Nova medição registrada para "${op.name}". O tempo ainda não reduziu o desvio.`;
+            toastType = 'info';
+          }
+        }
+        // 2. Cenário: Havia oportunidade em aberto MAS SEM Kaizen registrado
+        else if (wasOpportunity && (!op.kaizenAction || op.kaizenAction.status !== 'registered')) {
+          // Oportunidade Perdida!
+          const lostKaizen: KaizenAction = {
+            id: `kaizen-lost-${Date.now()}`,
+            operationId: op.id,
+            status: 'lost',
+            registeredAt: op.updatedAt || new Date().toISOString(),
+            opportunityTime: currentTime,
+            baselineTime: baselineTime,
+            lostAt: new Date().toISOString(),
+            lostReason: 'Nova medição realizada sem registro prévio de Kaizen'
+          };
+          updatedKaizenAction = lostKaizen;
+          updatedKaizenHistory.push(lostKaizen);
+          toastMsg = `⚠️ Nova medição registrada sem Kaizen prévio para "${op.name}". A oportunidade de melhoria foi perdida.`;
+          toastType = 'info';
+        }
+        // 3. Cenário: Novo aumento de tempo registrado (cria nova oportunidade futura)
+        else if (parsedNew > currentTime + 0.001) {
+          updatedKaizenAction = undefined; // Libera para registro de nova ação Kaizen
+          toastMsg = `Tempo aumentado para "${op.name}". Nova oportunidade Kaizen gerada!`;
+          toastType = 'info';
+        }
+
         const newEntry: OperationTimeHistoryEntry = {
           id: `hist-${Date.now()}`,
           operationId: op.id,
-          time: Number(newTime),
+          time: parsedNew,
           date: new Date().toISOString().split('T')[0],
-          notes: notes || (source === 'cronoanalise' ? 'Cronoanálise Lean & Mapeamento de Micro-operações' : 'Ajuste manual de tempo'),
-          source
+          notes: notes || (isKaizenGain
+            ? `Ganho Kaizen Conquistado: redução de ${(op.kaizenAction?.opportunityTime ? op.kaizenAction.opportunityTime - parsedNew : 0).toFixed(2)} min`
+            : source === 'cronoanalise'
+              ? 'Cronoanálise Lean & Mapeamento de Micro-operações'
+              : 'Ajuste manual de tempo'),
+          source,
+          isKaizenGain,
+          kaizenActionId: isKaizenGain ? updatedKaizenAction?.id : undefined
         };
 
         const initialBaseline = op.initialTime ?? (existingHistory[0]?.time ?? op.time);
@@ -508,8 +644,10 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           ...op,
           previousTime: op.time, // A medição anterior torna-se o novo ponto de partida para a próxima comparação
           initialTime: initialBaseline,
-          time: Number(newTime),
+          time: parsedNew,
           history: [...existingHistory, newEntry],
+          kaizenAction: updatedKaizenAction,
+          kaizenHistory: updatedKaizenHistory,
           updatedAt: new Date().toISOString()
         };
       }
@@ -518,8 +656,37 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     setOperations(updated);
     await localStorageService.saveOperations(updated);
-    showToast('Tempo padrão atualizado e marco histórico registrado!', 'success');
+    showToast(toastMsg, toastType);
   }, [operations, showToast]);
+
+  const completeKaizenWithMeasurement = useCallback(async (
+    operationId: string,
+    newTime: number,
+    notes: string = 'Kaizen Lean: redução de tempo de ciclo',
+    responsible: string = 'Eng. de Processos'
+  ) => {
+    const op = operations.find(o => o.id === operationId);
+    if (!op) return;
+
+    const baseline = op.previousTime ?? (op.initialTime ?? op.time);
+    const regAction: KaizenAction = {
+      id: `kaizen-${Date.now()}`,
+      operationId: op.id,
+      status: 'registered',
+      registeredAt: new Date().toISOString(),
+      opportunityTime: op.time,
+      baselineTime: baseline,
+      actionDescription: notes,
+      responsible
+    };
+
+    // Salva com status 'registered' para que updateOperationTime valide o ganho
+    const opWithRegistered = operations.map(o => o.id === operationId ? { ...o, kaizenAction: regAction } : o);
+    setOperations(opWithRegistered);
+    await localStorageService.saveOperations(opWithRegistered);
+
+    await updateOperationTime(operationId, newTime, notes, 'cronoanalise');
+  }, [operations, updateOperationTime]);
 
   const updateOperationBaseline = useCallback(async (id: string, initialTime?: number, previousTime?: number) => {
     const updated = operations.map(op => {
@@ -983,6 +1150,9 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         resetCurrentMonthMeasurements,
         saveMonthlyClosing,
         triggerMonthRolloverCheck,
+        registerKaizenAction,
+        discardKaizenOpportunity,
+        completeKaizenWithMeasurement,
         operations,
         isLoading,
         updateOperationTime,

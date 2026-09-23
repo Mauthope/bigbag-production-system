@@ -290,6 +290,7 @@ export class SupabaseStorageService implements IStorageService {
         category: item.category,
         description: item.description || undefined,
         history: item.history || [],
+        kaizenAction: item.kaizen_action || undefined,
         updatedAt: item.updated_at
       }));
     } catch (e) {
@@ -316,6 +317,7 @@ export class SupabaseStorageService implements IStorageService {
         category: op.category,
         description: op.description || null,
         history: op.history || [],
+        kaizen_action: op.kaizenAction || null,
         updated_at: new Date().toISOString()
       }));
 
@@ -347,6 +349,7 @@ export class SupabaseStorageService implements IStorageService {
         category: operation.category,
         description: operation.description || null,
         history: operation.history || [],
+        kaizen_action: operation.kaizenAction || null,
         updated_at: new Date().toISOString()
       };
 

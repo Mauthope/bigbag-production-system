@@ -1,5 +1,25 @@
 export type ComponentCategoryKey = string;
 
+export type KaizenActionStatus = 'registered' | 'completed' | 'lost';
+
+export interface KaizenAction {
+  id: string;
+  operationId: string;
+  status: KaizenActionStatus;
+  registeredAt: string;
+  opportunityTime: number; // Tempo aumentado que originou a oportunidade Kaizen
+  baselineTime: number;    // Tempo anterior de referência
+  actionDescription?: string;
+  responsible?: string;
+  completedAt?: string;
+  newMeasuredTime?: number;
+  savedMinutes?: number;
+  monthlySavings?: number;
+  monthlyHoursSaved?: number;
+  lostAt?: string;
+  lostReason?: string;
+}
+
 export interface OperationTimeHistoryEntry {
   id: string;
   operationId: string;
@@ -7,6 +27,8 @@ export interface OperationTimeHistoryEntry {
   date: string; // ISO date string or YYYY-MM-DD
   notes?: string; // e.g. "Kaizen: eliminação de desperdício no posicionamento", "Baseline inicial"
   source?: 'cronoanalise' | 'manual' | 'inicial';
+  isKaizenGain?: boolean;
+  kaizenActionId?: string;
 }
 
 export interface OperationItem {
@@ -20,6 +42,8 @@ export interface OperationItem {
   category: ComponentCategoryKey;
   description?: string;
   history?: OperationTimeHistoryEntry[];
+  kaizenAction?: KaizenAction; // Ação Kaizen atual vinculada à operação
+  kaizenHistory?: KaizenAction[]; // Histórico de ações Kaizen concluídas ou perdidas
   updatedAt?: string;
 }
 

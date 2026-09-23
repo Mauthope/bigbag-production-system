@@ -32,7 +32,7 @@ import { SectorCostModal } from '@/components/SectorCostModal';
 import { NewMonthModal } from '@/components/NewMonthModal';
 import { FinancialEvolutionChart } from '@/components/FinancialEvolutionChart';
 import { KaizenOpportunitiesModal } from '@/components/KaizenOpportunitiesModal';
-import { ComponentCategoryKey } from '@/types/production';
+import { ComponentCategoryKey, KaizenAction } from '@/types/production';
 import { getCurrentMonthKey, getMonthLabel, getNextMonthClosingDate } from '@/utils/monthAutomation';
 import { THEORETICAL_BASELINE_MINUTES, THEORETICAL_SECTOR_BASELINES } from '@/data/defaultData';
 
@@ -45,6 +45,8 @@ export default function IndicatorsPage() {
     updateOperationBaseline,
     updateOperationCustomVolume,
     updateOperationTime,
+    registerKaizenAction,
+    discardKaizenOpportunity,
     changeActiveMonth,
     resetCurrentMonthMeasurements,
     saveMonthlyClosing,
@@ -149,9 +151,15 @@ export default function IndicatorsPage() {
       const monthlyFinancialImpact = monthlyHoursImpacted * hourlyRate;
       const annualFinancialImpact = monthlyFinancialImpact * 12;
 
+      // Status Kaizen:
+      // - 'gain': Apenas quando há Kaizen formalmente registrado e concluído (evita os 62 falsos ganhos)
+      // - 'loss': Desvio ativo que não foi encerrado como perdido nem concluído
       let status: 'gain' | 'loss' | 'neutral' = 'neutral';
-      if (deltaMinutes < -0.001) status = 'gain';
-      else if (deltaMinutes > 0.001) status = 'loss';
+      if (op.kaizenAction?.status === 'completed') {
+        status = 'gain';
+      } else if (deltaMinutes > 0.001 && op.kaizenAction?.status !== 'lost') {
+        status = 'loss';
+      }
 
       return {
         ...op,
@@ -402,7 +410,7 @@ export default function IndicatorsPage() {
       .sort((a, b) => b.deltaMinutes - a.deltaMinutes);
   }, [enrichedOperations]);
 
-  // Ganhos Reais de Kaizen Conquistados (multiplicado pelo volume e custo de cada ponto específico)
+  // Ganhos Reais de Kaizen Conquistados (Apenas ações Kaizen formalmente registradas e concluídas)
   const completedKaizensList = useMemo(() => {
     const list: Array<{
       opId: string;
@@ -414,27 +422,32 @@ export default function IndicatorsPage() {
     }> = [];
 
     operations.forEach(op => {
-      if (op.history && op.history.length > 1) {
-        for (let i = 1; i < op.history.length; i++) {
-          const prevEntry = op.history[i - 1];
-          const currEntry = op.history[i];
-          if (currEntry.time < prevEntry.time) {
-            const savedMin = prevEntry.time - currEntry.time;
-            const effVol = op.customVolume !== undefined && op.customVolume > 0 ? op.customVolume : monthlyVolume;
-            const rate = sectorHourlyRates[op.category] !== undefined ? sectorHourlyRates[op.category] : defaultHourlyRate;
-            const hours = (savedMin * effVol) / 60;
-            const savings = hours * rate;
-            list.push({
-              opId: op.id,
-              name: op.name,
-              savedMinutes: savedMin,
-              monthlySavings: savings,
-              date: currEntry.date,
-              notes: currEntry.notes
-            });
-          }
-        }
+      const completedActions: KaizenAction[] = [];
+      if (op.kaizenAction && op.kaizenAction.status === 'completed') {
+        completedActions.push(op.kaizenAction);
       }
+      if (op.kaizenHistory) {
+        op.kaizenHistory
+          .filter(k => k.status === 'completed' && k.id !== op.kaizenAction?.id)
+          .forEach(k => completedActions.push(k));
+      }
+
+      completedActions.forEach(action => {
+        const effVol = op.customVolume !== undefined && op.customVolume > 0 ? op.customVolume : monthlyVolume;
+        const rate = sectorHourlyRates[op.category] !== undefined ? sectorHourlyRates[op.category] : defaultHourlyRate;
+        const savedMin = action.savedMinutes ?? Math.max(0, action.opportunityTime - (action.newMeasuredTime ?? op.time));
+        const hours = (savedMin * effVol) / 60;
+        const savings = hours * rate;
+
+        list.push({
+          opId: op.id,
+          name: op.name,
+          savedMinutes: savedMin,
+          monthlySavings: savings,
+          date: action.completedAt?.split('T')[0] || action.registeredAt.split('T')[0],
+          notes: action.actionDescription || 'Kaizen: redução de tempo de ciclo'
+        });
+      });
     });
 
     return list;
@@ -1268,6 +1281,8 @@ export default function IndicatorsPage() {
         defaultHourlyRate={defaultHourlyRate}
         onUpdateOperationTime={updateOperationTime}
         onExcludeOpportunity={handleExcludeKaizenOpportunity}
+        onRegisterKaizen={registerKaizenAction}
+        onDiscardOpportunity={discardKaizenOpportunity}
         initialTab={kaizenModalTab}
       />
 
