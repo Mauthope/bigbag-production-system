@@ -328,6 +328,15 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           if (rolloverResult.updatedFinConfig !== effectiveFin && localStorageService.saveFinancialConfig) {
             await localStorageService.saveFinancialConfig(rolloverResult.updatedFinConfig);
           }
+          // Sincroniza o cache local do navegador com a nuvem
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.setItem('bigbag_production_operations_v1', JSON.stringify(rolloverResult.updatedOperations));
+              localStorage.setItem('bigbag_financial_config_v1', JSON.stringify(rolloverResult.updatedFinConfig));
+            } catch (e) {
+              console.error('Error syncing localStorage on init:', e);
+            }
+          }
         }
       } catch (err) {
         console.error('Error loading initial state:', err);
