@@ -413,4 +413,30 @@ export const DEFAULT_OPERATIONS: OperationItem[] = [
   { id: 'preparacao-costura-patch', name: 'Costura do patch (Desfiamento - 4 Um)', time: 1.60, isDefault: false, category: 'preparacao' }
 ];
 
+// Mapa de Tempos Teóricos Originais por ID de Operação (Calculadora Kanban)
+export const DEFAULT_OPERATION_TIME_MAP: Record<string, number> = DEFAULT_OPERATIONS.reduce((acc, op) => {
+  acc[op.id] = op.time;
+  return acc;
+}, {} as Record<string, number>);
 
+/**
+ * Retorna o tempo inicial da baseline da operação (Origem: Calculadora Kanban ou Cadastro Inicial).
+ */
+export function getOperationBaselineTime(op?: {
+  id?: string;
+  time?: number;
+  initialTime?: number;
+  history?: Array<{ time: number }>;
+} | null): number {
+  if (!op) return 0;
+  if (op.initialTime !== undefined && op.initialTime !== null && op.initialTime >= 0) {
+    return op.initialTime;
+  }
+  if (op.id && DEFAULT_OPERATION_TIME_MAP[op.id] !== undefined) {
+    return DEFAULT_OPERATION_TIME_MAP[op.id];
+  }
+  if (op.history && op.history.length > 0 && op.history[0].time !== undefined) {
+    return op.history[0].time;
+  }
+  return op.time ?? 0;
+}

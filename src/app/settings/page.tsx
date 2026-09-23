@@ -10,6 +10,7 @@ import { ExportImportModal } from '@/components/ExportImportModal';
 import { CategoryManagerModal } from '@/components/CategoryManagerModal';
 import { EditOperationModal } from '@/components/EditOperationModal';
 import { Sparkline } from '@/components/Sparkline';
+import { getOperationBaselineTime } from '@/data/defaultData';
 import {
   Sliders,
   Search,
@@ -563,6 +564,7 @@ export default function SettingsPage() {
                               history={op.history}
                               previousTime={op.previousTime}
                               currentTime={op.time}
+                              baselineTime={getOperationBaselineTime(op)}
                               onClick={() => setSelectedOpForHistory(op)}
                             />
                             {kaizen.isOpportunity && (

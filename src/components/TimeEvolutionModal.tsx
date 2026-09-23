@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { useProduction } from '@/context/ProductionContext';
 import { OperationItem, OperationTimeHistoryEntry } from '@/types/production';
+import { getOperationBaselineTime } from '@/data/defaultData';
 import {
   X,
   TrendingDown,
@@ -42,33 +43,78 @@ export const TimeEvolutionModal: React.FC<TimeEvolutionModalProps> = ({
 }) => {
   const { categoriesConfig, updateOperationHistory, showToast } = useProduction();
 
-  // Extract history entries or create synthetic baseline
+  const baselineTime = useMemo(() => {
+    return getOperationBaselineTime(operation);
+  }, [operation]);
+
+  // Extract history entries ensuring baseline is the starting point
   const historyEntries: OperationTimeHistoryEntry[] = useMemo(() => {
     if (!operation) return [];
-    if (operation.history && operation.history.length > 0) {
-      return [...operation.history].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    const sorted = operation.history && operation.history.length > 0
+      ? [...operation.history].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      : [];
+
+    const entries: OperationTimeHistoryEntry[] = [];
+
+    // Sempre partir da Baseline Teórica Inicial (Calculadora Kanban)
+    const baseDate = sorted.length > 0
+      ? new Date(new Date(sorted[0].date).getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      : new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    const baseEntry: OperationTimeHistoryEntry = {
+      id: `hist-${operation.id}-base`,
+      operationId: operation.id,
+      time: baselineTime,
+      date: baseDate,
+      notes: 'Tempo Teórico Base (Calculadora Kanban Original)',
+      source: 'inicial'
+    };
+
+    if (sorted.length === 0) {
+      entries.push(baseEntry);
+      if (Math.abs(operation.time - baselineTime) > 0.0001) {
+        entries.push({
+          id: `hist-${operation.id}-curr`,
+          operationId: operation.id,
+          time: operation.time,
+          date: new Date().toISOString().split('T')[0],
+          notes: 'Medição atual de chão de fábrica',
+          source: 'cronoanalise'
+        });
+      } else {
+        entries.push({
+          id: `hist-${operation.id}-curr`,
+          operationId: operation.id,
+          time: operation.time,
+          date: new Date().toISOString().split('T')[0],
+          notes: 'Tempo alinhado à baseline',
+          source: 'inicial'
+        });
+      }
+    } else {
+      // Se a primeira entrada do histórico não for a baseline, insere a baseline como ponto inicial
+      if (Math.abs(sorted[0].time - baselineTime) > 0.0001) {
+        entries.push(baseEntry);
+      }
+      sorted.forEach(s => entries.push(s));
+
+      // Garante que o tempo atual da operação está no final se diferente do último histórico
+      const last = entries[entries.length - 1];
+      if (Math.abs(last.time - operation.time) > 0.0001) {
+        entries.push({
+          id: `hist-${operation.id}-curr`,
+          operationId: operation.id,
+          time: operation.time,
+          date: new Date().toISOString().split('T')[0],
+          notes: 'Medição atual de chão de fábrica',
+          source: 'cronoanalise'
+        });
+      }
     }
 
-    // Default baseline if no history yet
-    return [
-      {
-        id: `hist-${operation.id}-1`,
-        operationId: operation.id,
-        time: operation.time,
-        date: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 3 months ago
-        notes: 'Tempo padrão de fábrica (Baseline inicial)',
-        source: 'inicial'
-      },
-      {
-        id: `hist-${operation.id}-2`,
-        operationId: operation.id,
-        time: operation.time,
-        date: new Date().toISOString().split('T')[0],
-        notes: 'Tempo atual em operação',
-        source: 'manual'
-      }
-    ];
-  }, [operation]);
+    return entries;
+  }, [operation, baselineTime]);
 
   // Compute Metrics
   const firstTime = historyEntries[0]?.time || operation?.time || 1;
