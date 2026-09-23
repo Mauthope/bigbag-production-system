@@ -309,50 +309,35 @@ export default function IndicatorsPage() {
     return metrics;
   }, [isMonthClosed, activeMonthRecord, metrics]);
 
-  // Operações Padrão de Fabricação que compõem 1 Big Bag no Marco Zero
-  const defaultOperations = useMemo(() => {
-    const defs = enrichedOperations.filter(op => op.isDefault);
-    if (defs.length > 0) return defs;
-    return enrichedOperations.slice(0, 10);
-  }, [enrichedOperations]);
-
-  const marcoZeroBagTimeMinutes = useMemo(() => {
-    const sum = defaultOperations.reduce((acc, op) => {
+  // Soma de todas as 118 opções de micro-operações cadastradas no catálogo no Marco Zero
+  const marcoZeroCatalogTimeMinutes = useMemo(() => {
+    const sum = enrichedOperations.reduce((acc, op) => {
       const b = (op.previousTime !== undefined && op.previousTime !== null)
         ? op.previousTime
         : op.time;
       return acc + b;
     }, 0);
-    return Number((sum || 12.0).toFixed(2));
-  }, [defaultOperations]);
+    return Number(sum.toFixed(2));
+  }, [enrichedOperations]);
 
-  // Variação líquida de tempo por bag em relação ao Marco Zero:
-  // Considera os desvios e ganhos de todas as operações ponderados pelo volume da fábrica
-  const { currentBagTimeMinutes, netVariationMinutes, percentVariationVsMarcoZero } = useMemo(() => {
-    let netDeltaMinutes = 0;
+  // Soma atual de todas as 118 opções de micro-operações do catálogo
+  const currentCatalogTimeMinutes = useMemo(() => {
+    const sum = enrichedOperations.reduce((acc, op) => acc + op.currentTime, 0);
+    return Number(sum.toFixed(2));
+  }, [enrichedOperations]);
 
-    enrichedOperations.forEach(op => {
-      const baseline = (op.previousTime !== undefined && op.previousTime !== null)
-        ? op.previousTime
-        : op.time;
-      const delta = op.currentTime - baseline;
-      if (Math.abs(delta) > 0.0001) {
-        const effVol = op.customVolume && op.customVolume > 0 ? op.customVolume : monthlyVolume;
-        netDeltaMinutes += (delta * effVol) / (monthlyVolume || 1);
-      }
-    });
-
-    const current = Number((marcoZeroBagTimeMinutes + netDeltaMinutes).toFixed(2));
-    const pct = marcoZeroBagTimeMinutes > 0
-      ? Number(((netDeltaMinutes / marcoZeroBagTimeMinutes) * 100).toFixed(1))
+  // Variação global vs Marco Zero (mede a eficiência da fábrica como um todo)
+  const { netVariationMinutes, percentVariationVsMarcoZero } = useMemo(() => {
+    const delta = currentCatalogTimeMinutes - marcoZeroCatalogTimeMinutes;
+    const pct = marcoZeroCatalogTimeMinutes > 0
+      ? Number(((delta / marcoZeroCatalogTimeMinutes) * 100).toFixed(1))
       : 0;
 
     return {
-      currentBagTimeMinutes: current,
-      netVariationMinutes: Number(netDeltaMinutes.toFixed(2)),
+      netVariationMinutes: Number(delta.toFixed(2)),
       percentVariationVsMarcoZero: pct
     };
-  }, [enrichedOperations, marcoZeroBagTimeMinutes, monthlyVolume]);
+  }, [currentCatalogTimeMinutes, marcoZeroCatalogTimeMinutes]);
 
   const netVariationSeconds = Math.round(Math.abs(netVariationMinutes) * 60);
 
@@ -719,15 +704,15 @@ export default function IndicatorsPage() {
       {/* 4 Summary KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         
-        {/* KPI 1: Tempo de Ciclo por Big Bag */}
+        {/* KPI 1: Tempo Global do Catálogo (Soma das 118 micro-operações) */}
         <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl relative overflow-hidden flex flex-col justify-between">
           <div className="flex items-center justify-between gap-2">
             <div>
               <span className="text-xs uppercase font-bold tracking-wider text-slate-400 block">
-                Tempo Médio por Bag
+                Tempo Global do Catálogo
               </span>
               <span className="text-[10px] text-cyan-400 font-semibold">
-                (Tempo padrão montagem do Bag)
+                (Soma das {enrichedOperations.length} micro-operações)
               </span>
             </div>
             <div className="p-2 rounded-xl border bg-cyan-500/10 border-cyan-500/20 text-cyan-400">
@@ -738,17 +723,17 @@ export default function IndicatorsPage() {
           <div className="mt-3">
             <div className="flex items-baseline gap-1">
               <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-cyan-300">
-                {currentBagTimeMinutes.toFixed(2).replace('.', ',')}
+                {currentCatalogTimeMinutes.toFixed(2).replace('.', ',')}
               </span>
-              <span className="text-xs font-bold text-slate-400">min / bag</span>
+              <span className="text-xs font-bold text-slate-400">min totais</span>
             </div>
             <div className="text-[11px] font-mono text-slate-400 mt-1">
-              ~{Math.floor(currentBagTimeMinutes)}m {Math.round((currentBagTimeMinutes % 1) * 60)}s por unidade produzida
+              ~{Math.floor(currentCatalogTimeMinutes / 60)}h {Math.round(currentCatalogTimeMinutes % 60)}m somando todos os postos
             </div>
           </div>
 
           <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
-            <span className="text-slate-400">Marco Zero: {marcoZeroBagTimeMinutes.toFixed(2).replace('.', ',')}m</span>
+            <span className="text-slate-400">Marco Zero: {marcoZeroCatalogTimeMinutes.toFixed(2).replace('.', ',')}m</span>
             {netVariationMinutes < -0.001 ? (
               <span className="font-mono font-bold text-emerald-400 flex items-center gap-1">
                 <ArrowDownRight className="w-3.5 h-3.5" />
@@ -760,20 +745,20 @@ export default function IndicatorsPage() {
                 +{netVariationMinutes.toFixed(2).replace('.', ',')} min (+{netVariationSeconds}s)
               </span>
             ) : (
-              <span className="font-mono text-slate-400">Ciclo estável (Marco Zero)</span>
+              <span className="font-mono text-slate-400">Eficiência estável (Marco Zero)</span>
             )}
           </div>
         </div>
 
-        {/* KPI 2: Variação vs Marco Zero */}
+        {/* KPI 2: Eficiência Global vs Marco Zero */}
         <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl flex flex-col justify-between">
           <div className="flex items-center justify-between gap-2">
             <div>
               <span className="text-xs uppercase font-bold tracking-wider text-slate-400 block">
-                Variação vs Marco Zero
+                Eficiência Global vs Marco Zero
               </span>
               <span className="text-[10px] text-slate-400 font-medium">
-                (Evolução percentual de ciclo)
+                (Variação em todas as {enrichedOperations.length} operações)
               </span>
             </div>
             <div className={`p-2 rounded-xl border ${
@@ -797,7 +782,11 @@ export default function IndicatorsPage() {
               </span>
             </div>
             <span className="text-[10px] text-slate-400 font-mono block mt-1">
-              {percentVariationVsMarcoZero < -0.001 ? 'Ganho contínuo de velocidade' : percentVariationVsMarcoZero > 0.001 ? 'Tempo acima do Marco Zero' : 'Em linha com o Marco Zero'}
+              {percentVariationVsMarcoZero < -0.001
+                ? 'Ganho contínuo de eficiência global'
+                : percentVariationVsMarcoZero > 0.001
+                ? 'Aumento global de tempo nas operações'
+                : 'Catálogo alinhado com o Marco Zero'}
             </span>
           </div>
 
@@ -811,10 +800,10 @@ export default function IndicatorsPage() {
                 : 'text-cyan-400'
             }`}>
               {percentVariationVsMarcoZero < -0.001
-                ? 'Mais Rápido'
+                ? 'Mais Eficiente'
                 : percentVariationVsMarcoZero > 0.001
-                ? 'Aumento de Ciclo'
-                : 'Marco Zero (Estável)'}
+                ? 'Perda de Eficiência'
+                : 'Marco Zero (Equilibrado)'}
             </span>
           </div>
         </div>
@@ -955,12 +944,13 @@ export default function IndicatorsPage() {
       <FinancialEvolutionChart
         monthlyHistory={monthlyHistory}
         activeMonthKey={activeMonthKey}
-        currentBagTimeMinutes={currentBagTimeMinutes}
-        marcoZeroBagTimeMinutes={marcoZeroBagTimeMinutes}
+        currentCatalogTimeMinutes={currentCatalogTimeMinutes}
+        marcoZeroCatalogTimeMinutes={marcoZeroCatalogTimeMinutes}
         netVariationMinutes={netVariationMinutes}
         percentVariationVsMarcoZero={percentVariationVsMarcoZero}
         totalKaizenCompletedSavings={totalKaizenAchievedSavings}
         errorMarginPercent={errorMarginPercent}
+        operationsCount={enrichedOperations.length}
       />
 
       {/* 2. Monthly Performance Breakdown Chart (Comprovação Mês a Mês a partir da Última Medição) */}

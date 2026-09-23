@@ -28,12 +28,15 @@ import { MonthlyClosingRecord } from '@/types/production';
 interface FinancialEvolutionChartProps {
   monthlyHistory: Record<string, MonthlyClosingRecord>;
   activeMonthKey: string;
-  currentBagTimeMinutes: number; // Tempo atual do Big Bag (ex: ~12.0 min)
-  marcoZeroBagTimeMinutes: number; // Tempo do Big Bag no Marco Zero (ex: ~12.0 min)
+  currentCatalogTimeMinutes?: number; // Soma total de todas as micro-operações (ex: 151.85 min)
+  currentBagTimeMinutes?: number; // compatibilidade retroativa
+  marcoZeroCatalogTimeMinutes?: number; // Soma de todas as micro-operações no Marco Zero (ex: 151.85 min)
+  marcoZeroBagTimeMinutes?: number; // compatibilidade retroativa
   netVariationMinutes: number; // Variação líquida em minutos vs Marco Zero
   percentVariationVsMarcoZero: number; // Variação % vs Marco Zero
   totalKaizenCompletedSavings?: number; // Ganhos Reais Auditados Kaizen (R$)
   errorMarginPercent?: number;
+  operationsCount?: number; // Total de operações cadastradas (ex: 118)
 }
 
 export type EvolutionMetric = 'percent_change' | 'cycle_time' | 'kaizen_savings';
@@ -41,11 +44,14 @@ export type EvolutionMetric = 'percent_change' | 'cycle_time' | 'kaizen_savings'
 export const FinancialEvolutionChart: React.FC<FinancialEvolutionChartProps> = ({
   monthlyHistory,
   activeMonthKey,
+  currentCatalogTimeMinutes,
   currentBagTimeMinutes,
+  marcoZeroCatalogTimeMinutes,
   marcoZeroBagTimeMinutes,
   netVariationMinutes,
   percentVariationVsMarcoZero,
-  totalKaizenCompletedSavings = 0
+  totalKaizenCompletedSavings = 0,
+  operationsCount = 118
 }) => {
   const [isMounted, setIsMounted] = useState(false);
   // Padrão definido para Variação em relação ao Marco Zero (%)
@@ -55,7 +61,12 @@ export const FinancialEvolutionChart: React.FC<FinancialEvolutionChartProps> = (
     setIsMounted(true);
   }, []);
 
-  const baseBagTime = marcoZeroBagTimeMinutes > 0 ? marcoZeroBagTimeMinutes : 12.0;
+  const activeCatalogTime = currentCatalogTimeMinutes ?? currentBagTimeMinutes ?? 151.85;
+  const baseCatalogTime = (marcoZeroCatalogTimeMinutes && marcoZeroCatalogTimeMinutes > 0)
+    ? marcoZeroCatalogTimeMinutes
+    : (marcoZeroBagTimeMinutes && marcoZeroBagTimeMinutes > 0)
+    ? marcoZeroBagTimeMinutes
+    : 151.85;
 
   // Construção da linha do tempo contínua do Marco Zero até o mês ativo
   const timelineData = useMemo(() => {
@@ -72,29 +83,29 @@ export const FinancialEvolutionChart: React.FC<FinancialEvolutionChartProps> = (
       const isMarcoZero = key === marcoZeroKey;
       const isCurrent = key === activeMonthKey;
 
-      let cycleTime = baseBagTime;
+      let cycleTime = baseCatalogTime;
       let percentVariation = 0;
       let variationMinutes = 0;
       let kaizenSavings = 0;
 
       if (isMarcoZero) {
         // Marco Zero é a referência absoluta de partida da fábrica (0% de variação)
-        cycleTime = baseBagTime;
+        cycleTime = baseCatalogTime;
         percentVariation = 0;
         variationMinutes = 0;
         kaizenSavings = 0;
       } else if (isCurrent) {
         // Mês atual ativo: mede a variação em relação ao Marco Zero
-        cycleTime = currentBagTimeMinutes > 0 ? currentBagTimeMinutes : baseBagTime;
+        cycleTime = activeCatalogTime > 0 ? activeCatalogTime : baseCatalogTime;
         percentVariation = percentVariationVsMarcoZero;
         variationMinutes = netVariationMinutes;
         kaizenSavings = totalKaizenCompletedSavings;
       } else {
         // Mês histórico encerrado
-        const historicalTime = rec?.netHours ? baseBagTime + (rec.netHours * 60) / (rec.volume || 20000) : baseBagTime;
+        const historicalTime = rec?.netHours ? baseCatalogTime - (rec.netHours * 60) / (rec.volume || 20000) : baseCatalogTime;
         cycleTime = historicalTime;
-        variationMinutes = cycleTime - baseBagTime;
-        percentVariation = baseBagTime > 0 ? Number(((variationMinutes / baseBagTime) * 100).toFixed(1)) : 0;
+        variationMinutes = cycleTime - baseCatalogTime;
+        percentVariation = baseCatalogTime > 0 ? Number(((variationMinutes / baseCatalogTime) * 100).toFixed(1)) : 0;
         kaizenSavings = rec?.totalSavings ?? 0;
       }
 
@@ -114,8 +125,8 @@ export const FinancialEvolutionChart: React.FC<FinancialEvolutionChartProps> = (
   }, [
     monthlyHistory,
     activeMonthKey,
-    currentBagTimeMinutes,
-    baseBagTime,
+    activeCatalogTime,
+    baseCatalogTime,
     netVariationMinutes,
     percentVariationVsMarcoZero,
     totalKaizenCompletedSavings
@@ -175,7 +186,7 @@ export const FinancialEvolutionChart: React.FC<FinancialEvolutionChartProps> = (
               <span>% Variação vs Marco Zero</span>
             </button>
 
-            {/* Botão 2: Tempo / Bag (min) */}
+            {/* Botão 2: Tempo Total Catálogo (min) */}
             <button
               type="button"
               onClick={() => setSelectedMetric('cycle_time')}
@@ -184,10 +195,10 @@ export const FinancialEvolutionChart: React.FC<FinancialEvolutionChartProps> = (
                   ? 'bg-emerald-500 text-slate-950 font-black shadow-md'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
-              title="Acompanhar o tempo de ciclo real por Big Bag (minutos)"
+              title={`Acompanhar a soma dos tempos de todas as ${operationsCount} micro-operações cadastradas no catálogo`}
             >
               <Clock className="w-3.5 h-3.5" />
-              <span>Tempo / Bag (min)</span>
+              <span>Tempo Total Catálogo (min)</span>
             </button>
 
             {/* Botão 3: Ganhos Reais Kaizen (R$) */}
@@ -212,25 +223,25 @@ export const FinancialEvolutionChart: React.FC<FinancialEvolutionChartProps> = (
       {/* 3 Summary Ticker Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         
-        {/* Card 1: Tempo Médio Atual por Bag */}
+        {/* Card 1: Tempo Global do Catálogo */}
         <div className="p-3.5 rounded-xl bg-slate-950/70 border border-cyan-500/20 flex items-center justify-between">
           <div>
             <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
-              Tempo Médio Atual por Bag
+              Tempo Global do Catálogo
             </span>
             <div className="flex items-baseline gap-1 mt-0.5">
               <span className="text-xl font-black font-mono text-cyan-300 tracking-tight">
-                {currentBagTimeMinutes.toFixed(2).replace('.', ',')} min
+                {activeCatalogTime.toFixed(2).replace('.', ',')} min
               </span>
               <span className="text-xs text-slate-400 font-mono">
-                (~{Math.round(currentBagTimeMinutes * 60)}s)
+                ({operationsCount} operações)
               </span>
             </div>
             <span className="text-[10px] font-mono text-cyan-400/90 block mt-1">
               {netVariationMinutes > 0
-                ? `+${netVariationMinutes.toFixed(2).replace('.', ',')} min (+${Math.round(netVariationMinutes * 60)}s vs Marco Zero)`
+                ? `+${netVariationMinutes.toFixed(2).replace('.', ',')} min vs Marco Zero`
                 : netVariationMinutes < 0
-                ? `-${Math.abs(netVariationMinutes).toFixed(2).replace('.', ',')} min (-${Math.round(Math.abs(netVariationMinutes) * 60)}s vs Marco Zero)`
+                ? `-${Math.abs(netVariationMinutes).toFixed(2).replace('.', ',')} min vs Marco Zero`
                 : 'Em conformidade com o Marco Zero'}
             </span>
           </div>
@@ -239,11 +250,11 @@ export const FinancialEvolutionChart: React.FC<FinancialEvolutionChartProps> = (
           </div>
         </div>
 
-        {/* Card 2: Variação vs Marco Zero */}
+        {/* Card 2: Eficiência Global vs Marco Zero */}
         <div className="p-3.5 rounded-xl bg-slate-950/70 border border-emerald-500/20 flex items-center justify-between">
           <div>
             <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
-              Variação vs Marco Zero
+              Eficiência Global vs Marco Zero
             </span>
             <div className="flex items-baseline gap-1 mt-0.5">
               <span className={`text-xl font-black font-mono tracking-tight ${
@@ -261,9 +272,9 @@ export const FinancialEvolutionChart: React.FC<FinancialEvolutionChartProps> = (
             </div>
             <span className="text-[10px] font-mono text-slate-400 block mt-1">
               {percentVariationVsMarcoZero < 0
-                ? 'Melhoria contínua e ganho de velocidade'
+                ? 'Melhoria contínua de eficiência global'
                 : percentVariationVsMarcoZero > 0
-                ? 'Desvio detectado nas micro-etapas'
+                ? 'Desvio global detectado nas operações'
                 : 'Ponto de partida oficial da fábrica'}
             </span>
           </div>
@@ -394,12 +405,12 @@ export const FinancialEvolutionChart: React.FC<FinancialEvolutionChartProps> = (
 
               {selectedMetric === 'cycle_time' && (
                 <ReferenceLine
-                  y={baseBagTime}
+                  y={baseCatalogTime}
                   stroke="#06b6d4"
                   strokeWidth={1.5}
                   strokeDasharray="4 4"
                   label={{
-                    value: `Ref Marco Zero (${baseBagTime.toFixed(1)}m)`,
+                    value: `Ref Marco Zero (${baseCatalogTime.toFixed(1)}m)`,
                     fill: '#06b6d4',
                     fontSize: 10,
                     position: 'insideTopRight'
@@ -433,7 +444,7 @@ export const FinancialEvolutionChart: React.FC<FinancialEvolutionChartProps> = (
 
                       <div className="space-y-1.5 font-mono">
                         <div className="flex items-center justify-between text-slate-300">
-                          <span>Tempo por Big Bag:</span>
+                          <span>Tempo Total ({operationsCount} operações):</span>
                           <strong className="text-cyan-300 font-bold">{item.cycleTime.toFixed(2)} min</strong>
                         </div>
 
@@ -451,9 +462,9 @@ export const FinancialEvolutionChart: React.FC<FinancialEvolutionChartProps> = (
                         </div>
 
                         <div className="flex items-center justify-between text-slate-400 text-[11px]">
-                          <span>Diferença no Ciclo:</span>
+                          <span>Diferença no Catálogo:</span>
                           <span>
-                            {item.variationMinutes > 0 ? '+' : ''}{item.variationMinutes.toFixed(2)} min/bag
+                            {item.variationMinutes > 0 ? '+' : ''}{item.variationMinutes.toFixed(2)} min
                           </span>
                         </div>
 
@@ -513,7 +524,7 @@ export const FinancialEvolutionChart: React.FC<FinancialEvolutionChartProps> = (
           <span>Linha de base referenciada no <strong>Marco Zero (Agosto/2026)</strong>. Acompanhamento ininterrupto mês a mês.</span>
         </span>
         <span className="text-[11px] text-slate-500 font-mono">
-          Tempo Padrão Marco Zero: <strong>{baseBagTime.toFixed(2)} min/bag</strong>
+          Tempo Total Marco Zero ({operationsCount} operações): <strong>{baseCatalogTime.toFixed(2)} min</strong>
         </span>
       </div>
 
