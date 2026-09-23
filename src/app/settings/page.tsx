@@ -115,17 +115,13 @@ export default function SettingsPage() {
   const [newOpTime, setNewOpTime] = useState<number>(0.5);
   const [filterOpportunitiesOnly, setFilterOpportunitiesOnly] = useState(false);
 
-  // Determinar status Kaizen da operação comparando com medição anterior/histórico
+  // Determinar status Kaizen da operação comparando com medição anterior/histórico real
   const getOpKaizenStatus = (op: typeof operations[0]) => {
     let baselineTime = op.time;
-    if (op.previousTime !== undefined && op.previousTime !== null && Math.abs(op.previousTime - op.time) > 0.0001) {
+    if (op.previousTime !== undefined && op.previousTime !== null && Math.abs(op.previousTime - op.time) > 0.0001 && op.previousTime > 0.0001) {
       baselineTime = op.previousTime;
     } else if (op.history && op.history.length > 1) {
       baselineTime = op.history[op.history.length - 2].time;
-    } else if (op.previousTime !== undefined && op.previousTime !== null) {
-      baselineTime = op.previousTime;
-    } else if (op.initialTime !== undefined && op.initialTime !== null) {
-      baselineTime = op.initialTime;
     }
     const diff = op.time - baselineTime;
     const isOpportunity = diff > 0.001;
@@ -565,6 +561,7 @@ export default function SettingsPage() {
                           <div className="flex flex-col items-center gap-1.5 py-1">
                             <Sparkline
                               history={op.history}
+                              previousTime={op.previousTime}
                               currentTime={op.time}
                               onClick={() => setSelectedOpForHistory(op)}
                             />

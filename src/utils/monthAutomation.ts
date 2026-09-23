@@ -95,12 +95,10 @@ export function calculateMonthFinancialSummary(
 
   operations.forEach(op => {
     let baselineTime = op.time;
-    if (op.previousTime !== undefined) {
+    if (op.previousTime !== undefined && op.previousTime !== null && Math.abs(op.previousTime - op.time) > 0.0001 && op.previousTime > 0.0001) {
       baselineTime = op.previousTime;
     } else if (op.history && op.history.length > 1) {
       baselineTime = op.history[op.history.length - 2].time;
-    } else if (op.initialTime !== undefined) {
-      baselineTime = op.initialTime;
     }
 
     const currentTime = op.time;

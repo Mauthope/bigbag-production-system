@@ -124,16 +124,12 @@ export default function IndicatorsPage() {
   // Operations enriched with comparison and financial calculation
   const enrichedOperations = useMemo(() => {
     return operations.map(op => {
-      // Ponto de Partida do Mês: A medição anterior oficial ou tempo de referência
+      // Ponto de Partida do Mês: A medição anterior oficial ou histórico real
       let baselineTime = op.time;
-      if (op.previousTime !== undefined && op.previousTime !== null && Math.abs(op.previousTime - op.time) > 0.0001) {
+      if (op.previousTime !== undefined && op.previousTime !== null && Math.abs(op.previousTime - op.time) > 0.0001 && op.previousTime > 0.0001) {
         baselineTime = op.previousTime;
       } else if (op.history && op.history.length > 1) {
         baselineTime = op.history[op.history.length - 2].time;
-      } else if (op.previousTime !== undefined && op.previousTime !== null) {
-        baselineTime = op.previousTime;
-      } else if (op.initialTime !== undefined && op.initialTime !== null) {
-        baselineTime = op.initialTime;
       }
 
       const currentTime = op.time;

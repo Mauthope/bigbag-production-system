@@ -6,6 +6,7 @@ import { TrendingDown, TrendingUp, Minus } from 'lucide-react';
 
 interface SparklineProps {
   history?: OperationTimeHistoryEntry[];
+  previousTime?: number;
   currentTime: number;
   width?: number;
   height?: number;
@@ -14,6 +15,7 @@ interface SparklineProps {
 
 export const Sparkline: React.FC<SparklineProps> = ({
   history,
+  previousTime,
   currentTime,
   width = 90,
   height = 28,
@@ -21,20 +23,19 @@ export const Sparkline: React.FC<SparklineProps> = ({
 }) => {
   // Normalize data points
   const points: number[] = React.useMemo(() => {
-    if (!history || history.length === 0) {
-      // Single baseline point
-      return [currentTime, currentTime];
+    if (history && history.length > 1) {
+      const times = history.map(h => h.time);
+      if (times[times.length - 1] !== currentTime) {
+        times.push(currentTime);
+      }
+      return times;
     }
-    if (history.length === 1) {
-      return [history[0].time, currentTime];
+    if (previousTime !== undefined && previousTime !== null && Math.abs(previousTime - currentTime) > 0.0001 && previousTime > 0.0001) {
+      return [previousTime, currentTime];
     }
-    const times = history.map(h => h.time);
-    // Ensure the last point is current time
-    if (times[times.length - 1] !== currentTime) {
-      times.push(currentTime);
-    }
-    return times;
-  }, [history, currentTime]);
+    // Single measurement point without variation
+    return [currentTime, currentTime];
+  }, [history, previousTime, currentTime]);
 
   const firstVal = points[0];
   const lastVal = points[points.length - 1];
