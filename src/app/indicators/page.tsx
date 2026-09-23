@@ -119,14 +119,10 @@ export default function IndicatorsPage() {
   // Operations enriched with comparison and financial calculation
   const enrichedOperations = useMemo(() => {
     return operations.map(op => {
-      // Ponto de Partida do Mês: Sempre a última medição anterior (Ciclo Kaizen Contínuo)
+      // Ponto de Partida do Mês: A medição anterior oficial ou tempo de referência
       let baselineTime = op.time;
-      if (op.previousTime !== undefined) {
+      if (op.previousTime !== undefined && op.previousTime !== null) {
         baselineTime = op.previousTime;
-      } else if (op.history && op.history.length > 1) {
-        baselineTime = op.history[op.history.length - 2].time;
-      } else if (op.initialTime !== undefined) {
-        baselineTime = op.initialTime;
       }
 
       const currentTime = op.time;
@@ -313,33 +309,52 @@ export default function IndicatorsPage() {
     return metrics;
   }, [isMonthClosed, activeMonthRecord, metrics]);
 
-  // Overall cycle time calculations for continuous timeline & macro cards
-  const { totalActiveCycleTime, totalBaselineCycleTime, totalInitialCycleTime } = useMemo(() => {
-    let activeTotal = 0;
-    let baselineTotal = 0;
-    let initialTotal = 0;
-    enrichedOperations.forEach(op => {
-      activeTotal += op.currentTime;
-      baselineTotal += op.baselineTime;
-      initialTotal += op.initialTime !== undefined ? op.initialTime : op.baselineTime;
-    });
-    return {
-      totalActiveCycleTime: activeTotal,
-      totalBaselineCycleTime: baselineTotal,
-      totalInitialCycleTime: initialTotal
-    };
+  // Operações Padrão de Fabricação que compõem 1 Big Bag no Marco Zero
+  const defaultOperations = useMemo(() => {
+    const defs = enrichedOperations.filter(op => op.isDefault);
+    if (defs.length > 0) return defs;
+    return enrichedOperations.slice(0, 10);
   }, [enrichedOperations]);
 
-  const cycleTimeDeltaMinutes = totalActiveCycleTime - totalBaselineCycleTime;
-  const cycleTimeDeltaSeconds = Math.round(Math.abs(cycleTimeDeltaMinutes) * 60);
-  const cycleTimePercentChange = totalBaselineCycleTime > 0
-    ? ((totalActiveCycleTime - totalBaselineCycleTime) / totalBaselineCycleTime) * 100
-    : 0;
+  const marcoZeroBagTimeMinutes = useMemo(() => {
+    const sum = defaultOperations.reduce((acc, op) => {
+      const b = (op.previousTime !== undefined && op.previousTime !== null)
+        ? op.previousTime
+        : op.time;
+      return acc + b;
+    }, 0);
+    return Number((sum || 12.0).toFixed(2));
+  }, [defaultOperations]);
 
-  const totalCycleTimeReductionFromInitial = totalInitialCycleTime - totalActiveCycleTime;
-  const totalPercentChangeFromInitial = totalInitialCycleTime > 0
-    ? ((totalActiveCycleTime - totalInitialCycleTime) / totalInitialCycleTime) * 100
-    : 0;
+  // Variação líquida de tempo por bag em relação ao Marco Zero:
+  // Considera os desvios e ganhos de todas as operações ponderados pelo volume da fábrica
+  const { currentBagTimeMinutes, netVariationMinutes, percentVariationVsMarcoZero } = useMemo(() => {
+    let netDeltaMinutes = 0;
+
+    enrichedOperations.forEach(op => {
+      const baseline = (op.previousTime !== undefined && op.previousTime !== null)
+        ? op.previousTime
+        : op.time;
+      const delta = op.currentTime - baseline;
+      if (Math.abs(delta) > 0.0001) {
+        const effVol = op.customVolume && op.customVolume > 0 ? op.customVolume : monthlyVolume;
+        netDeltaMinutes += (delta * effVol) / (monthlyVolume || 1);
+      }
+    });
+
+    const current = Number((marcoZeroBagTimeMinutes + netDeltaMinutes).toFixed(2));
+    const pct = marcoZeroBagTimeMinutes > 0
+      ? Number(((netDeltaMinutes / marcoZeroBagTimeMinutes) * 100).toFixed(1))
+      : 0;
+
+    return {
+      currentBagTimeMinutes: current,
+      netVariationMinutes: Number(netDeltaMinutes.toFixed(2)),
+      percentVariationVsMarcoZero: pct
+    };
+  }, [enrichedOperations, marcoZeroBagTimeMinutes, monthlyVolume]);
+
+  const netVariationSeconds = Math.round(Math.abs(netVariationMinutes) * 60);
 
   // Ganhos Reais de Kaizen Conquistados (multiplicado pelo volume e custo de cada ponto específico)
   const completedKaizensList = useMemo(() => {
@@ -348,6 +363,8 @@ export default function IndicatorsPage() {
       name: string;
       savedMinutes: number;
       monthlySavings: number;
+      date?: string;
+      notes?: string;
     }> = [];
 
     operations.forEach(op => {
@@ -355,7 +372,8 @@ export default function IndicatorsPage() {
         for (let i = 1; i < op.history.length; i++) {
           const prevEntry = op.history[i - 1];
           const currEntry = op.history[i];
-          if (currEntry.time < prevEntry.time) {
+          const isKaizenAction = currEntry.notes && currEntry.notes.toLowerCase().includes('kaizen');
+          if (isKaizenAction && currEntry.time < prevEntry.time) {
             const savedMin = prevEntry.time - currEntry.time;
             const effVol = op.customVolume !== undefined && op.customVolume > 0 ? op.customVolume : monthlyVolume;
             const rate = sectorHourlyRates[op.category] !== undefined ? sectorHourlyRates[op.category] : defaultHourlyRate;
@@ -365,7 +383,9 @@ export default function IndicatorsPage() {
               opId: op.id,
               name: op.name,
               savedMinutes: savedMin,
-              monthlySavings: savings
+              monthlySavings: savings,
+              date: currEntry.date,
+              notes: currEntry.notes
             });
           }
         }
@@ -704,10 +724,10 @@ export default function IndicatorsPage() {
           <div className="flex items-center justify-between gap-2">
             <div>
               <span className="text-xs uppercase font-bold tracking-wider text-slate-400 block">
-                Tempo de Ciclo por Bag
+                Tempo Médio por Bag
               </span>
               <span className="text-[10px] text-cyan-400 font-semibold">
-                (Tempo total acumulado de fabricação)
+                (Tempo padrão montagem do Bag)
               </span>
             </div>
             <div className="p-2 rounded-xl border bg-cyan-500/10 border-cyan-500/20 text-cyan-400">
@@ -718,75 +738,83 @@ export default function IndicatorsPage() {
           <div className="mt-3">
             <div className="flex items-baseline gap-1">
               <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-cyan-300">
-                {totalActiveCycleTime.toFixed(2).replace('.', ',')}
+                {currentBagTimeMinutes.toFixed(2).replace('.', ',')}
               </span>
               <span className="text-xs font-bold text-slate-400">min / bag</span>
             </div>
             <div className="text-[11px] font-mono text-slate-400 mt-1">
-              ~{Math.floor(totalActiveCycleTime)}m {Math.round((totalActiveCycleTime % 1) * 60)}s por unidade produzida
+              ~{Math.floor(currentBagTimeMinutes)}m {Math.round((currentBagTimeMinutes % 1) * 60)}s por unidade produzida
             </div>
           </div>
 
           <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
-            <span className="text-slate-400">Ref: {totalBaselineCycleTime.toFixed(2).replace('.', ',')}m</span>
-            {cycleTimeDeltaMinutes < -0.001 ? (
+            <span className="text-slate-400">Marco Zero: {marcoZeroBagTimeMinutes.toFixed(2).replace('.', ',')}m</span>
+            {netVariationMinutes < -0.001 ? (
               <span className="font-mono font-bold text-emerald-400 flex items-center gap-1">
                 <ArrowDownRight className="w-3.5 h-3.5" />
-                -{Math.abs(cycleTimeDeltaMinutes).toFixed(2).replace('.', ',')} min (-{cycleTimeDeltaSeconds}s)
+                -{Math.abs(netVariationMinutes).toFixed(2).replace('.', ',')} min (-{netVariationSeconds}s)
               </span>
-            ) : cycleTimeDeltaMinutes > 0.001 ? (
+            ) : netVariationMinutes > 0.001 ? (
               <span className="font-mono font-bold text-rose-400 flex items-center gap-1">
                 <ArrowUpRight className="w-3.5 h-3.5" />
-                +{cycleTimeDeltaMinutes.toFixed(2).replace('.', ',')} min (+{cycleTimeDeltaSeconds}s)
+                +{netVariationMinutes.toFixed(2).replace('.', ',')} min (+{netVariationSeconds}s)
               </span>
             ) : (
-              <span className="font-mono text-slate-400">Ciclo estável</span>
+              <span className="font-mono text-slate-400">Ciclo estável (Marco Zero)</span>
             )}
           </div>
         </div>
 
-        {/* KPI 2: Evolução Percentual do Ciclo */}
+        {/* KPI 2: Variação vs Marco Zero */}
         <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl flex flex-col justify-between">
           <div className="flex items-center justify-between gap-2">
             <div>
               <span className="text-xs uppercase font-bold tracking-wider text-slate-400 block">
-                Evolução Percentual (% Tempo)
+                Variação vs Marco Zero
               </span>
               <span className="text-[10px] text-slate-400 font-medium">
-                (Variação de ciclo no mês corrente)
+                (Evolução percentual de ciclo)
               </span>
             </div>
             <div className={`p-2 rounded-xl border ${
-              cycleTimePercentChange <= 0.001
+              percentVariationVsMarcoZero <= 0.001
                 ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
                 : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
             }`}>
-              {cycleTimePercentChange <= 0.001 ? <TrendingDown className="w-5 h-5" /> : <TrendingUp className="w-5 h-5" />}
+              {percentVariationVsMarcoZero <= 0.001 ? <TrendingDown className="w-5 h-5" /> : <TrendingUp className="w-5 h-5" />}
             </div>
           </div>
 
           <div className="mt-3">
             <div className="flex items-baseline gap-1">
               <span className={`text-2xl sm:text-3xl font-black font-mono tracking-tight ${
-                cycleTimePercentChange <= 0.001 ? 'text-emerald-400' : 'text-rose-400'
+                percentVariationVsMarcoZero <= 0.001 ? 'text-emerald-400' : 'text-rose-400'
               }`}>
-                {cycleTimePercentChange <= 0.001 ? '' : '+'}{cycleTimePercentChange.toFixed(1).replace('.', ',')}%
+                {percentVariationVsMarcoZero <= 0.001 ? '' : '+'}{percentVariationVsMarcoZero.toFixed(1).replace('.', ',')}%
               </span>
               <span className="text-xs font-bold text-slate-400">
-                {cycleTimePercentChange <= 0.001 ? 'tempo reduzido' : 'tempo acrescido'}
+                {percentVariationVsMarcoZero < -0.001 ? 'tempo reduzido' : percentVariationVsMarcoZero > 0.001 ? 'tempo acrescido' : 'estável'}
               </span>
             </div>
             <span className="text-[10px] text-slate-400 font-mono block mt-1">
-              {cycleTimePercentChange <= 0.001 ? 'Ganho contínuo de produtividade' : 'Desvio detectado nas micro-operações'}
+              {percentVariationVsMarcoZero < -0.001 ? 'Ganho contínuo de velocidade' : percentVariationVsMarcoZero > 0.001 ? 'Tempo acima do Marco Zero' : 'Em linha com o Marco Zero'}
             </span>
           </div>
 
           <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
-            <span className="text-slate-400">Marco Zero:</span>
+            <span className="text-slate-400">Status Fábrica:</span>
             <span className={`font-mono font-bold ${
-              totalPercentChangeFromInitial <= 0.001 ? 'text-emerald-400' : 'text-rose-400'
+              percentVariationVsMarcoZero < -0.001
+                ? 'text-emerald-400'
+                : percentVariationVsMarcoZero > 0.001
+                ? 'text-rose-400'
+                : 'text-cyan-400'
             }`}>
-              {totalPercentChangeFromInitial <= 0.001 ? '' : '+'}{totalPercentChangeFromInitial.toFixed(1).replace('.', ',')}% acumulado
+              {percentVariationVsMarcoZero < -0.001
+                ? 'Mais Rápido'
+                : percentVariationVsMarcoZero > 0.001
+                ? 'Aumento de Ciclo'
+                : 'Marco Zero (Estável)'}
             </span>
           </div>
         </div>
@@ -927,12 +955,12 @@ export default function IndicatorsPage() {
       <FinancialEvolutionChart
         monthlyHistory={monthlyHistory}
         activeMonthKey={activeMonthKey}
-        currentMonthNetSavings={displayMetrics.totalMonthlySavings}
-        currentMonthHoursSaved={displayMetrics.totalMonthlyHoursSaved}
-        totalCycleTimeMinutes={totalActiveCycleTime}
-        baselineCycleTimeMinutes={totalInitialCycleTime > 0 ? totalInitialCycleTime : totalBaselineCycleTime}
-        errorMarginPercent={errorMarginPercent}
+        currentBagTimeMinutes={currentBagTimeMinutes}
+        marcoZeroBagTimeMinutes={marcoZeroBagTimeMinutes}
+        netVariationMinutes={netVariationMinutes}
+        percentVariationVsMarcoZero={percentVariationVsMarcoZero}
         totalKaizenCompletedSavings={totalKaizenAchievedSavings}
+        errorMarginPercent={errorMarginPercent}
       />
 
       {/* 2. Monthly Performance Breakdown Chart (Comprovação Mês a Mês a partir da Última Medição) */}

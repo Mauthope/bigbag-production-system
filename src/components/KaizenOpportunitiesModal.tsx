@@ -107,7 +107,8 @@ export const KaizenOpportunitiesModal: React.FC<KaizenOpportunitiesModalProps> =
         for (let i = 1; i < op.history.length; i++) {
           const prevEntry = op.history[i - 1];
           const currEntry = op.history[i];
-          if (currEntry.time < prevEntry.time) {
+          const isKaizenAction = Boolean(currEntry.notes && currEntry.notes.toLowerCase().includes('kaizen'));
+          if (isKaizenAction && currEntry.time < prevEntry.time) {
             const savedMin = prevEntry.time - currEntry.time;
             const hours = (savedMin * op.effectiveVolume) / 60;
             const savings = hours * op.hourlyRate;

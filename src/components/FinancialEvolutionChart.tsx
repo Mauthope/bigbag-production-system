@@ -17,46 +17,45 @@ import {
   Activity,
   DollarSign,
   Clock,
-  Award,
   Calendar,
-  Layers,
   Sparkles,
-  ArrowUpRight,
-  ArrowDownRight,
-  Percent
+  Percent,
+  CheckCircle2,
+  AlertTriangle
 } from 'lucide-react';
 import { MonthlyClosingRecord } from '@/types/production';
 
 interface FinancialEvolutionChartProps {
   monthlyHistory: Record<string, MonthlyClosingRecord>;
   activeMonthKey: string;
-  currentMonthNetSavings: number;
-  currentMonthHoursSaved: number;
-  totalCycleTimeMinutes: number; // Tempo atual por bag
-  baselineCycleTimeMinutes: number; // Tempo inicial por bag
-  errorMarginPercent?: number;
+  currentBagTimeMinutes: number; // Tempo atual do Big Bag (ex: ~12.0 min)
+  marcoZeroBagTimeMinutes: number; // Tempo do Big Bag no Marco Zero (ex: ~12.0 min)
+  netVariationMinutes: number; // Variação líquida em minutos vs Marco Zero
+  percentVariationVsMarcoZero: number; // Variação % vs Marco Zero
   totalKaizenCompletedSavings?: number; // Ganhos Reais Auditados Kaizen (R$)
+  errorMarginPercent?: number;
 }
 
-export type EvolutionMetric = 'cycle_time' | 'percent_change' | 'kaizen_savings';
+export type EvolutionMetric = 'percent_change' | 'cycle_time' | 'kaizen_savings';
 
 export const FinancialEvolutionChart: React.FC<FinancialEvolutionChartProps> = ({
   monthlyHistory,
   activeMonthKey,
-  currentMonthNetSavings,
-  currentMonthHoursSaved,
-  totalCycleTimeMinutes,
-  baselineCycleTimeMinutes,
-  errorMarginPercent = 5,
+  currentBagTimeMinutes,
+  marcoZeroBagTimeMinutes,
+  netVariationMinutes,
+  percentVariationVsMarcoZero,
   totalKaizenCompletedSavings = 0
 }) => {
   const [isMounted, setIsMounted] = useState(false);
-  // Padrão definido para tempo de ciclo por bag conforme solicitação do usuário
-  const [selectedMetric, setSelectedMetric] = useState<EvolutionMetric>('cycle_time');
+  // Padrão definido para Variação em relação ao Marco Zero (%)
+  const [selectedMetric, setSelectedMetric] = useState<EvolutionMetric>('percent_change');
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  const baseBagTime = marcoZeroBagTimeMinutes > 0 ? marcoZeroBagTimeMinutes : 12.0;
 
   // Construção da linha do tempo contínua do Marco Zero até o mês ativo
   const timelineData = useMemo(() => {
@@ -66,91 +65,68 @@ export const FinancialEvolutionChart: React.FC<FinancialEvolutionChartProps> = (
     }
     keys.sort();
 
-    let runningAccumulatedSavings = 0;
-    let runningAccumulatedHours = 0;
+    const marcoZeroKey = keys[0]; // Primeiro mês cadastrado é o Marco Zero (Agosto/2026)
 
-    const baseCycleTime = baselineCycleTimeMinutes > 0 ? baselineCycleTimeMinutes : 13.5;
-    const currentCycleTime = totalCycleTimeMinutes > 0 ? totalCycleTimeMinutes : 11.2;
-    const totalReduction = baseCycleTime - currentCycleTime;
-
-    return keys.map((key, index) => {
+    return keys.map(key => {
       const rec = monthlyHistory[key];
+      const isMarcoZero = key === marcoZeroKey;
       const isCurrent = key === activeMonthKey;
 
-      const monthNet = isCurrent ? currentMonthNetSavings : (rec?.netSavings ?? 0);
-      const monthHours = isCurrent ? currentMonthHoursSaved : (rec?.netHours ?? 0);
-      const volume = rec?.volume ?? 20000;
+      let cycleTime = baseBagTime;
+      let percentVariation = 0;
+      let variationMinutes = 0;
+      let kaizenSavings = 0;
 
-      runningAccumulatedSavings += monthNet;
-      runningAccumulatedHours += monthHours;
-
-      // Progressão contínua do tempo de ciclo
-      const progressFraction = keys.length > 1 ? index / (keys.length - 1) : 1;
-      const cycleTime = Number(
-        (baseCycleTime - totalReduction * progressFraction).toFixed(2)
-      );
-
-      // Variação percentual em relação ao Marco Zero (negativo = redução de tempo = melhoria)
-      const percentChangeFromStart = baseCycleTime > 0
-        ? Number((((cycleTime - baseCycleTime) / baseCycleTime) * 100).toFixed(1))
-        : 0;
-
-      // Ganho de eficiência em velocidade
-      const efficiencyGainPercent = baseCycleTime > 0
-        ? Number((((baseCycleTime - cycleTime) / baseCycleTime) * 100).toFixed(1))
-        : 0;
-
-      // Ganhos Reais de Kaizen auditados (exclusivo para melhorias pontuais)
-      const kaizenSavings = isCurrent
-        ? totalKaizenCompletedSavings
-        : (rec?.totalSavings ?? 0);
+      if (isMarcoZero) {
+        // Marco Zero é a referência absoluta de partida da fábrica (0% de variação)
+        cycleTime = baseBagTime;
+        percentVariation = 0;
+        variationMinutes = 0;
+        kaizenSavings = 0;
+      } else if (isCurrent) {
+        // Mês atual ativo: mede a variação em relação ao Marco Zero
+        cycleTime = currentBagTimeMinutes > 0 ? currentBagTimeMinutes : baseBagTime;
+        percentVariation = percentVariationVsMarcoZero;
+        variationMinutes = netVariationMinutes;
+        kaizenSavings = totalKaizenCompletedSavings;
+      } else {
+        // Mês histórico encerrado
+        const historicalTime = rec?.netHours ? baseBagTime + (rec.netHours * 60) / (rec.volume || 20000) : baseBagTime;
+        cycleTime = historicalTime;
+        variationMinutes = cycleTime - baseBagTime;
+        percentVariation = baseBagTime > 0 ? Number(((variationMinutes / baseBagTime) * 100).toFixed(1)) : 0;
+        kaizenSavings = rec?.totalSavings ?? 0;
+      }
 
       return {
         key,
         dateLabel: rec?.monthLabel ? rec.monthLabel.split('/')[0] : key,
-        fullLabel: rec?.monthLabel || key,
-        volume,
-        cycleTime,
-        percentChangeFromStart,
-        efficiencyGainPercent,
+        fullLabel: isMarcoZero ? `${rec?.monthLabel || key} (Marco Zero)` : (rec?.monthLabel || key),
+        cycleTime: Number(cycleTime.toFixed(2)),
+        percentVariation: Number(percentVariation.toFixed(1)),
+        variationMinutes: Number(variationMinutes.toFixed(2)),
         kaizenSavings: Number(kaizenSavings.toFixed(2)),
-        monthNet: Number(monthNet.toFixed(2)),
-        accumulatedSavings: Number(runningAccumulatedSavings.toFixed(2)),
-        monthHours: Number(monthHours.toFixed(1)),
-        accumulatedHours: Number(runningAccumulatedHours.toFixed(1)),
+        volume: rec?.volume ?? 20000,
+        isMarcoZero,
         isCurrent
       };
     });
   }, [
     monthlyHistory,
     activeMonthKey,
-    currentMonthNetSavings,
-    currentMonthHoursSaved,
-    totalCycleTimeMinutes,
-    baselineCycleTimeMinutes,
+    currentBagTimeMinutes,
+    baseBagTime,
+    netVariationMinutes,
+    percentVariationVsMarcoZero,
     totalKaizenCompletedSavings
   ]);
 
-  // Resumo atual
-  const latestPoint = timelineData[timelineData.length - 1] || {
-    cycleTime: 0,
-    percentChangeFromStart: 0,
-    efficiencyGainPercent: 0,
-    kaizenSavings: 0
-  };
-
-  const currentCycleTime = totalCycleTimeMinutes > 0 ? totalCycleTimeMinutes : latestPoint.cycleTime;
-  const currentReductionMinutes = baselineCycleTimeMinutes - currentCycleTime;
-  const currentReductionSeconds = Math.round(Math.abs(currentReductionMinutes) * 60);
-  const currentEfficiencyPercent = latestPoint.percentChangeFromStart;
-  const kaizenAuditSavings = totalKaizenCompletedSavings > 0 ? totalKaizenCompletedSavings : latestPoint.kaizenSavings;
-
   const formatYAxis = (val: number) => {
+    if (selectedMetric === 'percent_change') {
+      return `${val > 0 ? '+' : ''}${val.toFixed(1)}%`;
+    }
     if (selectedMetric === 'cycle_time') {
       return `${val.toFixed(1)}m`;
-    }
-    if (selectedMetric === 'percent_change') {
-      return `${val > 0 ? '+' : ''}${val.toFixed(0)}%`;
     }
     if (Math.abs(val) >= 1000) return `R$ ${(val / 1000).toFixed(0)}k`;
     return `R$ ${val.toFixed(0)}`;
@@ -171,51 +147,50 @@ export const FinancialEvolutionChart: React.FC<FinancialEvolutionChartProps> = (
               <h2 className="text-base sm:text-lg font-bold text-white tracking-tight flex items-center gap-2">
                 Curva Contínua de Evolução Histórica
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-950 border border-cyan-800 text-cyan-300 font-mono font-bold">
-                  Engenharia de Tempos & Kaizen
+                  Variação vs Marco Zero
                 </span>
               </h2>
               <p className="text-xs text-slate-400">
-                Acompanhamento temporal ininterrupto do tempo por bag e variação percentual mês a mês
+                Acompanhamento mês a mês da variação de tempo e produtividade em relação ao ponto de partida
               </p>
             </div>
           </div>
         </div>
 
-        {/* Ticker Badges & Metric Controls */}
+        {/* Metric Selector Buttons */}
         <div className="flex flex-wrap items-center gap-2.5">
-          
           <div className="flex items-center p-1 rounded-xl bg-slate-950/90 border border-slate-800">
-            {/* Botão 1: Tempo por Bag (min) - Padrão */}
-            <button
-              type="button"
-              onClick={() => setSelectedMetric('cycle_time')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                selectedMetric === 'cycle_time'
-                  ? 'bg-cyan-500 text-slate-950 font-black shadow-md'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="Acompanhar a evolução do tempo total de ciclo por Big Bag (minutos)"
-            >
-              <Clock className="w-3.5 h-3.5" />
-              <span>Tempo / Bag (min)</span>
-            </button>
-
-            {/* Botão 2: Evolução Percentual (%) */}
+            {/* Botão 1: Variação vs Marco Zero (%) - Padrão */}
             <button
               type="button"
               onClick={() => setSelectedMetric('percent_change')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                 selectedMetric === 'percent_change'
+                  ? 'bg-cyan-500 text-slate-950 font-black shadow-md'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Acompanhar se o tempo aumentou ou diminuiu percentualmente em relação ao Marco Zero"
+            >
+              <Percent className="w-3.5 h-3.5" />
+              <span>% Variação vs Marco Zero</span>
+            </button>
+
+            {/* Botão 2: Tempo / Bag (min) */}
+            <button
+              type="button"
+              onClick={() => setSelectedMetric('cycle_time')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                selectedMetric === 'cycle_time'
                   ? 'bg-emerald-500 text-slate-950 font-black shadow-md'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
-              title="Acompanhar o percentual de redução ou aumento do tempo mês a mês"
+              title="Acompanhar o tempo de ciclo real por Big Bag (minutos)"
             >
-              <Percent className="w-3.5 h-3.5" />
-              <span>Evolução Percentual (%)</span>
+              <Clock className="w-3.5 h-3.5" />
+              <span>Tempo / Bag (min)</span>
             </button>
 
-            {/* Botão 3: Ganhos Reais de Kaizen (R$) */}
+            {/* Botão 3: Ganhos Reais Kaizen (R$) */}
             <button
               type="button"
               onClick={() => setSelectedMetric('kaizen_savings')}
@@ -230,15 +205,14 @@ export const FinancialEvolutionChart: React.FC<FinancialEvolutionChartProps> = (
               <span>Ganhos Reais Kaizen (R$)</span>
             </button>
           </div>
-
         </div>
 
       </div>
 
-      {/* 3 Industrial Summary Cards */}
+      {/* 3 Summary Ticker Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         
-        {/* Card 1: Tempo Atual por Big Bag */}
+        {/* Card 1: Tempo Médio Atual por Bag */}
         <div className="p-3.5 rounded-xl bg-slate-950/70 border border-cyan-500/20 flex items-center justify-between">
           <div>
             <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
@@ -246,14 +220,18 @@ export const FinancialEvolutionChart: React.FC<FinancialEvolutionChartProps> = (
             </span>
             <div className="flex items-baseline gap-1 mt-0.5">
               <span className="text-xl font-black font-mono text-cyan-300 tracking-tight">
-                {currentCycleTime.toFixed(2).replace('.', ',')} min
+                {currentBagTimeMinutes.toFixed(2).replace('.', ',')} min
               </span>
               <span className="text-xs text-slate-400 font-mono">
-                (~{(currentCycleTime * 60).toFixed(0)}s)
+                (~{Math.round(currentBagTimeMinutes * 60)}s)
               </span>
             </div>
             <span className="text-[10px] font-mono text-cyan-400/90 block mt-1">
-              {currentReductionMinutes > 0 ? '-' : '+'}{Math.abs(currentReductionMinutes).toFixed(2).replace('.', ',')} min ({currentReductionSeconds}s vs Marco Zero)
+              {netVariationMinutes > 0
+                ? `+${netVariationMinutes.toFixed(2).replace('.', ',')} min (+${Math.round(netVariationMinutes * 60)}s vs Marco Zero)`
+                : netVariationMinutes < 0
+                ? `-${Math.abs(netVariationMinutes).toFixed(2).replace('.', ',')} min (-${Math.round(Math.abs(netVariationMinutes) * 60)}s vs Marco Zero)`
+                : 'Em conformidade com o Marco Zero'}
             </span>
           </div>
           <div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-400">
@@ -261,31 +239,47 @@ export const FinancialEvolutionChart: React.FC<FinancialEvolutionChartProps> = (
           </div>
         </div>
 
-        {/* Card 2: Evolução Percentual do Ciclo */}
+        {/* Card 2: Variação vs Marco Zero */}
         <div className="p-3.5 rounded-xl bg-slate-950/70 border border-emerald-500/20 flex items-center justify-between">
           <div>
             <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
-              Evolução Percentual de Ciclo
+              Variação vs Marco Zero
             </span>
             <div className="flex items-baseline gap-1 mt-0.5">
               <span className={`text-xl font-black font-mono tracking-tight ${
-                currentEfficiencyPercent <= 0 ? 'text-emerald-400' : 'text-rose-400'
+                percentVariationVsMarcoZero < 0
+                  ? 'text-emerald-400'
+                  : percentVariationVsMarcoZero > 0
+                  ? 'text-rose-400'
+                  : 'text-slate-300'
               }`}>
-                {currentEfficiencyPercent <= 0 ? '' : '+'}{currentEfficiencyPercent.toFixed(1).replace('.', ',')}%
+                {percentVariationVsMarcoZero > 0 ? '+' : ''}{percentVariationVsMarcoZero.toFixed(1).replace('.', ',')}%
               </span>
               <span className="text-xs text-slate-400 font-mono">
-                {currentEfficiencyPercent <= 0 ? 'de redução' : 'de aumento'}
+                {percentVariationVsMarcoZero < 0 ? 'tempo reduzido' : percentVariationVsMarcoZero > 0 ? 'tempo acrescido' : 'estável'}
               </span>
             </div>
             <span className="text-[10px] font-mono text-slate-400 block mt-1">
-              {latestPoint.efficiencyGainPercent >= 0 ? '+' : ''}{latestPoint.efficiencyGainPercent.toFixed(1).replace('.', ',')}% em velocidade fabril
+              {percentVariationVsMarcoZero < 0
+                ? 'Melhoria contínua e ganho de velocidade'
+                : percentVariationVsMarcoZero > 0
+                ? 'Desvio detectado nas micro-etapas'
+                : 'Ponto de partida oficial da fábrica'}
             </span>
           </div>
-          <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
-            {currentEfficiencyPercent <= 0 ? (
+          <div className={`p-2 rounded-lg ${
+            percentVariationVsMarcoZero < 0
+              ? 'bg-emerald-500/10 text-emerald-400'
+              : percentVariationVsMarcoZero > 0
+              ? 'bg-rose-500/10 text-rose-400'
+              : 'bg-slate-800 text-slate-400'
+          }`}>
+            {percentVariationVsMarcoZero < 0 ? (
               <TrendingDown className="w-5 h-5" />
-            ) : (
+            ) : percentVariationVsMarcoZero > 0 ? (
               <TrendingUp className="w-5 h-5" />
+            ) : (
+              <CheckCircle2 className="w-5 h-5" />
             )}
           </div>
         </div>
@@ -302,7 +296,7 @@ export const FinancialEvolutionChart: React.FC<FinancialEvolutionChartProps> = (
             <div className="flex items-baseline gap-1 mt-0.5">
               <span className="text-xs text-amber-400 font-bold">R$</span>
               <span className="text-xl font-black font-mono text-amber-400 tracking-tight">
-                {kaizenAuditSavings.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                {totalKaizenCompletedSavings.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
               <span className="text-xs text-slate-400">/mês</span>
             </div>
@@ -325,31 +319,31 @@ export const FinancialEvolutionChart: React.FC<FinancialEvolutionChartProps> = (
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={timelineData} margin={{ top: 20, right: 20, left: 10, bottom: 20 }}>
+            <AreaChart data={timelineData} margin={{ top: 20, right: 30, left: 10, bottom: 20 }}>
               <defs>
-                <linearGradient id="evolutionGradient" x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id="evolutionPercentGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop
                     offset="5%"
                     stopColor={
-                      selectedMetric === 'cycle_time'
-                        ? '#06b6d4'
-                        : selectedMetric === 'percent_change'
-                        ? '#10b981'
-                        : '#f59e0b'
+                      percentVariationVsMarcoZero < 0 ? '#10b981' : percentVariationVsMarcoZero > 0 ? '#f43f5e' : '#06b6d4'
                     }
                     stopOpacity={0.4}
                   />
                   <stop
                     offset="95%"
                     stopColor={
-                      selectedMetric === 'cycle_time'
-                        ? '#06b6d4'
-                        : selectedMetric === 'percent_change'
-                        ? '#10b981'
-                        : '#f59e0b'
+                      percentVariationVsMarcoZero < 0 ? '#10b981' : percentVariationVsMarcoZero > 0 ? '#f43f5e' : '#06b6d4'
                     }
                     stopOpacity={0.0}
                   />
+                </linearGradient>
+                <linearGradient id="cycleTimeGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.4} />
+                  <stop offset="95%" stopColor="#06b6d4" stopOpacity={0.0} />
+                </linearGradient>
+                <linearGradient id="kaizenGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.4} />
+                  <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.0} />
                 </linearGradient>
               </defs>
 
@@ -368,13 +362,50 @@ export const FinancialEvolutionChart: React.FC<FinancialEvolutionChartProps> = (
                 tickFormatter={formatYAxis}
                 tickLine={false}
                 domain={
-                  selectedMetric === 'cycle_time'
-                    ? ['auto', 'auto']
-                    : selectedMetric === 'percent_change'
-                    ? ['auto', 'auto']
+                  selectedMetric === 'percent_change'
+                    ? [
+                        (dataMin: number) => Math.min(-5, Math.floor(dataMin - 2)),
+                        (dataMax: number) => Math.max(5, Math.ceil(dataMax + 2))
+                      ]
+                    : selectedMetric === 'cycle_time'
+                    ? [
+                        (dataMin: number) => Math.max(0, Number((dataMin - 1).toFixed(0))),
+                        (dataMax: number) => Number((dataMax + 1).toFixed(0))
+                      ]
                     : [0, 'auto']
                 }
               />
+
+              {/* Linha de Referência do Marco Zero */}
+              {selectedMetric === 'percent_change' && (
+                <ReferenceLine
+                  y={0}
+                  stroke="#94a3b8"
+                  strokeWidth={1.5}
+                  strokeDasharray="4 4"
+                  label={{
+                    value: 'Marco Zero (0%)',
+                    fill: '#94a3b8',
+                    fontSize: 10,
+                    position: 'insideTopRight'
+                  }}
+                />
+              )}
+
+              {selectedMetric === 'cycle_time' && (
+                <ReferenceLine
+                  y={baseBagTime}
+                  stroke="#06b6d4"
+                  strokeWidth={1.5}
+                  strokeDasharray="4 4"
+                  label={{
+                    value: `Ref Marco Zero (${baseBagTime.toFixed(1)}m)`,
+                    fill: '#06b6d4',
+                    fontSize: 10,
+                    position: 'insideTopRight'
+                  }}
+                />
+              )}
 
               <Tooltip
                 cursor={{ stroke: '#06b6d4', strokeWidth: 1.5, strokeDasharray: '4 4' }}
@@ -389,11 +420,15 @@ export const FinancialEvolutionChart: React.FC<FinancialEvolutionChartProps> = (
                           <Calendar className="w-3.5 h-3.5 text-cyan-400" />
                           {item.fullLabel}
                         </span>
-                        {item.isCurrent && (
+                        {item.isMarcoZero ? (
+                          <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 border border-slate-700 font-bold">
+                            Marco Zero
+                          </span>
+                        ) : item.isCurrent ? (
                           <span className="text-[9px] px-1.5 py-0.2 rounded bg-cyan-950 text-cyan-300 border border-cyan-800 font-bold">
                             Mês Vigente
                           </span>
-                        )}
+                        ) : null}
                       </div>
 
                       <div className="space-y-1.5 font-mono">
@@ -403,16 +438,22 @@ export const FinancialEvolutionChart: React.FC<FinancialEvolutionChartProps> = (
                         </div>
 
                         <div className="flex items-center justify-between text-slate-400 text-[11px]">
-                          <span>Variação % vs Marco Zero:</span>
-                          <span className={item.percentChangeFromStart <= 0 ? 'text-emerald-400 font-semibold' : 'text-rose-400 font-semibold'}>
-                            {item.percentChangeFromStart <= 0 ? '' : '+'}{item.percentChangeFromStart.toFixed(1)}%
+                          <span>Variação vs Marco Zero:</span>
+                          <span className={`font-semibold ${
+                            item.percentVariation < 0
+                              ? 'text-emerald-400'
+                              : item.percentVariation > 0
+                              ? 'text-rose-400'
+                              : 'text-slate-300'
+                          }`}>
+                            {item.percentVariation > 0 ? '+' : ''}{item.percentVariation.toFixed(1)}%
                           </span>
                         </div>
 
                         <div className="flex items-center justify-between text-slate-400 text-[11px]">
-                          <span>Velocidade Fabril:</span>
-                          <span className="text-emerald-400 font-semibold">
-                            +{item.efficiencyGainPercent.toFixed(1)}% mais rápido
+                          <span>Diferença no Ciclo:</span>
+                          <span>
+                            {item.variationMinutes > 0 ? '+' : ''}{item.variationMinutes.toFixed(2)} min/bag
                           </span>
                         </div>
 
@@ -436,22 +477,28 @@ export const FinancialEvolutionChart: React.FC<FinancialEvolutionChartProps> = (
               <Area
                 type="monotone"
                 dataKey={
-                  selectedMetric === 'cycle_time'
+                  selectedMetric === 'percent_change'
+                    ? 'percentVariation'
+                    : selectedMetric === 'cycle_time'
                     ? 'cycleTime'
-                    : selectedMetric === 'percent_change'
-                    ? 'percentChangeFromStart'
                     : 'kaizenSavings'
                 }
                 stroke={
-                  selectedMetric === 'cycle_time'
+                  selectedMetric === 'percent_change'
+                    ? percentVariationVsMarcoZero < 0 ? '#10b981' : percentVariationVsMarcoZero > 0 ? '#f43f5e' : '#06b6d4'
+                    : selectedMetric === 'cycle_time'
                     ? '#06b6d4'
-                    : selectedMetric === 'percent_change'
-                    ? '#10b981'
                     : '#f59e0b'
                 }
                 strokeWidth={3}
                 fillOpacity={1}
-                fill="url(#evolutionGradient)"
+                fill={
+                  selectedMetric === 'percent_change'
+                    ? 'url(#evolutionPercentGradient)'
+                    : selectedMetric === 'cycle_time'
+                    ? 'url(#cycleTimeGradient)'
+                    : 'url(#kaizenGradient)'
+                }
                 activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2 }}
               />
             </AreaChart>
@@ -463,10 +510,10 @@ export const FinancialEvolutionChart: React.FC<FinancialEvolutionChartProps> = (
       <div className="pt-2 border-t border-slate-800/80 flex flex-wrap items-center justify-between text-xs text-slate-400 gap-2">
         <span className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-          <span>Monitoramento contínuo do ciclo por bag. Questões monetárias (R$) restritas às ações e ganhos Kaizen auditados.</span>
+          <span>Linha de base referenciada no <strong>Marco Zero (Agosto/2026)</strong>. Acompanhamento ininterrupto mês a mês.</span>
         </span>
         <span className="text-[11px] text-slate-500 font-mono">
-          Marco Zero ({timelineData[0]?.fullLabel}): <strong>Base Histórica Inicial</strong>
+          Tempo Padrão Marco Zero: <strong>{baseBagTime.toFixed(2)} min/bag</strong>
         </span>
       </div>
 
